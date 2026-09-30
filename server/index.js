@@ -459,6 +459,106 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   return res.status(500).json({ success: false, status: "failed", error: "SMS delivery failed" });
 });
 
+app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
+  const { studentId, period, message } = req.body || {};
+  if (typeof studentId !== "string" || !studentId.trim()) {
+    return res.status(400).json({ success: false, status: "invalid", error: "studentId is required" });
+  }
+  const normalizedStudentId = studentId.trim();
+  if (!isValidStudentId(normalizedStudentId)) {
+    return res.status(400).json({ success: false, status: "invalid", error: "studentId is invalid" });
+  }
+  if (!attendancePeriods.includes(period)) {
+    return res.status(400).json({ success: false, status: "invalid", error: "period must be one of AM-1, AM-2, PM-1, PM-2" });
+  }
+  if (typeof message !== "string" || !message) {
+    return res.status(400).json({ success: false, status: "invalid", error: "message is required" });
+  }
+  const trimmedMessage = message.trim();
+  if (!trimmedMessage) {
+    return res.status(400).json({ success: false, status: "invalid", error: "message cannot be empty" });
+  }
+  if (trimmedMessage.length > 320) {
+    return res.status(400).json({ success: false, status: "invalid", error: "message must be 320 characters or fewer" });
+  }
+
+  try {
+    const db = getFirestore(req.adminSdk);
+    const studentSnapshot = await db.collection("students").doc(normalizedStudentId).get();
+    if (!studentSnapshot.exists) {
+      return res.status(404).json({ success: false, status: "not_found", error: "Student not found" });
+    }
+
+    const student = studentSnapshot.data() || {};
+    const sectionId = student.sectionId || student.section || "";
+    if (typeof sectionId !== "string" || !sectionId.trim()) {
+      return res.status(400).json({ success: false, status: "invalid", error: "Student has no assigned section" });
+    }
+    if (!requireTeacherSection(req, res, sectionId.trim())) return;
+
+    const parentContactId = `${normalizedStudentId}_parent`;
+    const parentSnapshot = await db.collection("parentcontacts").doc(parentContactId).get();
+    const parentContact = parentSnapshot.exists ? parentSnapshot.data() || {} : {};
+    const phone = [parentContact.parentPhone, student.parentPhone, student.contactNumber, student.phone]
+      .find(value => typeof value === "string" && value.trim());
+    if (!phone) {
+      return res.status(400).json({ success: false, status: "invalid", error: "No parent contact number on file" });
+    }
+
+    const normalizedPhone = normalizePhoneNumber(phone);
+    if (!isE164PhoneNumber(normalizedPhone)) {
+      return res.status(400).json({ success: false, status: "invalid", error: "Phone number must use international format, for example +639171234567" });
+    }
+
+    const delivery = await sendViaProvider({
+      to: normalizedPhone,
+      message: trimmedMessage,
+      provider: smsProvider,
+      settings: {
+        smsMode,
+        semaphoreConfigured,
+        semaphoreApiKey,
+        semaphoreSenderName,
+        twilioConfigured,
+        twilioMessagingServiceSid,
+        twilioNumber,
+        client,
+      },
+    });
+
+    try {
+      await db.collection("sms_logs").add({
+        actorUid: req.auth.uid,
+        manual: true,
+        studentId: normalizedStudentId,
+        period,
+        phone: normalizedPhone,
+        message: trimmedMessage,
+        status: delivery.status,
+        error: delivery.error || "",
+        createdAt: new Date(),
+      });
+    } catch (logError) {
+      console.error("Manual SMS log write error:", logError.message);
+    }
+
+    if (delivery.status === "unconfigured") {
+      return res.status(503).json({ success: false, status: "failed", error: "SMS gateway is not configured" });
+    }
+    if (delivery.status === "simulated") {
+      return res.status(200).json({ success: true, status: "simulated", phone: normalizedPhone });
+    }
+    if (delivery.status === "sent") {
+      return res.status(200).json({ success: true, status: "sent", phone: normalizedPhone });
+    }
+
+    return res.status(500).json({ success: false, status: "failed", error: "SMS delivery failed" });
+  } catch (error) {
+    console.error("Manual SMS send error:", error);
+    return res.status(500).json({ success: false, status: "failed", error: "Unable to send manual SMS" });
+  }
+});
+
 app.get("/sms-logs", requireStaffAuth, async (req, res) => {
   try {
     const snapshot = await getFirestore(req.adminSdk).collection("sms_logs").orderBy("createdAt", "desc").limit(100).get();
