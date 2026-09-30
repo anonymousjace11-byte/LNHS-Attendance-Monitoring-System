@@ -1301,11 +1301,9 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
   return results;
 }
 
-app.get("/admin/settings/sms-templates", async (req, res) => {
-  const authResult = await verifyAdminRequest(req);
-  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+app.get("/admin/settings/sms-templates", requireStaffAuth, async (req, res) => {
   try {
-    const templates = await loadSmsTemplates(getFirestore(authResult.adminSdk));
+    const templates = await loadSmsTemplates(getFirestore(req.adminSdk));
     return res.json({ success: true, templates });
   } catch (error) {
     console.error("SMS template load error:", error);
