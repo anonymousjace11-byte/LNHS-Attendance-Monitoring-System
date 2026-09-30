@@ -23,6 +23,11 @@ app.use(helmet({
 const qrCredentialLifetimeMs = Number(process.env.QR_CREDENTIAL_LIFETIME_MS || 180 * 24 * 60 * 60 * 1000);
 const smsResendWindowMs = 15 * 60 * 1000;
 const smsResendLimit = 3;
+const DEFAULT_SMS_TEMPLATES = {
+  present: "Your child {student_name} was marked Present for {period} on {date}.",
+  late: "Your child {student_name} was marked Late for {period} on {date}.",
+  absent: "Your child {student_name} was marked Absent for {period} on {date}."
+};
 
 function getQrSigningSecret() {
   return process.env.QR_SIGNING_SECRET || "";
@@ -220,6 +225,28 @@ async function getAttendanceCutoff(db) {
     return /^([01]\d|2[0-3]):[0-5]\d$/.test(configuredCutoff) ? configuredCutoff : (process.env.ATTENDANCE_CUTOFF || "07:30");
   } catch {
     return process.env.ATTENDANCE_CUTOFF || "07:30";
+  }
+}
+function renderSmsTemplate(template, data = {}) {
+  return String(template || "")
+    .replaceAll("{student_name}", data.studentName || "")
+    .replaceAll("{section}", data.section || "")
+    .replaceAll("{period}", data.period || "")
+    .replaceAll("{date}", data.date || "")
+    .replaceAll("{status}", data.status || "");
+}
+async function loadSmsTemplates(db) {
+  try {
+    const snapshot = await db.collection("settings").doc("sms_templates").get();
+    const stored = snapshot.exists ? snapshot.data() : {};
+    return {
+      present: typeof stored.present === "string" && stored.present.trim() ? stored.present : DEFAULT_SMS_TEMPLATES.present,
+      late: typeof stored.late === "string" && stored.late.trim() ? stored.late : DEFAULT_SMS_TEMPLATES.late,
+      absent: typeof stored.absent === "string" && stored.absent.trim() ? stored.absent : DEFAULT_SMS_TEMPLATES.absent
+    };
+  } catch (error) {
+    console.error("SMS template read error:", error.message);
+    return { ...DEFAULT_SMS_TEMPLATES };
   }
 }
 function isAttendanceCutoffReached(time, cutoff) {
@@ -695,7 +722,15 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
       });
     }
 
-    const message = `${name} is ${status} for ${period}.`;
+    const templates = await loadSmsTemplates(db);
+    const messageTemplate = status === "late" ? templates.late : templates.present;
+    const message = renderSmsTemplate(messageTemplate, {
+      studentName: name,
+      section: studentData.sectionName || sectionId,
+      period,
+      date,
+      status
+    });
     let smsStatus = "skipped";
     let smsError = "";
     if (!recipientPhone) {
@@ -1177,6 +1212,7 @@ app.get("/attendance", requireStaffAuth, async (req, res) => {
 async function finalizeAttendanceForDate(db, date, actorUid = "system") {
   const studentSnapshot = await db.collection("students").get();
   const attendanceSnapshot = await db.collection("attendance").where("date", "==", date).get();
+  const templates = await loadSmsTemplates(db);
   const existingAttendance = new Map(attendanceSnapshot.docs.map(record => [record.data()?.studentId, record.data()]));
   const results = { date, created: 0, skipped: 0, sent: 0, simulated: 0, failed: 0, noContact: 0 };
 
@@ -1194,7 +1230,14 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     const parent = parentSnapshot.exists ? parentSnapshot.data() || {} : {};
     const recipientPhone = normalizePhoneNumber(student.parentPhone || student.phone || parent.parentPhone || "");
     const name = student.name || student.studentCode || student.code || studentRecord.id;
-    const message = `${name} is absent for AM-1.`;
+    const sectionId = student.sectionId || student.section || "";
+    const message = renderSmsTemplate(templates.absent, {
+      studentName: name,
+      section: student.sectionName || sectionId,
+      period: "AM-1",
+      date,
+      status: "absent"
+    });
     let smsStatus = recipientPhone ? "pending" : "skipped";
     let smsError = recipientPhone ? "" : "No linked parent or guardian phone number";
     const scans = { ...existingScans, "AM-1": { time: "", status: "absent", smsStatus } };
@@ -1203,7 +1246,7 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
       id: attendanceId,
       studentId: studentRecord.id,
       studentCode: student.studentCode || student.code || studentRecord.id,
-      sectionId: student.sectionId || student.section || "",
+      sectionId,
       teacherId: student.teacherId || student.teacher || "",
       ...(student.qrUuid ? { qrId: student.qrUuid } : {}),
       date,
@@ -1257,6 +1300,56 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
 
   return results;
 }
+
+app.get("/admin/settings/sms-templates", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  try {
+    const templates = await loadSmsTemplates(getFirestore(authResult.adminSdk));
+    return res.json({ success: true, templates });
+  } catch (error) {
+    console.error("SMS template load error:", error);
+    return res.status(500).json({ success: false, error: "Unable to load SMS templates" });
+  }
+});
+
+app.post("/admin/settings/sms-templates", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  const { present, late, absent } = req.body || {};
+  const templateValues = { present, late, absent };
+  const invalidTemplate = Object.values(templateValues).some(value =>
+    typeof value !== "string" || !value.trim() || value.length > 320
+  );
+  if (invalidTemplate) {
+    return res.status(400).json({ success: false, error: "Each SMS template must be a non-empty string of at most 320 characters." });
+  }
+
+  try {
+    const db = getFirestore(authResult.adminSdk);
+    const templates = {
+      present: present.trim(),
+      late: late.trim(),
+      absent: absent.trim()
+    };
+    await db.collection("settings").doc("sms_templates").set({
+      ...templates,
+      updatedAt: new Date(),
+      updatedBy: authResult.token.uid
+    }, { merge: true });
+    await writeAuditLog(db, {
+      action: "settings.sms_templates_updated",
+      actorUid: authResult.token.uid,
+      targetType: "settings",
+      targetId: "sms_templates",
+      details: templates
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("SMS template save error:", error);
+    return res.status(500).json({ success: false, error: "Unable to save SMS templates" });
+  }
+});
 
 app.post("/admin/settings/attendance", async (req, res) => {
   const authResult = await verifyAdminRequest(req);
