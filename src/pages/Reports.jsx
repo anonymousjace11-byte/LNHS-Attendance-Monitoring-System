@@ -26,6 +26,8 @@ export default function Reports() {
   const [dateTo, setDateTo]     = useState(today);
   const [datePreset, setDatePreset] = useState('month');
   const [tab, setTab]           = useState('summary');
+  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [exportScope, setExportScope] = useState('full');
   const [generated, setGenerated] = useState(false);
   const [notice, setNotice] = useState('');
   const { students, attendance, sections, smsLogs } = useData();
@@ -72,9 +74,78 @@ export default function Reports() {
     return { section: section.name, adviser: section.adviser || section.teacherName || section.teacher || '—', enrolled, present, late, absent, rate };
   }), [sections, roster, filteredAttendance]);
 
+  const sortedStudents = useMemo(() => [...students].sort((first, second) => {
+    const firstName = String(first.name || first.studentCode || first.code || first.id || '');
+    const secondName = String(second.name || second.studentCode || second.code || second.id || '');
+    return firstName.localeCompare(secondName);
+  }), [students]);
+  const selectedStudent = students.find((student) => student.id === selectedStudentId);
+  const selectedStudentName = selectedStudent?.name || selectedStudent?.studentCode || selectedStudent?.code || selectedStudent?.id || '';
+  const selectedStudentSection = selectedStudent?.sectionName || selectedStudent?.section || selectedStudent?.sectionId || 'Unassigned';
+  const studentAttendance = useMemo(() => filteredAttendance
+    .filter((record) => record.studentId === selectedStudentId)
+    .sort((first, second) => String(second.date || '').localeCompare(String(first.date || ''))),
+  [filteredAttendance, selectedStudentId]);
+  const studentCounts = useMemo(() => {
+    const counts = { present: 0, late: 0, absent: 0, excused: 0 };
+    studentAttendance.forEach((record) => {
+      const status = arrivalStatus(record);
+      if (status in counts) counts[status] += 1;
+    });
+    return counts;
+  }, [studentAttendance]);
+  const eligibleStudentDays = studentCounts.present + studentCounts.late + studentCounts.absent;
+  const studentAttendanceRate = eligibleStudentDays
+    ? ((studentCounts.present + studentCounts.late) / eligibleStudentDays * 100).toFixed(1)
+    : null;
+  const studentReportContent = !selectedStudentId
+    ? <div className="card empty-state">Select a student to view attendance.</div>
+    : !studentAttendance.length
+      ? <div className="card empty-state">No attendance records for this student in the selected range.</div>
+      : (
+        <section className="card report-block">
+          <div className="card-header">
+            <span className="card-title">{selectedStudentName} · {selectedStudentSection}</span>
+            <span className="report-rate__value">{studentAttendanceRate === null ? '—' : `${studentAttendanceRate}%`}</span>
+          </div>
+          <p className="field-hint">
+            Present: {studentCounts.present} · Late: {studentCounts.late} · Absent: {studentCounts.absent} · Excused: {studentCounts.excused} · Rate: {studentAttendanceRate === null ? '—' : `${studentAttendanceRate}%`}
+          </p>
+          <div className="overflow-x-auto">
+            <table className="data-table w-full">
+              <thead>
+                <tr><th>Date</th>{PERIODS.map((period) => <th key={period}>{period}</th>)}</tr>
+              </thead>
+              <tbody>
+                {studentAttendance.map((record) => (
+                  <tr key={record.id || `${record.studentId}-${record.date}`}>
+                    <td className="mono">{record.date || '—'}</td>
+                    {PERIODS.map((period) => {
+                      const scan = getPeriodScan(record, period);
+                      const status = String(scan?.status || '').toLowerCase();
+                      return (
+                        <td key={period}>
+                          {scan ? (
+                            <div className="grid gap-1 justify-items-start">
+                              <span className="mono">{scan.time || '—'}</span>
+                              <span className={`badge badge-${status}`}>{scan.status}</span>
+                            </div>
+                          ) : <span className="text-muted">—</span>}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      );
+  const exportRows = exportScope === 'selected-student' && selectedStudentId ? studentAttendance : filteredAttendance;
+
   function downloadReport(format, title) {
     if (format === 'PDF') { window.print(); return; }
-    const attendanceRows = [['Student ID', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...filteredAttendance.map((record) => [record.studentCode || record.studentId, record.date, record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''])];
+    const attendanceRows = [['Student ID', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...exportRows.map((record) => [record.studentCode || record.studentId, record.date, record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''])];
     const smsRows = [['Recipient', 'Message', 'Status', 'Sent At'], ...smsLogs.map((record) => [record.recipient || record.phone, record.message, record.status, record.createdAt || record.sentAt])];
     const rows = title === 'SMS Logs CSV' ? smsRows : attendanceRows;
     const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')}`;
@@ -91,7 +162,7 @@ export default function Reports() {
     setNotice(`${title} downloaded successfully.`);
   }
 
-  const TABS = [['summary','Summary'],['section','By Section'],['export','Export']];
+  const TABS = [['summary','Summary'],['section','By Section'],['student','By Student'],['export','Export']];
 
   return (
     <div className="animate-fade-in">
@@ -223,31 +294,65 @@ export default function Reports() {
         </div>
       )}
 
-      {tab==='export' && (
-        <div className="report-export-grid">
-          {[
-            { title:'CSV Export',          desc:'Daily attendance records, flat format.',       format:'CSV', Icon:Download },
-            { title:'Excel-compatible CSV',desc:'Formatted for Excel or Google Sheets import.', format:'XLS', Icon:Download },
-            { title:'PDF Report',          desc:'Print-ready attendance summary.',              format:'PDF', Icon:FileText },
-            { title:'SMS Logs CSV',        desc:'Admin only — notification history export.',   format:'CSV', Icon:Download },
-          ].map(e=>(
-            <div key={e.title} className="report-export-card">
-              <div className="flex items-start justify-between mb-3">
-                <div className="w-9 h-9 rounded flex items-center justify-center" style={{ background:'var(--navy-50)' }}>
-                  <e.Icon size={17} style={{ color:'var(--navy-800)' }} />
-                </div>
-                <span style={{ fontFamily:'JetBrains Mono', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px', fontSize:'.72rem' }}>
-                  {e.format}
-                </span>
-              </div>
-              <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.9rem', color:'var(--navy-900)', marginBottom:'4px' }}>{e.title}</div>
-              <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginBottom:'1rem' }}>{e.desc}</div>
-              <Button variant="primary" size="sm" className="w-full" onClick={() => downloadReport(e.format, e.title)}>
-                <Download size={13} /> Download
-              </Button>
-            </div>
-          ))}
+      {tab==='student' && (
+        <div className="grid gap-4">
+          <div className="card p-4">
+            <label className="field-label" htmlFor="report-student">Student</label>
+            <select
+              id="report-student"
+              className="field-input"
+              value={selectedStudentId}
+              onChange={(event) => { setSelectedStudentId(event.target.value); setExportScope('full'); }}
+            >
+              <option value="">Select a student</option>
+              {sortedStudents.map((student) => {
+                const name = student.name || student.studentCode || student.code || student.id;
+                const section = student.sectionName || student.section || student.sectionId || 'Unassigned';
+                return <option key={student.id} value={student.id}>{name} · {section}</option>;
+              })}
+            </select>
+          </div>
+          {studentReportContent}
         </div>
+      )}
+
+      {tab==='export' && (
+        <>
+          {selectedStudentId && (
+            <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
+              <label className="field-label mb-0" htmlFor="report-export-scope">Export scope</label>
+              <select id="report-export-scope" className="field-input" value={exportScope} onChange={(event) => setExportScope(event.target.value)}>
+                <option value="full">Full report</option>
+                <option value="selected-student">Selected student only</option>
+              </select>
+            </div>
+          )}
+          {selectedStudentId && exportScope === 'selected-student' && <div className="mb-4">{studentReportContent}</div>}
+          <div className="report-export-grid">
+            {[
+              { title:'CSV Export',          desc:'Daily attendance records, flat format.',       format:'CSV', Icon:Download },
+              { title:'Excel-compatible CSV',desc:'Formatted for Excel or Google Sheets import.', format:'XLS', Icon:Download },
+              { title:'PDF Report',          desc:'Print-ready attendance summary.',              format:'PDF', Icon:FileText },
+              { title:'SMS Logs CSV',        desc:'Admin only — notification history export.',   format:'CSV', Icon:Download },
+            ].map(e=>(
+              <div key={e.title} className="report-export-card">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="w-9 h-9 rounded flex items-center justify-center" style={{ background:'var(--navy-50)' }}>
+                    <e.Icon size={17} style={{ color:'var(--navy-800)' }} />
+                  </div>
+                  <span style={{ fontFamily:'JetBrains Mono', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px', fontSize:'.72rem' }}>
+                    {e.format}
+                  </span>
+                </div>
+                <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.9rem', color:'var(--navy-900)', marginBottom:'4px' }}>{e.title}</div>
+                <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginBottom:'1rem' }}>{e.desc}</div>
+                <Button variant="primary" size="sm" className="w-full" onClick={() => downloadReport(e.format, e.title)}>
+                  <Download size={13} /> Download
+                </Button>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );
