@@ -18,6 +18,7 @@ import Settings from './pages/Settings';
 import Parents from './pages/Parents';
 import TeacherPortal from './pages/TeacherPortal';
 import About from './pages/About';
+import Home from './pages/Home';
 import { useAuth } from './context/AuthContext';
 
 function AppShell() {
@@ -39,7 +40,6 @@ function AppShell() {
           <Route path="/sms" element={<AuthGuard requireRole="admin"><SmsLogs /></AuthGuard>} />
           <Route path="/audit-logs" element={<AuthGuard requireRole="admin"><AuditLogs /></AuthGuard>} />
           <Route path="/settings" element={<AuthGuard requireRole="admin"><Settings /></AuthGuard>} />
-          <Route path="/about" element={<About />} />
           <Route path="*" element={<Navigate to="/dashboard" replace />} />
         </Routes>
       </Layout>
@@ -54,6 +54,8 @@ export default function App() {
         <DataProvider>
           <BrowserRouter>
             <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/about" element={<About />} />
               <Route path="/login" element={<Login />} />
               <Route path="/*" element={<AppShell />} />
             </Routes>

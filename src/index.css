@@ -782,12 +782,19 @@ html, body { overflow: hidden; }
 .login-form__help { margin: .25rem 0 0; color: var(--text-muted); font-size: .72rem; line-height: 1.5; text-align: center; }
 .login-card__footer { display: flex; justify-content: space-between; align-items: center; padding: .55rem 1rem; border-top: 1px solid var(--border); background: var(--bg-hover); color: var(--text-muted); font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace; font-size: .64rem; }
 .login-page__foot { position: fixed; right: 1rem; bottom: .5rem; left: 1rem; margin: 0; color: var(--text-muted); font-size: .68rem; text-align: center; }
+/* === Home / Landing page === */
+.home-features { display: flex; flex-direction: column; gap: 12px; width: min(420px, 100%); padding: 1rem; margin-bottom: 1.5rem; }
+.home-features > .card-header { margin: -1rem -1rem 0; }
+.home-feature { display: flex; align-items: center; gap: 10px; color: var(--text-sub); font-size: 13px; line-height: 1.45; }
+.home-feature svg { flex: 0 0 auto; color: var(--text-muted); }
+.home-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 8px; }
 @media (max-width: 480px) {
   .login-page { padding: 1rem; }
   .login-card__seal { width: 76px; height: 76px; }
   .login-card__school { padding: 1rem; }
   .login-card__school-name { font-size: .95rem; }
   .login-card__form-wrap { padding: 1rem; }
+  .home-actions > .btn { flex: 1 1 100%; }
 }
 
 /* DASHBOARD - Institutional */
