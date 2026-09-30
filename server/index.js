@@ -1500,10 +1500,12 @@ app.get("/admin/settings/sms-runtime", async (req, res) => {
   if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
   try {
     const loadedRuntime = await loadSmsRuntimeConfig(getFirestore(authResult.adminSdk));
+    const effectiveMode = loadedRuntime.mode === "inherit" ? smsMode : loadedRuntime.mode;
     const runtime = {
       mode: loadedRuntime.mode,
       disabled: loadedRuntime.disabled,
-      dailyCapPerStudent: loadedRuntime.dailyCapPerStudent
+      dailyCapPerStudent: loadedRuntime.dailyCapPerStudent,
+      effectiveMode
     };
     return res.json({ success: true, runtime });
   } catch (error) {
