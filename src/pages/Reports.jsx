@@ -24,10 +24,25 @@ export default function Reports() {
   const monthStart = `${today.slice(0, 8)}01`;
   const [dateFrom, setDateFrom] = useState(monthStart);
   const [dateTo, setDateTo]     = useState(today);
+  const [datePreset, setDatePreset] = useState('month');
   const [tab, setTab]           = useState('summary');
   const [generated, setGenerated] = useState(false);
   const [notice, setNotice] = useState('');
   const { students, attendance, sections, smsLogs } = useData();
+
+  const [year, month, day] = today.split('-').map(Number);
+  const todayDate = new Date(Date.UTC(year, month - 1, day));
+  const mondayOffset = (todayDate.getUTCDay() + 6) % 7;
+  const mondayDate = new Date(todayDate);
+  mondayDate.setUTCDate(mondayDate.getUTCDate() - mondayOffset);
+  const weekStart = mondayDate.toISOString().slice(0, 10);
+
+  function applyDatePreset(preset) {
+    const rangeStart = preset === 'day' ? today : preset === 'week' ? weekStart : monthStart;
+    setDateFrom(rangeStart);
+    setDateTo(today);
+    setDatePreset(preset);
+  }
 
   const activeStudents = students.filter((student) => student.active !== false);
   const roster = activeStudents.length ? activeStudents : students;
@@ -92,13 +107,31 @@ export default function Reports() {
       {/* Date range */}
       <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
         <span style={{ fontFamily:'Work Sans', fontWeight:600, fontSize:'.82rem', color:'var(--navy-800)' }}>Date Range</span>
+        <div className="flex items-center gap-1" role="group" aria-label="Date range presets">
+          {[
+            ['day', 'Day'],
+            ['week', 'Week'],
+            ['month', 'Month'],
+          ].map(([preset, label]) => (
+            <button
+              key={preset}
+              type="button"
+              aria-pressed={datePreset === preset}
+              className={`reports-tab ${datePreset === preset ? 'is-active' : ''}`}
+              onClick={() => applyDatePreset(preset)}
+            >
+              {label}
+            </button>
+          ))}
+          {datePreset === 'custom' && <span className="field-hint ml-2">Custom</span>}
+        </div>
         <div className="flex items-center gap-2">
           <label className="field-label mb-0">From</label>
-          <input type="date" className="field-input" value={dateFrom} onChange={(e)=>setDateFrom(e.target.value)} style={{ width:'auto' }} />
+          <input type="date" className="field-input" value={dateFrom} onChange={(e)=>{setDateFrom(e.target.value);setDatePreset('custom');}} style={{ width:'auto' }} />
         </div>
         <div className="flex items-center gap-2">
           <label className="field-label mb-0">To</label>
-          <input type="date" className="field-input" value={dateTo} onChange={(e)=>setDateTo(e.target.value)} style={{ width:'auto' }} />
+          <input type="date" className="field-input" value={dateTo} onChange={(e)=>{setDateTo(e.target.value);setDatePreset('custom');}} style={{ width:'auto' }} />
         </div>
         <Button variant="primary" size="sm" onClick={() => { setGenerated(true); setNotice('Report generated successfully.'); }}>Generate Report</Button>
         {generated && <span className="badge badge-navy">Generated from live records</span>}
