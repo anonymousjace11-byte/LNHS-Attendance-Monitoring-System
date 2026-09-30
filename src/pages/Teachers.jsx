@@ -171,7 +171,7 @@ export default function Teachers() {
                     <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{t.uid}</div>
                   </td>
                   <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{t.email}</td>
-                  <td><span className="badge badge-navy">{t.strand}</span></td>
+                  <td><span className="badge badge-strand" data-strand={t.strand}>{t.strand}</span></td>
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {(t.sections || (t.sectionId ? [t.sectionId] : [])).map((sec) => (

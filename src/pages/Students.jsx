@@ -350,7 +350,7 @@ export default function Students() {
                 return <tr key={student.id}>
                   <td className="mono students-table__id">{displayStudentId(student)}</td>
                   <td><span className="cell-name">{student.name}</span></td>
-                  <td><span className="badge badge-navy">{student.strand}</span></td>
+                  <td><span className="badge badge-strand" data-strand={student.strand}>{student.strand}</span></td>
                   <td>{student.section || sectionById.get(student.sectionId)?.name || '—'}</td>
                   <td>{student.adviser || sectionById.get(student.sectionId)?.adviser || '—'}</td>
                   <td className="mono students-table__phone">{parent?.parentPhone || student.parentPhone || '—'}</td>

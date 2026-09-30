@@ -113,7 +113,7 @@ textarea.field-input { resize: vertical; min-height: 4rem; }
 .badge-late, .badge-pending { background: var(--amber-100); color: var(--amber-700); border: 1px solid transparent; }
 .badge-absent, .badge-failed, .badge-inactive { background: var(--red-100); color: var(--red-700); border: 1px solid transparent; }
 .badge-simulated { background: var(--bg-sunken); color: var(--text-sub); border: 1px solid var(--border); }
-.badge-navy { background: var(--navy-50); color: var(--navy-800); border: 1px solid var(--navy-200); }
+.badge-navy { background: var(--info-bg); color: var(--text-primary); border: 1px solid var(--info-border); }
 
 /* Alerts */
 .alert { display: flex; align-items: flex-start; gap: .5rem; padding: .65rem .85rem; border-radius: var(--radius-sm); font-size: .82rem; line-height: 1.5; }
@@ -2169,8 +2169,12 @@ html[data-theme='dark'] .app-topbar { background: var(--navy-900); color: #fff; 
 .badge-present, .badge-on-time, .badge-sent, .badge-active, .badge-approved, .badge-completed { background: var(--positive-bg); color: var(--positive); border: 1px solid var(--positive-border); }
 .badge-late, .badge-pending { background: var(--warning-bg); color: var(--warning); border: 1px solid var(--warning-border); }
 .badge-absent, .badge-skipped, .badge-inactive { background: var(--neutral-bg); color: var(--neutral); border: 1px solid var(--border); }
-.badge-excused, .badge-navy, .badge-info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
+.badge-excused, .badge-info { background: var(--info-bg); color: var(--info); border: 1px solid var(--info-border); }
 .badge-failed, .badge-error { background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger-border); }
+.badge-strand { background: var(--neutral-bg); color: var(--text-primary); border: 1px solid var(--border-strong); }
+.badge-strand[data-strand="STEM"] { background: var(--navy-100); border-color: var(--navy-200); }
+.badge-strand[data-strand="ABM"] { background: var(--positive-bg); border-color: var(--positive-border); }
+.badge-strand[data-strand="HUMSS"] { background: var(--warning-bg); border-color: var(--warning-border); }
 .alert-error { background: var(--danger-bg); border-color: var(--danger-border); color: var(--danger); }
 .alert-warn { background: var(--warning-bg); border-color: var(--warning-border); color: var(--warning); }
 .alert-success { background: var(--positive-bg); border-color: var(--positive-border); color: var(--positive); }
