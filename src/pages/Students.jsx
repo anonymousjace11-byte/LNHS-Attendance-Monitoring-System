@@ -353,13 +353,13 @@ export default function Students() {
                   <td><span className="badge badge-navy">{student.strand}</span></td>
                   <td>{student.section || sectionById.get(student.sectionId)?.name || '—'}</td>
                   <td>{student.adviser || sectionById.get(student.sectionId)?.adviser || '—'}</td>
-                  <td className="mono students-table__phone">{student.parentPhone || parent?.parentPhone || '—'}</td>
+                  <td className="mono students-table__phone">{parent?.parentPhone || student.parentPhone || '—'}</td>
                   <td><span className={`badge ${student.active ? 'badge-active' : 'badge-inactive'}`}>{student.active ? 'Active' : 'Inactive'}</span></td>
                   <td className="right"><div className="row-actions">
                     <Button variant="ghost" size="sm" onClick={() => setEditing({
                       ...student,
-                      parentName: student.parentName || parent?.parentName || '',
-                      parentPhone: student.parentPhone || parent?.parentPhone || '',
+                      parentName: parent?.parentName || student.parentName || '',
+                      parentPhone: parent?.parentPhone || student.parentPhone || '',
                     })} title="Edit student" aria-label={`Edit ${student.name}`}><Pencil size={12} /> Edit</Button>
                     <Button variant="ghost" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name}`}><Eye size={12} /> Preview ID</Button>
                     <Button variant="primary" size="sm" onClick={() => {

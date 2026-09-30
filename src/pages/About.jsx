@@ -3,6 +3,7 @@ import { Info, ShieldCheck } from 'lucide-react';
 const details = [
   ['System name', 'LNHS Attendance Monitoring System with Auto Messaging Using QR Code'],
   ['Institution', 'Looc National High School (Senior High School), Looc, Romblon, Philippines'],
+  ['Backend', 'Firebase Authentication and Firestore with an Express API server.'],
   ['Purpose', 'Replace manual roll call with QR attendance and parent or guardian SMS notifications.'],
   ['Attendance policy', 'Four scans per school day: AM-1, AM-2, PM-1, and PM-2. One scan is accepted per student in each period.'],
   ['Time rule', 'AM-1 scans at or before 7:30 AM are On-Time. Later AM-1 scans are Late.'],
