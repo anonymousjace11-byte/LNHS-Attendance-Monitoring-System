@@ -81,7 +81,7 @@ export default function Reports() {
     return firstName.localeCompare(secondName);
   }), [students]);
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
-  const selectedStudentName = selectedStudent?.name || selectedStudent?.studentCode || selectedStudent?.code || selectedStudent?.id || '';
+  const selectedStudentName = selectedStudent?.name || '—';
   const selectedStudentSection = selectedStudent?.sectionName || selectedStudent?.section || selectedStudent?.sectionId || 'Unassigned';
   const studentAttendance = useMemo(() => filteredAttendance
     .filter((record) => record.studentId === selectedStudentId)
@@ -314,7 +314,7 @@ export default function Reports() {
             >
               <option value="">Select a student</option>
               {sortedStudents.map((student) => {
-                const name = student.name || student.studentCode || student.code || student.id;
+                const name = student.name || '—';
                 const section = student.sectionName || student.section || student.sectionId || 'Unassigned';
                 return <option key={student.id} value={student.id}>{name} · {section}</option>;
               })}

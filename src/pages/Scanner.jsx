@@ -267,7 +267,7 @@ export default function Scanner() {
     try {
       await recordExcusedAttendance(excusedStudentId, period, excuseReason);
       const student = students.find((item) => item.id === excusedStudentId);
-      setExcuseMessage(`${student?.name || 'Student'} marked excused for ${period}.`);
+      setExcuseMessage(`${student?.name || '—'} marked excused for ${period}.`);
       setExcusedStudentId('');
       setExcuseReason('');
     } catch (error) {
@@ -435,7 +435,7 @@ export default function Scanner() {
                 <strong>{previewIsError ? 'Scan rejected' : statusLabel}</strong>
                 <time>{preview.time}</time>
               </div>
-              <h2>{preview.student?.name || 'Unknown credential'}</h2>
+              <h2>{preview.student ? (preview.student.name || '—') : 'Unknown credential'}</h2>
               {studentCode && <p className="scanner-result__id">{studentCode}</p>}
               {sectionName && <p className="scanner-result__section">{sectionName}</p>}
               <p className="scanner-result__message">{preview.message}</p>
@@ -479,7 +479,7 @@ export default function Scanner() {
           )}
         >
           <form id="manual-sms-form" onSubmit={handleManualSmsSubmit} className="grid gap-3">
-            <p className="page-sub">{smsTarget.student.name || smsTarget.student.studentCode || smsTarget.student.id} · {smsTarget.student.section || smsTarget.student.sectionId || 'Unassigned section'}</p>
+            <p className="page-sub">{smsTarget.student.name || '—'} · {smsTarget.student.section || smsTarget.student.sectionId || 'Unassigned section'}</p>
             <div>
               <label className="field-label" htmlFor="manual-sms-parent-phone">Parent contact</label>
               <input id="manual-sms-parent-phone" className="field-input" value={smsParentPhone || 'Will be resolved from parent contacts on file'} readOnly />
@@ -617,7 +617,7 @@ export default function Scanner() {
                   <div className="scanner-log__icon"><Icon size={17} aria-hidden="true" /></div>
                   <div className="scanner-log__content">
                     <div className="scanner-log__head">
-                      <span className="scanner-log__name">{entry.student?.name || (isError ? 'Rejected scan' : 'Unknown')}</span>
+                      <span className="scanner-log__name">{entry.student ? (entry.student.name || '—') : (isError ? 'Rejected scan' : 'Unknown')}</span>
                       <time className="scanner-log__time">{entry.time}</time>
                     </div>
                     {entry.student && (
@@ -648,7 +648,7 @@ export default function Scanner() {
           <label className="field-label" htmlFor="excused-student">Student</label>
           <select id="excused-student" className="field-input" value={excusedStudentId} onChange={(event) => setExcusedStudentId(event.target.value)}>
             <option value="">Select a student</option>
-            {students.map((student) => <option key={student.id} value={student.id}>{student.name || student.studentCode || student.id} · {student.section || student.sectionId || 'Unassigned'}</option>)}
+            {students.map((student) => <option key={student.id} value={student.id}>{student.name || '—'} · {student.studentCode || student.code || student.id} · {student.section || student.sectionId || 'Unassigned'}</option>)}
           </select>
           <label className="field-label" htmlFor="excuse-reason">Reason <span className="text-muted">(optional)</span></label>
           <input id="excuse-reason" className="field-input" value={excuseReason} onChange={(event) => setExcuseReason(event.target.value)} maxLength={240} />

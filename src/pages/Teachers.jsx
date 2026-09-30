@@ -168,10 +168,10 @@ export default function Teachers() {
               {filtered.map((t) => (
                 <tr key={t.uid}>
                   <td>
-                    <div style={{ fontWeight:600, color:'var(--text-main)' }}>{t.name}</div>
+                    <div style={{ fontWeight:600, color:'var(--text-main)' }}>{t.name || '—'}</div>
                     <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{t.uid}</div>
                   </td>
-                  <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{t.email}</td>
+                  <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{String(t.email || '—').toLowerCase()}</td>
                   <td><span className="badge badge-strand" data-strand={t.strand}>{t.strand}</span></td>
                   <td>
                     <div className="flex flex-wrap gap-1">

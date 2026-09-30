@@ -350,7 +350,7 @@ export default function Students() {
                 const parent = parentByStudentId.get(student.id);
                 return <tr key={student.id}>
                   <td className="mono students-table__id">{displayStudentId(student)}</td>
-                  <td><span className="cell-name">{student.name}</span></td>
+                  <td><span className="cell-name">{student.name || '—'}</span></td>
                   <td><span className="badge badge-strand" data-strand={student.strand}>{student.strand}</span></td>
                   <td>{student.section || sectionById.get(student.sectionId)?.name || '—'}</td>
                   <td>{student.adviser || sectionById.get(student.sectionId)?.adviser || '—'}</td>
@@ -361,15 +361,15 @@ export default function Students() {
                       ...student,
                       parentName: parent?.parentName || student.parentName || '',
                       parentPhone: parent?.parentPhone || student.parentPhone || '',
-                    })} title="Edit student" aria-label={`Edit ${student.name}`}><Pencil size={12} /> Edit</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name}`}><Eye size={12} /> Preview ID</Button>
+                    })} title="Edit student" aria-label={`Edit ${student.name || 'student'}`}><Pencil size={12} /> Edit</Button>
+                    <Button variant="ghost" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
                     <Button variant="primary" size="sm" onClick={() => {
                       handleIdExport(student);
                       setPreviewStudent(student);
                       window.setTimeout(() => window.print(), 150);
-                    }} title="Export ID" aria-label={`Export ID for ${student.name}`}><IdCard size={12} /> Export ID</Button>
+                    }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
                     <Button variant={student.active ? 'danger' : 'success'} size="sm" onClick={() => toggleActive(student.id)}
-                      title={student.active ? 'Deactivate' : 'Activate'} aria-label={`${student.active ? 'Deactivate' : 'Activate'} ${student.name}`}>
+                      title={student.active ? 'Deactivate' : 'Activate'} aria-label={`${student.active ? 'Deactivate' : 'Activate'} ${student.name || 'student'}`}>
                       <UserX size={12} /> {student.active ? 'Deactivate' : 'Activate'}
                     </Button>
                   </div></td>

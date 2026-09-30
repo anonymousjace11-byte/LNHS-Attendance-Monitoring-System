@@ -35,7 +35,7 @@ function ParentModal({ onClose, onSave, existing, students }) {
       <FormField label="Student" required id="parent-student">
         <select id="parent-student" className="field-input" value={form.studentId} onChange={(event) => set('studentId', event.target.value)} disabled={!!existing}>
           <option value="">Select student…</option>
-          {students.map((student) => <option key={student.id} value={student.id}>{student.name} ({student.id})</option>)}
+          {students.map((student) => <option key={student.id} value={student.id}>{student.name || '—'} ({student.id})</option>)}
         </select>
       </FormField>
       <FormField label="Parent / Guardian Name" required id="parent-name">
@@ -88,8 +88,8 @@ export default function Parents() {
     <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="data-table w-full">
       <thead><tr><th>Student</th><th>Parent / Guardian</th><th>Mobile Number</th><th>Notifications</th><th>Actions</th></tr></thead>
       <tbody>{rows.map((contact) => <tr key={contact.id}>
-        <td><div style={{ fontWeight: 600 }}>{contact.student?.name || 'Unknown student'}</div><div style={{ fontFamily: 'JetBrains Mono', fontSize: '.72rem', color: 'var(--text-muted)' }}>{contact.studentId}</div></td>
-        <td>{contact.parentName}</td><td style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-sub)' }}>{contact.parentPhone}</td>
+        <td><div style={{ fontWeight: 600 }}>{contact.student?.name || '—'}</div><div style={{ fontFamily: 'JetBrains Mono', fontSize: '.72rem', color: 'var(--text-muted)' }}>{contact.studentId}</div></td>
+        <td>{contact.parentName || '—'}</td><td style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-sub)' }}>{contact.parentPhone}</td>
         <td><span className="badge badge-active">Enabled</span></td>
         <td><div className="flex gap-1.5"><Button variant="ghost" size="sm" onClick={() => setEditing(contact)} title="Edit parent contact" aria-label="Edit parent contact"><Pencil size={12} /></Button><Button variant="danger" size="sm" onClick={() => remove(contact)} title="Remove parent contact" aria-label="Remove parent contact"><Trash2 size={12} /></Button></div></td>
       </tr>)}{!rows.length && <EmptyTableRow colSpan={5} icon={Users} title={parentContacts.length ? 'No parent contacts match your search.' : 'No parent contacts yet.'} subtitle={parentContacts.length ? 'Try another parent or student name.' : 'Register parent contacts to enable SMS notifications.'} />}</tbody>
