@@ -2231,3 +2231,37 @@ html[data-theme='dark'] .scanner-clock__face { padding: 1rem; background: var(--
 @media (max-width: 900px) {
   .app-topbar .account-trigger { border-radius: var(--r-md); }
 }
+
+/* === Runtime SMS Control === */
+.settings-live-banner {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-bottom: 1rem;
+  padding: .85rem 1rem;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--r-md);
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: var(--fs-sm);
+  font-weight: 600;
+}
+.settings-live-banner__link {
+  margin-left: auto;
+  color: var(--danger);
+  font-weight: 600;
+  text-decoration: underline;
+}
+.settings-runtime__mode {
+  display: grid;
+  gap: .35rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings-runtime__mode:disabled { opacity: .65; }
+
+@media (max-width: 600px) {
+  .settings-live-banner { align-items: flex-start; flex-wrap: wrap; }
+  .settings-live-banner__link { margin-left: 1.7rem; }
+}
