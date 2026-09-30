@@ -267,11 +267,14 @@ async function loadSmsRuntimeConfig(db) {
     };
   } catch (error) {
     console.error("SMS runtime config read error:", error.message);
-    return { ...DEFAULT_SMS_RUNTIME };
+    return { ...DEFAULT_SMS_RUNTIME, configUnavailable: true };
   }
 }
 async function checkSmsAllowed(db, { studentId } = {}) {
   const runtime = await loadSmsRuntimeConfig(db);
+  if (runtime.configUnavailable) {
+    return { allowed: false, mode: "disabled", reason: "SMS runtime config unavailable — send blocked for safety", remainingCap: null };
+  }
   if (runtime.disabled) {
     return { allowed: false, mode: "disabled", reason: "SMS disabled by admin", remainingCap: null };
   }
@@ -454,16 +457,28 @@ app.post("/admin/upload-student-photo", async (req, res) => {
   }
 });
 
-async function sendViaProvider({ to, message, provider = smsProvider, settings = {} }) {
+async function sendViaProvider({ to, message, provider = smsProvider, settings = {}, smsGuard }) {
+  const guard = smsGuard || await checkSmsAllowed(settings.db, { studentId: settings.studentId });
+  if (!guard.allowed) {
+    return {
+      status: guard.mode === "disabled" ? "skipped-disabled" : "skipped-capped",
+      mode: guard.mode,
+      reason: guard.reason
+    };
+  }
+  if (guard.mode === "simulated") {
+    return { status: "simulated", mode: "simulated", reason: guard.reason || "" };
+  }
+
   const configuredSemaphore = settings.semaphoreConfigured ?? semaphoreConfigured;
   const configuredTwilio = settings.twilioConfigured ?? twilioConfigured;
-  const mode = settings.smsMode ?? smsMode;
+  const mode = guard.mode || settings.smsMode || smsMode;
 
   if (provider === "semaphore" && !configuredSemaphore) {
-    return { status: "unconfigured", error: "Semaphore API key is not configured" };
+    return { status: "unconfigured", mode, reason: "Semaphore API key is not configured", error: "Semaphore API key is not configured" };
   }
   if (mode === "simulated" || (provider === "twilio" && !configuredTwilio)) {
-    return { status: "simulated" };
+    return { status: "simulated", mode: "simulated", reason: "" };
   }
 
   try {
@@ -481,9 +496,9 @@ async function sendViaProvider({ to, message, provider = smsProvider, settings =
       else smsRequest.from = number;
       await smsClient.messages.create(smsRequest);
     }
-    return { status: "sent" };
+    return { status: "sent", mode, reason: "" };
   } catch (error) {
-    return { status: "failed", error: error.message };
+    return { status: "failed", mode, reason: error.message, error: error.message };
   }
 }
 
@@ -491,9 +506,10 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   const { name, phone, studentId = "", attendanceId = "", status = "present" } = req.body || {};
   const normalizedPhone = normalizePhoneNumber(phone);
   const message = `${name} is ${status}.`;
-  const logSms = async (deliveryStatus, error = "") => {
+  const db = getFirestore(req.adminSdk);
+  const logSms = async (deliveryStatus, error = "", mode = smsMode, reason = error) => {
     try {
-      await getFirestore(req.adminSdk).collection("sms_logs").add({
+      await db.collection("sms_logs").add({
         actorUid: req.auth.uid,
         studentId,
         attendanceId,
@@ -501,6 +517,8 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
         message,
         status: deliveryStatus,
         error,
+        mode,
+        reason,
         createdAt: new Date()
       });
     } catch (logError) {
@@ -516,12 +534,15 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
     await logSms("failed", "Phone number must use international format, for example +639171234567");
     return res.status(400).json({ success: false, status: "failed", error: "Phone number must use international format, for example +639171234567" });
   }
+  const guard = await checkSmsAllowed(db, { studentId: typeof studentId === "string" ? studentId : "" });
   const delivery = await sendViaProvider({
     to: normalizedPhone,
     message,
     provider: smsProvider,
+    smsGuard: guard,
     settings: {
-      smsMode,
+      db,
+      studentId: typeof studentId === "string" ? studentId : "",
       semaphoreConfigured,
       semaphoreApiKey,
       semaphoreSenderName,
@@ -533,19 +554,23 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   });
 
   if (delivery.status === "unconfigured") {
-    await logSms("failed", delivery.error);
+    await logSms("failed", delivery.error, delivery.mode, delivery.reason);
     return res.status(503).json({ success: false, status: "failed", error: "Semaphore API key is not configured" });
   }
+  if (delivery.status === "skipped-disabled" || delivery.status === "skipped-capped") {
+    await logSms(delivery.status, delivery.reason, delivery.mode, delivery.reason);
+    return res.status(200).json({ success: true, status: delivery.status, mode: delivery.mode, reason: delivery.reason });
+  }
   if (delivery.status === "simulated") {
-    await logSms("simulated");
+    await logSms("simulated", "", delivery.mode, delivery.reason);
     return res.status(200).json({ success: true, status: "simulated", message, phone: normalizedPhone });
   }
   if (delivery.status === "sent") {
-    await logSms("sent");
+    await logSms("sent", "", delivery.mode, delivery.reason);
     return res.json({ success: true, status: "sent", phone: normalizedPhone });
   }
 
-  await logSms("failed", delivery.error);
+  await logSms("failed", delivery.error, delivery.mode, delivery.reason);
   return res.status(500).json({ success: false, status: "failed", error: "SMS delivery failed" });
 });
 
@@ -600,12 +625,15 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
       return res.status(400).json({ success: false, status: "invalid", error: "Phone number must use international format, for example +639171234567" });
     }
 
+    const guard = await checkSmsAllowed(db, { studentId: normalizedStudentId });
     const delivery = await sendViaProvider({
       to: normalizedPhone,
       message: trimmedMessage,
       provider: smsProvider,
+      smsGuard: guard,
       settings: {
-        smsMode,
+        db,
+        studentId: normalizedStudentId,
         semaphoreConfigured,
         semaphoreApiKey,
         semaphoreSenderName,
@@ -626,6 +654,8 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
         message: trimmedMessage,
         status: delivery.status,
         error: delivery.error || "",
+        mode: delivery.mode || guard.mode,
+        reason: delivery.reason || "",
         createdAt: new Date(),
       });
     } catch (logError) {
@@ -634,6 +664,9 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
 
     if (delivery.status === "unconfigured") {
       return res.status(503).json({ success: false, status: "failed", error: "SMS gateway is not configured" });
+    }
+    if (delivery.status === "skipped-disabled" || delivery.status === "skipped-capped") {
+      return res.status(200).json({ success: true, status: delivery.status, mode: delivery.mode, reason: delivery.reason });
     }
     if (delivery.status === "simulated") {
       return res.status(200).json({ success: true, status: "simulated", phone: normalizedPhone });
@@ -675,35 +708,40 @@ app.post("/admin/sms-logs/:logId/retry", async (req, res) => {
     const recipientPhone = normalizePhoneNumber(original.phone || "");
     if (!isE164PhoneNumber(recipientPhone)) return res.status(400).json({ error: "The logged phone number is not valid for retry." });
 
-    let status = "failed";
-    let errorMessage = "";
-    if (smsProvider === "semaphore" && !semaphoreConfigured) {
-      errorMessage = "Semaphore API key is not configured";
-    } else if (smsMode === "simulated" || (smsProvider === "twilio" && !twilioConfigured)) {
-      status = "simulated";
-    } else {
-      try {
-        if (smsProvider === "semaphore") await sendSemaphoreSms(original.message, recipientPhone);
-        else {
-          const smsRequest = { body: original.message, to: recipientPhone };
-          if (twilioMessagingServiceSid) smsRequest.messagingServiceSid = twilioMessagingServiceSid;
-          else smsRequest.from = twilioNumber;
-          await client.messages.create(smsRequest);
-        }
-        status = "sent";
-      } catch (error) {
-        errorMessage = error.message;
+    const studentId = original.studentId || "";
+    const guard = await checkSmsAllowed(db, { studentId });
+    const delivery = await sendViaProvider({
+      db,
+      studentId,
+      smsGuard: guard,
+      to: recipientPhone,
+      message: original.message || "",
+      provider: smsProvider,
+      settings: {
+        db,
+        studentId,
+        semaphoreConfigured,
+        semaphoreApiKey,
+        semaphoreSenderName,
+        twilioConfigured,
+        twilioMessagingServiceSid,
+        twilioNumber,
+        client
       }
-    }
+    });
+    const status = delivery.status === "unconfigured" ? "failed" : delivery.status;
+    const errorMessage = delivery.error || "";
+    const mode = delivery.mode || guard.mode;
+    const reason = delivery.reason || errorMessage;
 
-    const retryRef = await db.collection("sms_logs").add({ actorUid: authResult.token.uid, studentId: original.studentId || "", attendanceId: original.attendanceId || "", phone: recipientPhone, message: original.message || "", status, error: errorMessage, retryOf: req.params.logId, createdAt: new Date() });
+    const retryRef = await db.collection("sms_logs").add({ actorUid: authResult.token.uid, studentId, attendanceId: original.attendanceId || "", phone: recipientPhone, message: original.message || "", status, error: errorMessage, mode, reason, retryOf: req.params.logId, createdAt: new Date() });
     if (original.attendanceId) {
       const attendanceUpdate = { smsStatus: status };
       if (attendancePeriods.includes(original.period)) attendanceUpdate.scans = { [original.period]: { smsStatus: status } };
       await db.collection("attendance").doc(original.attendanceId).set(attendanceUpdate, { merge: true });
     }
-    await writeAuditLog(db, { action: "sms.retry", actorUid: authResult.token.uid, targetType: "sms_log", targetId: retryRef.id, details: { retryOf: req.params.logId, status } });
-    return res.json({ success: true, status, retryLogId: retryRef.id });
+    await writeAuditLog(db, { action: "sms.retry", actorUid: authResult.token.uid, targetType: "sms_log", targetId: retryRef.id, details: { retryOf: req.params.logId, status, mode, reason } });
+    return res.json({ success: true, status, mode, reason, retryLogId: retryRef.id });
   } catch (error) {
     console.error("SMS retry error:", error);
     return res.status(500).json({ error: "Failed to retry SMS notification." });
@@ -796,34 +834,48 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
     });
     let smsStatus = "skipped";
     let smsError = "";
+    let smsModeForLog = smsMode;
+    let smsReason = "";
     if (!recipientPhone) {
       smsError = "No linked parent or guardian phone number";
+      smsReason = smsError;
     } else if (!isE164PhoneNumber(recipientPhone)) {
       smsStatus = "failed";
       smsError = "Phone number must use international format, for example +639171234567";
-    } else if (smsProvider === "semaphore" && !semaphoreConfigured) {
-      smsStatus = "failed";
-      smsError = "Semaphore API key is not configured";
-    } else if (smsMode === "simulated" || (smsProvider === "twilio" && !twilioConfigured)) {
-      smsStatus = "simulated";
+      smsReason = smsError;
     } else {
-      try {
-        if (smsProvider === "semaphore") await sendSemaphoreSms(message, recipientPhone);
-        else {
-          const smsRequest = { body: message, to: recipientPhone };
-          if (twilioMessagingServiceSid) smsRequest.messagingServiceSid = twilioMessagingServiceSid;
-          else smsRequest.from = twilioNumber;
-          await client.messages.create(smsRequest);
+      const guard = await checkSmsAllowed(db, { studentId });
+      const delivery = await sendViaProvider({
+        db,
+        studentId,
+        smsGuard: guard,
+        to: recipientPhone,
+        message,
+        provider: smsProvider,
+        settings: {
+          db,
+          studentId,
+          semaphoreConfigured,
+          semaphoreApiKey,
+          semaphoreSenderName,
+          twilioConfigured,
+          twilioMessagingServiceSid,
+          twilioNumber,
+          client
         }
-        smsStatus = "sent";
-      } catch (error) {
-        smsError = error.message;
-        smsStatus = "failed";
-        console.error("Automatic attendance SMS error:", error.message);
+      });
+      smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
+      smsError = delivery.error || "";
+      smsModeForLog = delivery.mode || guard.mode;
+      smsReason = delivery.reason || smsError;
+      if (smsStatus === "sent") {
+        console.log("Automatic attendance SMS sent.");
+      } else if (smsStatus === "failed") {
+        console.error("Automatic attendance SMS error:", smsError);
       }
     }
     await attendanceRef.set({ scans: { [period]: { smsStatus } }, smsStatus, updatedAt: new Date() }, { merge: true });
-    await db.collection("sms_logs").add({ actorUid: req.auth.uid, studentId, attendanceId: id, period, phone: recipientPhone, message, status: smsStatus, error: smsError, createdAt: new Date() });
+    await db.collection("sms_logs").add({ actorUid: req.auth.uid, studentId, attendanceId: id, period, phone: recipientPhone, message, status: smsStatus, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
     await writeAuditLog(db, { action: "attendance.period_recorded", actorUid: req.auth.uid, targetType: "attendance", targetId: id, details: { studentId, sectionId, period, status, smsStatus } });
     scanResult.scans[period].smsStatus = smsStatus;
     return res.json({
@@ -1303,6 +1355,8 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     });
     let smsStatus = recipientPhone ? "pending" : "skipped";
     let smsError = recipientPhone ? "" : "No linked parent or guardian phone number";
+    let smsModeForLog = smsMode;
+    let smsReason = recipientPhone ? "" : smsError;
     const scans = { ...existingScans, "AM-1": { time: "", status: "absent", smsStatus } };
 
     await db.collection("attendance").doc(attendanceId).set({
@@ -1330,35 +1384,48 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     } else if (!isE164PhoneNumber(recipientPhone)) {
       smsStatus = "failed";
       smsError = "Phone number must use international format, for example +639171234567";
+      smsReason = smsError;
       results.failed += 1;
-    } else if (smsProvider === "semaphore" && !semaphoreConfigured) {
-      smsStatus = "failed";
-      smsError = "Semaphore API key is not configured";
-      results.failed += 1;
-    } else if (smsMode === "simulated" || (smsProvider === "twilio" && !twilioConfigured)) {
-      smsStatus = "simulated";
-      results.simulated += 1;
     } else {
-      try {
-        if (smsProvider === "semaphore") await sendSemaphoreSms(message, recipientPhone);
-        else {
-          const smsRequest = { body: message, to: recipientPhone };
-          if (twilioMessagingServiceSid) smsRequest.messagingServiceSid = twilioMessagingServiceSid;
-          else smsRequest.from = twilioNumber;
-          await client.messages.create(smsRequest);
+      const studentId = studentRecord.id;
+      const guard = await checkSmsAllowed(db, { studentId });
+      const delivery = await sendViaProvider({
+        db,
+        studentId,
+        smsGuard: guard,
+        to: recipientPhone,
+        message,
+        provider: smsProvider,
+        settings: {
+          db,
+          studentId,
+          semaphoreConfigured,
+          semaphoreApiKey,
+          semaphoreSenderName,
+          twilioConfigured,
+          twilioMessagingServiceSid,
+          twilioNumber,
+          client
         }
-        smsStatus = "sent";
+      });
+      smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
+      smsError = delivery.error || "";
+      smsModeForLog = delivery.mode || guard.mode;
+      smsReason = delivery.reason || smsError;
+      if (smsStatus === "sent") {
         results.sent += 1;
-      } catch (error) {
-        smsStatus = "failed";
-        smsError = error.message;
+      } else if (smsStatus === "simulated") {
+        results.simulated += 1;
+      } else if (smsStatus === "failed") {
         results.failed += 1;
-        console.error("Automatic absent SMS error:", error.message);
+        console.error("Automatic absent SMS error:", smsError);
+      } else {
+        results.skipped += 1;
       }
     }
 
     await db.collection("attendance").doc(attendanceId).set({ scans: { "AM-1": { smsStatus } }, smsStatus }, { merge: true });
-    await db.collection("sms_logs").add({ actorUid, studentId: studentRecord.id, attendanceId, period: "AM-1", phone: recipientPhone, message, status: smsStatus, error: smsError, createdAt: new Date() });
+    await db.collection("sms_logs").add({ actorUid, studentId: studentRecord.id, attendanceId, period: "AM-1", phone: recipientPhone, message, status: smsStatus, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
   }
 
   return results;
@@ -1432,7 +1499,12 @@ app.get("/admin/settings/sms-runtime", async (req, res) => {
   const authResult = await verifyAdminRequest(req);
   if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
   try {
-    const runtime = await loadSmsRuntimeConfig(getFirestore(authResult.adminSdk));
+    const loadedRuntime = await loadSmsRuntimeConfig(getFirestore(authResult.adminSdk));
+    const runtime = {
+      mode: loadedRuntime.mode,
+      disabled: loadedRuntime.disabled,
+      dailyCapPerStudent: loadedRuntime.dailyCapPerStudent
+    };
     return res.json({ success: true, runtime });
   } catch (error) {
     console.error("SMS runtime settings load error:", error);
