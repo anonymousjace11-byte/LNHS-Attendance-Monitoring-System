@@ -783,7 +783,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
     const id = createAttendanceId(studentId, studentCode, date);
     const attendanceRef = db.collection("attendance").doc(id);
     const parentSnapshot = await db.collection("parentcontacts").doc(`${studentId}_parent`).get();
-    const recipientPhone = normalizePhoneNumber(studentData.parentPhone || parentSnapshot.data()?.parentPhone || "");
+    const recipientPhone = normalizePhoneNumber(parentSnapshot.data()?.parentPhone || studentData.parentPhone || "");
     const scanResult = await db.runTransaction(async transaction => {
       const snapshot = await transaction.get(attendanceRef);
       const current = snapshot.exists ? snapshot.data() || {} : {};
@@ -1343,7 +1343,7 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     const attendanceId = createAttendanceId(studentRecord.id, student.studentCode || student.code, date);
     const parentSnapshot = await db.collection("parentcontacts").doc(`${studentRecord.id}_parent`).get();
     const parent = parentSnapshot.exists ? parentSnapshot.data() || {} : {};
-    const recipientPhone = normalizePhoneNumber(student.parentPhone || student.phone || parent.parentPhone || "");
+    const recipientPhone = normalizePhoneNumber(parent.parentPhone || student.parentPhone || student.phone || "");
     const name = student.name || student.studentCode || student.code || studentRecord.id;
     const sectionId = student.sectionId || student.section || "";
     const message = renderSmsTemplate(templates.absent, {
