@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { Search, ShieldCheck } from 'lucide-react';
 import Alert from '../components/Alert';
+import { EmptyTableRow } from '../components/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 
@@ -179,7 +180,14 @@ export default function AuditLogs() {
                   <td className="audit-time">{formatTimestamp(log.createdAt)}</td>
                 </tr>
               ))}
-              {!filtered.length && <tr><td colSpan="6" className="empty-row">No entries match your search.</td></tr>}
+              {!filtered.length && (
+                <EmptyTableRow
+                  colSpan={6}
+                  icon={ShieldCheck}
+                  title={logs.length ? 'No audit entries match your search.' : 'No audit entries yet.'}
+                  subtitle={logs.length ? 'Try another action, actor, or record.' : 'Sensitive administrative actions will be logged here.'}
+                />
+              )}
             </tbody>
           </table>
         </div>

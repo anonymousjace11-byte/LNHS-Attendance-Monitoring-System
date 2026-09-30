@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Download, FileText } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
+import EmptyState, { EmptyTableRow } from '../components/EmptyState';
 import { useData } from '../context/DataContext';
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
@@ -99,9 +100,9 @@ export default function Reports() {
     ? ((studentCounts.present + studentCounts.late) / eligibleStudentDays * 100).toFixed(1)
     : null;
   const studentReportContent = !selectedStudentId
-    ? <div className="card empty-state">Select a student to view attendance.</div>
+    ? <div className="card"><EmptyState icon={FileText} title="Select a student to view attendance." subtitle="Choose a student to see attendance by period." /></div>
     : !studentAttendance.length
-      ? <div className="card empty-state">No attendance records for this student in the selected range.</div>
+      ? <div className="card"><EmptyState icon={FileText} title="No attendance records for this student in the selected range." subtitle="Try a different date range." /></div>
       : (
         <section className="card report-block">
           <div className="card-header">
@@ -287,7 +288,14 @@ export default function Reports() {
                       <td className="num mono">{r.rate.toFixed(1)}%</td>
                     </tr>
                   ))}
-                {!sectionReport.length && <tr><td colSpan="7" className="empty-row">No sections available.</td></tr>}
+                {!sectionReport.length && (
+                  <EmptyTableRow
+                    colSpan={7}
+                    icon={FileText}
+                    title="No section data for this range."
+                    subtitle="Adjust the date range or add section records."
+                  />
+                )}
               </tbody>
             </table>
           </div>

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, CheckCircle } from 'lucide-react';
+import { Search, Plus, Pencil, CheckCircle, Users } from 'lucide-react';
 import Button from '../components/Button';
+import { EmptyTableRow } from '../components/EmptyState';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
@@ -200,6 +201,14 @@ export default function Teachers() {
                   </td>
                 </tr>
               ))}
+              {!filtered.length && (
+                <EmptyTableRow
+                  colSpan={6}
+                  icon={Users}
+                  title={teachers.length ? 'No teachers match your search.' : 'No teachers yet.'}
+                  subtitle={teachers.length ? 'Try another name or email.' : 'Register a teacher account to get started.'}
+                />
+              )}
             </tbody>
           </table>
         </div>

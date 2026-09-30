@@ -1399,7 +1399,11 @@ html[data-theme='dark'] .theme-switch__option.is-active { background: var(--bg-h
 .attendance-filters { display: flex; align-items: end; flex-wrap: wrap; gap: .5rem; margin-bottom: .85rem; padding: .75rem .9rem; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg-card); }
 .attendance-filters__field { display: flex; flex-direction: column; gap: .25rem; min-width: 0; }
 .attendance-filters__label { color: var(--text-muted); font-size: .68rem; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; }
-.empty-state { padding: 2.5rem 1rem; color: var(--text-muted); font-size: .82rem; text-align: center; }
+.empty-state { display: flex; flex-direction: column; align-items: center; padding: 3rem 1rem; text-align: center; }
+.empty-state__icon { width: 32px; height: 32px; margin: 0 auto 12px; color: var(--border-strong); }
+.empty-state__title { margin-bottom: 4px; color: var(--text-secondary); font-size: 14px; font-weight: 500; }
+.empty-state__subtitle { margin: 0; color: var(--text-light); font-size: 12px; }
+.empty-state-cell { padding: 0 !important; }
 .logs-table-wrapper { max-height: 70vh; overflow: auto; }
 .card-header .btn + .btn { margin-left: .35rem; }
 .section-actions .btn,

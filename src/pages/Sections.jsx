@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil } from 'lucide-react';
+import { Plus, Pencil, Layers } from 'lucide-react';
 import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
@@ -122,7 +123,9 @@ export default function Sections() {
 
       {success && <Alert type="success" onClose={()=>setSuccess('')} className="mb-4">{success}</Alert>}
 
-      {grades.map(grade=>(
+      {!sections.length ? (
+        <EmptyState icon={Layers} title="No sections yet." subtitle="Add a section to organize students and advisers." />
+      ) : grades.map(grade=>(
         <div key={grade} className="mb-4">
           <div className="flex items-center gap-3 mb-3">
             <span style={{ fontFamily:'Work Sans', fontWeight:800, fontSize:'.9rem', color:'var(--navy-900)' }}>

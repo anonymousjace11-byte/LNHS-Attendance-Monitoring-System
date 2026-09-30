@@ -1,7 +1,8 @@
 import { useState, useMemo } from 'react';
-import { Search, Download } from 'lucide-react';
+import { Search, Download, MessageSquare } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
+import { EmptyTableRow } from '../components/EmptyState';
 import { useData } from '../context/DataContext';
 
 const STATUS_OPTS = ['All','sent','failed','simulated','skipped'];
@@ -93,12 +94,17 @@ export default function SmsLogs() {
                   <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{l.createdAt || '—'}</span></td>
                 </tr>
               })}
+              {!filtered.length && (
+                <EmptyTableRow
+                  colSpan={8}
+                  icon={MessageSquare}
+                  title={logs.length ? 'No SMS logs match your filters.' : 'No SMS logs yet.'}
+                  subtitle={logs.length ? 'Try a different search or status.' : 'Scans and manual sends will appear here.'}
+                />
+              )}
             </tbody>
           </table>
         </div>
-        {filtered.length===0 && (
-          <div className="py-12 text-center" style={{ color:'var(--text-muted)' }}>No entries match your filters.</div>
-        )}
       </div>
     </div>
   );

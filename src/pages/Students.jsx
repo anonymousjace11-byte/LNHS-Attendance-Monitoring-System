@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Eye, IdCard, Pencil, Plus, Search, UserX } from 'lucide-react';
+import { Download, Eye, IdCard, Pencil, Plus, Search, UserX, Users } from 'lucide-react';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
+import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
 import StudentIdCard from '../components/StudentIdCard';
@@ -374,7 +375,14 @@ export default function Students() {
                   </div></td>
                 </tr>;
               })}
-              {!filtered.length && <tr><td colSpan="8" className="empty-row">No students match your search.</td></tr>}
+              {!filtered.length && (
+                <EmptyTableRow
+                  colSpan={8}
+                  icon={Users}
+                  title={students.length ? 'No students match these filters.' : 'No students yet.'}
+                  subtitle={students.length ? 'Try changing the search or strand filter.' : 'Add a student to get started.'}
+                />
+              )}
             </tbody>
           </table>
         </div>

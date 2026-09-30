@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
-import { Pencil, Plus, Search, Trash2 } from 'lucide-react';
+import { Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
+import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
 import { useData } from '../context/DataContext';
@@ -91,7 +92,7 @@ export default function Parents() {
         <td>{contact.parentName}</td><td style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-sub)' }}>{contact.parentPhone}</td>
         <td><span className="badge badge-active">Enabled</span></td>
         <td><div className="flex gap-1.5"><Button variant="ghost" size="sm" onClick={() => setEditing(contact)} title="Edit parent contact" aria-label="Edit parent contact"><Pencil size={12} /></Button><Button variant="danger" size="sm" onClick={() => remove(contact)} title="Remove parent contact" aria-label="Remove parent contact"><Trash2 size={12} /></Button></div></td>
-      </tr>)}</tbody>
-    </table></div>{rows.length === 0 && <div className="py-12 text-center" style={{ color: 'var(--text-muted)' }}>No parent contacts registered.</div>}</div>
+      </tr>)}{!rows.length && <EmptyTableRow colSpan={5} icon={Users} title={parentContacts.length ? 'No parent contacts match your search.' : 'No parent contacts yet.'} subtitle={parentContacts.length ? 'Try another parent or student name.' : 'Register parent contacts to enable SMS notifications.'} />}</tbody>
+    </table></div></div>
   </div>;
 }
