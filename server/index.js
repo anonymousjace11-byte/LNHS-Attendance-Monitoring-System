@@ -237,9 +237,11 @@ function getAttendanceScans(record = {}) {
   }
   return scans;
 }
-async function sendSemaphoreSms(message, recipientPhone) {
-  const parameters = new URLSearchParams({ apikey: semaphoreApiKey, number: recipientPhone, message });
-  if (semaphoreSenderName) parameters.set("sendername", semaphoreSenderName);
+async function sendSemaphoreSms(message, recipientPhone, settings = {}) {
+  const apiKey = settings.apiKey ?? semaphoreApiKey;
+  const senderName = settings.senderName ?? semaphoreSenderName;
+  const parameters = new URLSearchParams({ apikey: apiKey, number: recipientPhone, message });
+  if (senderName) parameters.set("sendername", senderName);
   const response = await fetch("https://api.semaphore.co/api/v4/messages", { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: parameters });
   const result = await response.json();
   if (!response.ok || !Array.isArray(result) || !result.length || String(result[0].status).toLowerCase() === "failed") {
@@ -362,6 +364,39 @@ app.post("/admin/upload-student-photo", async (req, res) => {
   }
 });
 
+async function sendViaProvider({ to, message, provider = smsProvider, settings = {} }) {
+  const configuredSemaphore = settings.semaphoreConfigured ?? semaphoreConfigured;
+  const configuredTwilio = settings.twilioConfigured ?? twilioConfigured;
+  const mode = settings.smsMode ?? smsMode;
+
+  if (provider === "semaphore" && !configuredSemaphore) {
+    return { status: "unconfigured", error: "Semaphore API key is not configured" };
+  }
+  if (mode === "simulated" || (provider === "twilio" && !configuredTwilio)) {
+    return { status: "simulated" };
+  }
+
+  try {
+    if (provider === "semaphore") {
+      await sendSemaphoreSms(message, to, {
+        apiKey: settings.semaphoreApiKey,
+        senderName: settings.semaphoreSenderName,
+      });
+    } else {
+      const smsRequest = { body: message, to };
+      const messagingServiceSid = settings.twilioMessagingServiceSid ?? twilioMessagingServiceSid;
+      const number = settings.twilioNumber ?? twilioNumber;
+      const smsClient = settings.client ?? client;
+      if (messagingServiceSid) smsRequest.messagingServiceSid = messagingServiceSid;
+      else smsRequest.from = number;
+      await smsClient.messages.create(smsRequest);
+    }
+    return { status: "sent" };
+  } catch (error) {
+    return { status: "failed", error: error.message };
+  }
+}
+
 app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   const { name, phone, studentId = "", attendanceId = "", status = "present" } = req.body || {};
   const normalizedPhone = normalizePhoneNumber(phone);
@@ -391,29 +426,37 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
     await logSms("failed", "Phone number must use international format, for example +639171234567");
     return res.status(400).json({ success: false, status: "failed", error: "Phone number must use international format, for example +639171234567" });
   }
-  if (smsProvider === "semaphore" && !semaphoreConfigured) {
-    await logSms("failed", "Semaphore API key is not configured");
+  const delivery = await sendViaProvider({
+    to: normalizedPhone,
+    message,
+    provider: smsProvider,
+    settings: {
+      smsMode,
+      semaphoreConfigured,
+      semaphoreApiKey,
+      semaphoreSenderName,
+      twilioConfigured,
+      twilioMessagingServiceSid,
+      twilioNumber,
+      client,
+    },
+  });
+
+  if (delivery.status === "unconfigured") {
+    await logSms("failed", delivery.error);
     return res.status(503).json({ success: false, status: "failed", error: "Semaphore API key is not configured" });
   }
-  if (smsMode === "simulated" || (smsProvider === "twilio" && !twilioConfigured)) {
+  if (delivery.status === "simulated") {
     await logSms("simulated");
     return res.status(200).json({ success: true, status: "simulated", message, phone: normalizedPhone });
   }
-
-  try {
-    if (smsProvider === "semaphore") await sendSemaphoreSms(message, normalizedPhone);
-    else {
-      const smsRequest = { body: message, to: normalizedPhone };
-      if (twilioMessagingServiceSid) smsRequest.messagingServiceSid = twilioMessagingServiceSid;
-      else smsRequest.from = twilioNumber;
-      await client.messages.create(smsRequest);
-    }
+  if (delivery.status === "sent") {
     await logSms("sent");
-    res.json({ success: true, status: "sent", phone: normalizedPhone });
-  } catch (err) {
-    await logSms("failed", err.message);
-    res.status(500).json({ success: false, status: "failed", error: "SMS delivery failed" });
+    return res.json({ success: true, status: "sent", phone: normalizedPhone });
   }
+
+  await logSms("failed", delivery.error);
+  return res.status(500).json({ success: false, status: "failed", error: "SMS delivery failed" });
 });
 
 app.get("/sms-logs", requireStaffAuth, async (req, res) => {
