@@ -288,6 +288,7 @@ async function checkSmsAllowed(db, { studentId } = {}) {
     try {
       const snapshot = await db.collection("sms_logs")
         .where("studentId", "==", studentId)
+        .where("status", "in", ["sent", "simulated"])
         .where("createdAt", ">=", startOfToday)
         .where("createdAt", "<", startOfTomorrow)
         .count()
@@ -305,7 +306,7 @@ async function checkSmsAllowed(db, { studentId } = {}) {
       return { allowed: true, mode: "live", reason: "", remainingCap };
     } catch (error) {
       console.error("SMS daily cap count error:", error.message);
-      return { allowed: true, mode: "live", reason: "Daily cap check failed; allowed by fail-open", remainingCap: null };
+      return { allowed: false, mode: "capped", reason: "Cap check unavailable — send blocked for safety", remainingCap: null };
     }
   }
 
