@@ -21,6 +21,9 @@ logs/
 /.plugins/
 /.opencode-skills/
 
+# Azure tooling agents (auto-scaffolded, not used in this project)
+.github/agents/
+
 # Environment / secrets
 server/.env
 server/.env.*
