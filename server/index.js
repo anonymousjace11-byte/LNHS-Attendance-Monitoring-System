@@ -28,6 +28,11 @@ const DEFAULT_SMS_TEMPLATES = {
   late: "Your child {student_name} was marked Late for {period} on {date}.",
   absent: "Your child {student_name} was marked Absent for {period} on {date}."
 };
+const DEFAULT_SMS_RUNTIME = {
+  mode: "inherit",
+  disabled: false,
+  dailyCapPerStudent: 4
+};
 
 function getQrSigningSecret() {
   return process.env.QR_SIGNING_SECRET || "";
@@ -248,6 +253,63 @@ async function loadSmsTemplates(db) {
     console.error("SMS template read error:", error.message);
     return { ...DEFAULT_SMS_TEMPLATES };
   }
+}
+async function loadSmsRuntimeConfig(db) {
+  try {
+    const snapshot = await db.collection("settings").doc("sms_runtime").get();
+    const stored = snapshot.exists ? snapshot.data() : {};
+    return {
+      mode: ["inherit", "simulated", "live"].includes(stored.mode) ? stored.mode : DEFAULT_SMS_RUNTIME.mode,
+      disabled: stored.disabled === true,
+      dailyCapPerStudent: Number.isInteger(stored.dailyCapPerStudent) && stored.dailyCapPerStudent >= 0
+        ? stored.dailyCapPerStudent
+        : DEFAULT_SMS_RUNTIME.dailyCapPerStudent
+    };
+  } catch (error) {
+    console.error("SMS runtime config read error:", error.message);
+    return { ...DEFAULT_SMS_RUNTIME };
+  }
+}
+async function checkSmsAllowed(db, { studentId } = {}) {
+  const runtime = await loadSmsRuntimeConfig(db);
+  if (runtime.disabled) {
+    return { allowed: false, mode: "disabled", reason: "SMS disabled by admin", remainingCap: null };
+  }
+
+  const effectiveMode = runtime.mode === "inherit" ? smsMode : runtime.mode;
+  if (effectiveMode === "simulated") {
+    return { allowed: true, mode: "simulated", reason: "", remainingCap: null };
+  }
+
+  if (runtime.dailyCapPerStudent > 0 && studentId) {
+    const todayKey = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Manila" }).format(new Date());
+    const startOfToday = new Date(`${todayKey}T00:00:00+08:00`);
+    const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
+    try {
+      const snapshot = await db.collection("sms_logs")
+        .where("studentId", "==", studentId)
+        .where("createdAt", ">=", startOfToday)
+        .where("createdAt", "<", startOfTomorrow)
+        .count()
+        .get();
+      const sentToday = snapshot.data().count;
+      const remainingCap = Math.max(0, runtime.dailyCapPerStudent - sentToday);
+      if (sentToday >= runtime.dailyCapPerStudent) {
+        return {
+          allowed: false,
+          mode: "capped",
+          reason: `Daily cap reached (${sentToday}/${runtime.dailyCapPerStudent})`,
+          remainingCap
+        };
+      }
+      return { allowed: true, mode: "live", reason: "", remainingCap };
+    } catch (error) {
+      console.error("SMS daily cap count error:", error.message);
+      return { allowed: true, mode: "live", reason: "Daily cap check failed; allowed by fail-open", remainingCap: null };
+    }
+  }
+
+  return { allowed: true, mode: "live", reason: "", remainingCap: null };
 }
 function isAttendanceCutoffReached(time, cutoff) {
   return time >= (cutoff || process.env.ATTENDANCE_CUTOFF || "07:30");
@@ -1362,6 +1424,54 @@ app.post("/admin/settings/attendance", async (req, res) => {
   } catch (error) {
     console.error("Attendance settings write error:", error);
     return res.status(500).json({ error: "Failed to save attendance settings." });
+  }
+});
+
+app.get("/admin/settings/sms-runtime", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  try {
+    const runtime = await loadSmsRuntimeConfig(getFirestore(authResult.adminSdk));
+    return res.json({ success: true, runtime });
+  } catch (error) {
+    console.error("SMS runtime settings load error:", error);
+    return res.status(500).json({ success: false, error: "Unable to load SMS runtime settings" });
+  }
+});
+
+app.post("/admin/settings/sms-runtime", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  const { mode, disabled, dailyCapPerStudent } = req.body || {};
+  if (!["inherit", "simulated", "live"].includes(mode)) {
+    return res.status(400).json({ success: false, error: "Mode must be inherit, simulated, or live." });
+  }
+  if (typeof disabled !== "boolean") {
+    return res.status(400).json({ success: false, error: "Disabled must be a boolean." });
+  }
+  if (!Number.isInteger(dailyCapPerStudent) || dailyCapPerStudent < 0) {
+    return res.status(400).json({ success: false, error: "Daily cap must be a non-negative integer." });
+  }
+
+  try {
+    const db = getFirestore(authResult.adminSdk);
+    const runtime = { mode, disabled, dailyCapPerStudent };
+    await db.collection("settings").doc("sms_runtime").set({
+      ...runtime,
+      updatedAt: new Date(),
+      updatedBy: authResult.token.uid
+    }, { merge: true });
+    await writeAuditLog(db, {
+      action: "settings.sms_runtime_updated",
+      actorUid: authResult.token.uid,
+      targetType: "settings",
+      targetId: "sms_runtime",
+      details: runtime
+    });
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("SMS runtime settings write error:", error);
+    return res.status(500).json({ success: false, error: "Unable to save SMS runtime settings" });
   }
 });
 
