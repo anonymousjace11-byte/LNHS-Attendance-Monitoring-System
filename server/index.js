@@ -720,6 +720,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
         smsStatus = "sent";
       } catch (error) {
         smsError = error.message;
+        smsStatus = "failed";
         console.error("Automatic attendance SMS error:", error.message);
       }
     }
