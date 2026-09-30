@@ -4,8 +4,14 @@ import Alert from '../components/Alert';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
 import { useAuth } from '../context/AuthContext';
-import { useData } from '../context/DataContext';
+import { staffApiGet, useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
+
+const DEFAULT_SMS_TEMPLATES = {
+  present: 'Your child {student_name} was marked Present for {period} on {date}.',
+  late: 'Your child {student_name} was marked Late for {period} on {date}.',
+  absent: 'Your child {student_name} was marked Absent for {period} on {date}.'
+};
 
 const TABS = [
   { id: 'general', label: 'General', icon: Building2 },
@@ -28,6 +34,12 @@ export default function Settings() {
   const [notifyPresent, setNotifyPresent] = useState(true);
   const [notifyLate, setNotifyLate] = useState(true);
   const [simulateSms, setSimulateSms] = useState(false);
+  const [presentTemplate, setPresentTemplate] = useState(DEFAULT_SMS_TEMPLATES.present);
+  const [lateTemplate, setLateTemplate] = useState(DEFAULT_SMS_TEMPLATES.late);
+  const [absentTemplate, setAbsentTemplate] = useState(DEFAULT_SMS_TEMPLATES.absent);
+  const [templatesLoadFailed, setTemplatesLoadFailed] = useState(false);
+  const [templatesSaving, setTemplatesSaving] = useState(false);
+  const [templatesFeedback, setTemplatesFeedback] = useState(null);
   const [loginRateLimit, setLoginRateLimit] = useState('5');
   const [qrRateLimit, setQrRateLimit] = useState('60');
   const [auditExports, setAuditExports] = useState(true);
@@ -36,7 +48,7 @@ export default function Settings() {
   const [schoolRegion, setSchoolRegion] = useState('Region IV-B MIMAROPA');
   const [schoolContact, setSchoolContact] = useState('+63917XXXXXXX');
 
-  const { saveAttendanceSettings } = useData();
+  const { saveAttendanceSettings, saveSmsTemplates } = useData();
   const { changePassword } = useAuth();
   const { theme, setTheme } = useTheme();
 
@@ -45,6 +57,34 @@ export default function Settings() {
     const timeout = window.setTimeout(() => setSaved(false), 3000);
     return () => window.clearTimeout(timeout);
   }, [saved]);
+
+  useEffect(() => {
+    let active = true;
+    staffApiGet('/admin/settings/sms-templates')
+      .then(({ templates = {} }) => {
+        if (!active) return;
+        setPresentTemplate(typeof templates.present === 'string' ? templates.present : DEFAULT_SMS_TEMPLATES.present);
+        setLateTemplate(typeof templates.late === 'string' ? templates.late : DEFAULT_SMS_TEMPLATES.late);
+        setAbsentTemplate(typeof templates.absent === 'string' ? templates.absent : DEFAULT_SMS_TEMPLATES.absent);
+      })
+      .catch(() => {
+        if (active) setTemplatesLoadFailed(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  const handleSaveSmsTemplates = async () => {
+    setTemplatesSaving(true);
+    setTemplatesFeedback(null);
+    try {
+      await saveSmsTemplates({ present: presentTemplate, late: lateTemplate, absent: absentTemplate });
+      setTemplatesFeedback({ type: 'success', text: 'SMS templates saved.' });
+    } catch (error) {
+      setTemplatesFeedback({ type: 'error', text: error?.message || 'Unable to save SMS templates.' });
+    } finally {
+      setTemplatesSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     setSaveError('');
@@ -191,6 +231,51 @@ export default function Settings() {
                     <span>Notify parents on Late</span>
                   </label>
                 </div>
+
+                <h2 className="settings-section__title settings-section__title--spaced">Message Templates</h2>
+                <p className="settings-section__hint">Placeholders: {'{student_name}'}, {'{section}'}, {'{period}'}, {'{date}'}, {'{status}'}. These are filled in when the message is sent.</p>
+                {templatesLoadFailed && <Alert type="warn">Using default templates — could not load saved ones.</Alert>}
+                {templatesFeedback && <Alert type={templatesFeedback.type}>{templatesFeedback.text}</Alert>}
+
+                <div>
+                  <label className="field-label" htmlFor="sms-template-present">Present message</label>
+                  <textarea
+                    id="sms-template-present"
+                    className="field-input"
+                    rows={3}
+                    maxLength={320}
+                    value={presentTemplate}
+                    onChange={(event) => { setPresentTemplate(event.target.value); setTemplatesFeedback(null); }}
+                  />
+                  <p className="field-hint text-right">{presentTemplate.length} / 320</p>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sms-template-late">Late message</label>
+                  <textarea
+                    id="sms-template-late"
+                    className="field-input"
+                    rows={3}
+                    maxLength={320}
+                    value={lateTemplate}
+                    onChange={(event) => { setLateTemplate(event.target.value); setTemplatesFeedback(null); }}
+                  />
+                  <p className="field-hint text-right">{lateTemplate.length} / 320</p>
+                </div>
+                <div>
+                  <label className="field-label" htmlFor="sms-template-absent">Absent message</label>
+                  <textarea
+                    id="sms-template-absent"
+                    className="field-input"
+                    rows={3}
+                    maxLength={320}
+                    value={absentTemplate}
+                    onChange={(event) => { setAbsentTemplate(event.target.value); setTemplatesFeedback(null); }}
+                  />
+                  <p className="field-hint text-right">{absentTemplate.length} / 320</p>
+                </div>
+                <Button variant="primary" onClick={handleSaveSmsTemplates} loading={templatesSaving}>
+                  {templatesSaving ? 'Saving...' : 'Save Templates'}
+                </Button>
               </div>
             )}
 

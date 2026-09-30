@@ -334,6 +334,7 @@ export function DataProvider({ children }) {
   const deleteSection = (id) => adminRequest(`/admin/sections/${id}`, 'DELETE');
   const deleteTeacher = (id) => adminRequest(`/admin/teachers/${id}`, 'DELETE');
   const saveAttendanceSettings = (cutoff) => adminRequest('/admin/settings/attendance', 'POST', { cutoff });
+  const saveSmsTemplates = async ({ present, late, absent }) => adminRequest('/admin/settings/sms-templates', 'POST', { present, late, absent });
   async function generateStudentQr(student) {
     const result = await adminRequest('/qr/generate', 'POST', {
       studentId: student.id,
@@ -345,7 +346,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, saveAttendanceSettings }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, saveAttendanceSettings, saveSmsTemplates }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {
