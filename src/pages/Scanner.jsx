@@ -1,8 +1,16 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { QrCode, CheckCircle, Clock, AlertTriangle, Wifi, WifiOff, ShieldCheck, Shield, UserRound, Trash2, Info } from 'lucide-react';
+import { QrCode, CheckCircle, Clock, AlertTriangle, Wifi, WifiOff, ShieldCheck, Shield, UserRound, Trash2, Info, MessageSquare } from 'lucide-react';
 import { staffApiGet, useData } from '../context/DataContext';
+import { auth } from '../firebase';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
+import Modal from '../components/Modal';
+
+const API_URL = import.meta.env.VITE_API_URL || (() => {
+  if (typeof window === 'undefined') return 'http://127.0.0.1:5000';
+  const { protocol, hostname } = window.location;
+  return `${protocol}//${hostname}:5000`;
+})();
 
 function formatTime(date = new Date()) {
   return date.toLocaleTimeString('en-PH', {
@@ -76,6 +84,12 @@ export default function Scanner() {
   const [excuseSaving, setExcuseSaving] = useState(false);
   const [gatewayConfigured, setGatewayConfigured] = useState(null);
   const [preview, setPreview] = useState(null);
+  const [smsModalOpen, setSmsModalOpen] = useState(false);
+  const [smsTarget, setSmsTarget] = useState(null);
+  const [smsMessage, setSmsMessage] = useState('');
+  const [smsTemplates, setSmsTemplates] = useState(null);
+  const [smsSending, setSmsSending] = useState(false);
+  const [smsFeedback, setSmsFeedback] = useState(null);
   const [recentScans, setRecentScans] = useState([]);
   const [time, setTime] = useState(formatTime());
   const [online, setOnline] = useState(() => navigator.onLine);
@@ -84,7 +98,7 @@ export default function Scanner() {
   const inputRef = useRef(null);
   const bufferRef = useRef('');
   const bufferTimerRef = useRef(null);
-  const { students, attendance, recordAttendance, recordExcusedAttendance } = useData();
+  const { students, attendance, parentContacts, recordAttendance, recordExcusedAttendance } = useData();
 
   useEffect(() => {
     const timer = setInterval(() => setTime(formatTime()), 1000);
@@ -96,6 +110,14 @@ export default function Scanner() {
     staffApiGet('/staff/system-status')
       .then((status) => { if (active) setGatewayConfigured(Boolean(status.smsGatewayConfigured)); })
       .catch(() => { if (active) setGatewayConfigured(null); });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    staffApiGet('/admin/settings/sms-templates')
+      .then(({ templates }) => { if (active) setSmsTemplates(templates); })
+      .catch(() => { if (active) setSmsTemplates(null); });
     return () => { active = false; };
   }, []);
 
@@ -117,10 +139,11 @@ export default function Scanner() {
   }, [online]);
 
   useEffect(() => {
+    if (smsModalOpen) return undefined;
     inputRef.current?.focus();
     const refocus = setInterval(() => inputRef.current?.focus(), 3000);
     return () => clearInterval(refocus);
-  }, []);
+  }, [smsModalOpen]);
 
   useEffect(() => {
     if (!preview) return undefined;
@@ -130,6 +153,18 @@ export default function Scanner() {
     }, 2500);
     return () => clearTimeout(timer);
   }, [preview]);
+
+  const lastPreviewIdRef = useRef(null);
+  useEffect(() => {
+    if (!preview?.id) return;
+    if (lastPreviewIdRef.current && lastPreviewIdRef.current !== preview.id) {
+      setSmsModalOpen(false);
+      setSmsTarget(null);
+      setSmsMessage('');
+      setSmsFeedback(null);
+    }
+    lastPreviewIdRef.current = preview.id;
+  }, [preview?.id]);
 
   const pushRecent = useCallback((entry) => {
     setRecentScans((current) => [entry, ...current].slice(0, 5));
@@ -152,7 +187,7 @@ export default function Scanner() {
     const student = students.find((item) => [item.qrValue, item.qrUuid, item.studentCode, item.code, item.id].filter(Boolean).includes(payload));
     if (!student) {
       setScanState('not-found');
-      const entry = { id: `${Date.now()}-${Math.random()}`, status: 'error', time: scannedAt, message: 'QR credential was not found in the live student records.' };
+      const entry = { id: `${Date.now()}-${Math.random()}`, status: 'error', time: scannedAt, period: scanPeriod, message: 'QR credential was not found in the live student records.' };
       setPreview({ ...entry, student: null, record: null });
       pushRecent(entry);
       recordSessionResult('error');
@@ -168,6 +203,7 @@ export default function Scanner() {
         id: `${Date.now()}-${Math.random()}`,
         status,
         time: scannedAt,
+        period: scanPeriod,
         student,
         record,
         message: `${scanPeriod} attendance recorded as ${status}.`
@@ -186,6 +222,7 @@ export default function Scanner() {
         id: `${Date.now()}-${Math.random()}`,
         status: 'error',
         time: scannedAt,
+        period: scanPeriod,
         student,
         record: null,
         message: error.message || 'Attendance could not be recorded.'
@@ -261,8 +298,82 @@ export default function Scanner() {
     : getStatusLabel(preview?.status);
   const studentCode = preview?.student?.studentCode || preview?.student?.code || preview?.student?.id || '';
   const sectionName = preview?.student?.section || preview?.record?.sectionId || preview?.student?.sectionId || '';
+  const previewPeriod = preview?.period || preview?.record?.period || '';
+  const canSendManualSms = Boolean(preview?.student?.id && PERIODS.includes(previewPeriod) && !previewIsError);
   const smsStatus = preview?.record?.smsStatus;
   const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+  const smsParentContact = smsTarget
+    ? parentContacts.find((contact) => contact.studentId === smsTarget.student.id)
+    : null;
+  const smsParentPhone = [smsParentContact?.parentPhone, smsTarget?.student.parentPhone, smsTarget?.student.contactNumber, smsTarget?.student.phone]
+    .find((value) => typeof value === 'string' && value.trim()) || '';
+
+  const openManualSmsModal = () => {
+    if (!canSendManualSms || !preview?.student) return;
+    const studentName = preview.student.name || preview.student.studentCode || preview.student.id;
+    const scanStatus = preview.status === 'late' ? 'Late' : 'Present';
+    const scanDate = preview.record?.date || todayKey;
+    const section = preview.student.sectionName || preview.student.section || preview.student.sectionId || '';
+    const fallbackMessage = `Your child ${studentName} was marked ${scanStatus} for ${previewPeriod} on ${scanDate}.`;
+    let message = fallbackMessage;
+    try {
+      const template = preview.status === 'late' ? smsTemplates?.late : smsTemplates?.present;
+      if (typeof template === 'string' && template.trim()) {
+        message = template
+          .replaceAll('{student_name}', studentName)
+          .replaceAll('{section}', section)
+          .replaceAll('{period}', previewPeriod)
+          .replaceAll('{date}', scanDate)
+          .replaceAll('{status}', scanStatus);
+      }
+    } catch {
+      message = fallbackMessage;
+    }
+    setSmsTarget({ id: preview.id, student: preview.student, period: previewPeriod, status: scanStatus, date: scanDate });
+    setSmsMessage(message);
+    setSmsFeedback(null);
+    setSmsModalOpen(true);
+  };
+
+  const closeManualSmsModal = useCallback(() => {
+    if (smsSending) return;
+    setSmsModalOpen(false);
+    setSmsTarget(null);
+    setSmsMessage('');
+    setSmsFeedback(null);
+  }, [smsSending]);
+
+  const handleManualSmsSubmit = async (event) => {
+    event.preventDefault();
+    if (!smsTarget || !smsMessage.trim() || smsSending) return;
+    setSmsSending(true);
+    setSmsFeedback(null);
+
+    try {
+      const token = await auth.currentUser?.getIdToken();
+      if (!token) throw new Error('Firebase authentication required.');
+      const response = await fetch(`${API_URL}/sms/send-manual`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ studentId: smsTarget.student.id, period: smsTarget.period, message: smsMessage.trim() }),
+      });
+      const result = await response.json();
+      if (!response.ok || !result.success) throw new Error(result.error || 'Unable to send SMS.');
+
+      if (result.status === 'sent') {
+        setSmsMessage('');
+        setSmsFeedback({ type: 'success', text: 'SMS sent to parent.' });
+      } else if (result.status === 'simulated') {
+        setSmsFeedback({ type: 'warn', text: 'Simulated — no live SMS was sent. Configure an SMS gateway in Settings to send real messages.' });
+      } else {
+        throw new Error(result.error || 'SMS delivery failed.');
+      }
+    } catch (error) {
+      setSmsFeedback({ type: 'error', text: error.message || 'Unable to send SMS.' });
+    } finally {
+      setSmsSending(false);
+    }
+  };
   const todayScanCount = attendance
     .filter((record) => record.date === todayKey)
     .reduce((count, record) => count + (record.scans
@@ -333,6 +444,13 @@ export default function Scanner() {
                   SMS: <strong>{getSmsLabel(smsStatus)}</strong>
                 </p>
               )}
+              {canSendManualSms && (
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  <Button variant="outline" size="sm" onClick={openManualSmsModal}>
+                    <MessageSquare size={13} aria-hidden="true" /> Send SMS to Parent
+                  </Button>
+                </div>
+              )}
             </div>
           </>
         ) : (
@@ -345,6 +463,48 @@ export default function Scanner() {
           </div>
         )}
       </section>
+
+      {smsModalOpen && smsTarget && (
+        <Modal
+          title="Send SMS to Parent"
+          onClose={closeManualSmsModal}
+          maxWidth="520px"
+          footer={(
+            <div className="flex justify-end gap-2">
+              <Button variant="secondary" onClick={closeManualSmsModal} disabled={smsSending}>Cancel</Button>
+              <Button variant="primary" type="submit" form="manual-sms-form" loading={smsSending} disabled={!smsMessage.trim()}>
+                {smsSending ? 'Sending...' : 'Send'}
+              </Button>
+            </div>
+          )}
+        >
+          <form id="manual-sms-form" onSubmit={handleManualSmsSubmit} className="grid gap-3">
+            <p className="page-sub">{smsTarget.student.name || smsTarget.student.studentCode || smsTarget.student.id} · {smsTarget.student.section || smsTarget.student.sectionId || 'Unassigned section'}</p>
+            <div>
+              <label className="field-label" htmlFor="manual-sms-parent-phone">Parent contact</label>
+              <input id="manual-sms-parent-phone" className="field-input" value={smsParentPhone || 'Will be resolved from parent contacts on file'} readOnly />
+            </div>
+            <p className="page-sub">Period: <strong>{smsTarget.period}</strong></p>
+            {gatewayConfigured === false && (
+              <Alert type="warn">No live SMS gateway is configured. The server will report whether this message is sent, simulated, or unavailable.</Alert>
+            )}
+            <div>
+              <label className="field-label" htmlFor="manual-sms-message">Message</label>
+              <textarea
+                id="manual-sms-message"
+                className="field-input"
+                value={smsMessage}
+                onChange={(event) => setSmsMessage(event.target.value)}
+                maxLength={320}
+                rows={4}
+                autoFocus
+              />
+              <p className="field-hint text-right">{smsMessage.length} / 320</p>
+            </div>
+            {smsFeedback && <Alert type={smsFeedback.type}>{smsFeedback.text}</Alert>}
+          </form>
+        </Modal>
+      )}
 
       <div className="scanner-grid">
         <div className="scanner-side">
