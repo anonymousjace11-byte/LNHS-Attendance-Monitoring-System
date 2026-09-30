@@ -25,6 +25,35 @@ function readDetails(value) {
   }
 }
 
+function formatTarget(log) {
+  const targetType = String(log.targetType || '').trim();
+  const targetId = String(log.targetId || '').trim();
+  const details = readDetails(log.details);
+
+  switch (targetType) {
+    case 'qr_code':
+      return 'QR credential';
+    case 'attendance': {
+      const studentId = String(details.studentId || '').trim();
+      const suffix = studentId.slice(-6);
+      return suffix ? `Attendance record · …${suffix}` : 'Attendance record';
+    }
+    case 'settings':
+      return `${targetId || 'System'} settings`;
+    case 'student':
+      return 'Student';
+    case 'teacher':
+      return 'Teacher';
+    case 'section':
+      return 'Section';
+    case 'parentcontacts':
+    case 'parent_contact':
+      return 'Parent contact';
+    default:
+      return targetType || '—';
+  }
+}
+
 function readableDetails(log, students, sections) {
   const details = readDetails(log.details);
   const student = students.find((item) => item.id === details.studentId);
@@ -88,6 +117,7 @@ export default function AuditLogs() {
     ...log,
     actor: actorLabel(log, user, teachers),
     summary: readableDetails(log, students, sections),
+    targetLabel: formatTarget(log),
     actionLabel: ACTION_LABELS[log.action] || String(log.action || 'Other action').replaceAll('.', ' '),
   })), [logs, user, teachers, students, sections]);
 
@@ -99,6 +129,7 @@ export default function AuditLogs() {
       log.actionLabel,
       log.actor,
       log.actorUid,
+      log.targetLabel,
       log.targetType,
       log.targetId,
       log.summary,
@@ -143,10 +174,7 @@ export default function AuditLogs() {
                   <td className="audit-id">{log.id || '—'}</td>
                   <td className="audit-actor" title={log.actorUid || ''}>{log.actor}</td>
                   <td><span className="audit-action">{log.actionLabel}</span></td>
-                  <td className="audit-target">
-                    <span>{log.targetType || '—'}</span>
-                    {log.targetId && <small>{log.targetId}</small>}
-                  </td>
+                  <td className="audit-target" title={log.targetId || ''}>{log.targetLabel}</td>
                   <td className="audit-details">{log.summary}</td>
                   <td className="audit-time">{formatTimestamp(log.createdAt)}</td>
                 </tr>
