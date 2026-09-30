@@ -1,0 +1,37 @@
+.galaxy-loader {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 18px;
+  overflow: hidden;
+  background: radial-gradient(circle at center, #202c67 0, #0b102d 38%, #050816 100%);
+  color: #eef1ff;
+}
+.galaxy-loader::before,
+.galaxy-loader::after {
+  position: absolute;
+  inset: -20%;
+  content: '';
+  pointer-events: none;
+  background-image: radial-gradient(#fff 1px, transparent 1px), radial-gradient(#a5b4fc 1px, transparent 1px);
+  background-position: 12px 20px, 72px 90px;
+  background-size: 110px 110px, 170px 170px;
+  opacity: .7;
+  animation: galaxy-loader-drift 10s linear infinite;
+}
+.galaxy-loader::after { opacity: .35; transform: rotate(25deg) scale(1.2); animation-direction: reverse; }
+.galaxy-loader__orbit { position: relative; width: 110px; height: 110px; border: 1px solid rgba(196,181,253,.55); border-radius: 50%; transform: rotate(-24deg) perspective(300px) rotateX(62deg); box-shadow: 0 0 32px rgba(124,92,246,.7); animation: galaxy-loader-spin 1.8s linear infinite; }
+.galaxy-loader__orbit::before { position: absolute; inset: 16px; border: 1px solid rgba(125,211,252,.6); border-radius: 50%; content: ''; }
+.galaxy-loader__orbit span { position: absolute; top: 50%; left: 50%; width: 7px; height: 7px; margin: -3.5px; border-radius: 50%; background: #fff; box-shadow: 0 0 12px 4px #a78bfa; transform: rotate(calc(var(--i, 1) * 120deg)) translateX(51px); }
+.galaxy-loader__orbit span:nth-child(2) { --i: 2; background: #7dd3fc; }
+.galaxy-loader__orbit span:nth-child(3) { --i: 3; background: #c4b5fd; }
+.galaxy-loader__core { position: absolute; z-index: 1; display: grid; place-items: center; width: 62px; height: 62px; border: 1px solid rgba(255,255,255,.6); border-radius: 50%; background: rgba(16,23,53,.9); color: #fff; font-family: 'Work Sans', sans-serif; font-size: 1rem; font-weight: 800; letter-spacing: .12em; box-shadow: 0 0 22px rgba(125,211,252,.45); }
+.galaxy-loader__title { position: relative; z-index: 1; font-family: 'Work Sans', sans-serif; font-size: .8rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; }
+.galaxy-loader__track { position: relative; z-index: 1; width: 170px; height: 3px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.2); }
+.galaxy-loader__track span { display: block; width: 45%; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #7dd3fc, #c4b5fd); animation: galaxy-loader-progress 2s ease-out forwards; }
+@keyframes galaxy-loader-spin { to { transform: rotate(336deg) perspective(300px) rotateX(62deg); } }
+@keyframes galaxy-loader-progress { from { transform: translateX(-100%); } to { transform: translateX(230%); } }
+@keyframes galaxy-loader-drift { to { background-position: 122px 150px, -10px 45px; } }

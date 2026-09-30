@@ -1,0 +1,43 @@
+node_modules/
+.pnpm-store/
+dist/
+build/
+.cache/
+.env*
+.vite/
+vite.config.*.timestamp-*
+*.tsbuildinfo
+*-debug.log*
+logs/
+*.log
+.claude-replay.*
+.tmp-*
+/.figma/design-context/
+
+# Platform-managed agentplat state, not project source. In the
+# client-initiated single-repo workspace layout (make's `Path: "."` spec) the
+# repo root IS the workspace root, so these land inside this repo rather than
+# beside it.
+/.plugins/
+/.opencode-skills/
+
+# Environment / secrets
+server/.env
+server/.env.*
+!.env.example
+!server/.env.example
+
+# Backups
+*.backup
+*.backup.*
+src/**/*.backup
+src/**/*.backup.*
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Imported thesis documents are not runtime assets
+src/imports/*.docx

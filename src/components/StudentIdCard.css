@@ -1,0 +1,1077 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   STUDENT ID CARD — Institutional DepEd style
+   QR stays on pure white for scanner readability
+   ═══════════════════════════════════════════════════════════════════════ */
+
+.student-id-sheet {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  width: 100%;
+  max-width: 100%;
+  overflow: hidden;
+  gap: 8px;
+}
+
+.student-id-preview-modal {
+  width: min(960px, calc(100vw - 32px));
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.modal-overlay.student-id-preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  height: 100vh !important;
+  align-items: flex-start !important;
+  overflow: hidden;
+  padding-top: 16px;
+  padding-bottom: 16px;
+}
+
+.student-id-preview-modal .modal-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-start;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+}
+
+.student-id-toolbar {
+  align-self: flex-start;
+  width: min(100%, 810px);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+  color: var(--text-main);
+  font-family: inherit;
+}
+
+.student-id-toolbar strong,
+.student-id-toolbar span { display: block; }
+.student-id-toolbar strong { font-size: 15px; font-weight: 600; }
+.student-id-toolbar span { margin-top: 2px; color: var(--text-muted); font-size: 11px; }
+.student-id-toolbar-top { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; gap: 12px; }
+
+.student-id-viewport {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow: auto;
+  padding: 6px;
+  box-sizing: border-box;
+}
+
+.student-id-card-scaler {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.student-id-export-buttons { display: flex; gap: 8px; }
+.student-id-side-switch { display: flex; gap: 4px; margin-left: auto; }
+.student-id-side-switch button {
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-sub);
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 600;
+}
+.student-id-side-switch button.active {
+  border-color: var(--navy-800);
+  background: var(--navy-800);
+  color: #fff;
+}
+.student-id-export-buttons button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+.student-id-export-buttons button:hover {
+  background: var(--bg-hover);
+  border-color: var(--border-strong);
+}
+
+/* ── The card itself ── */
+.student-id-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 539.8px;
+  height: 856px;
+  transform-origin: top left;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  color: #1f2328;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* Gold top/bottom strip */
+.id-card__goldline {
+  height: 8px;
+  background: linear-gradient(90deg, #a06c0a 0%, #e0ac40 50%, #a06c0a 100%);
+  flex-shrink: 0;
+}
+.id-card__goldline--bottom { margin-top: auto; }
+
+/* FRONT ------------------------------------------------------------- */
+.student-id-card__front {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.id-card__gov {
+  padding: 14px 20px 10px;
+  text-align: center;
+  border-bottom: 1px solid #e6eaee;
+  background: #fafbfc;
+}
+
+.id-card__gov-line {
+  font-size: 10px;
+  font-weight: 500;
+  color: #57606a;
+  line-height: 1.5;
+  letter-spacing: .01em;
+}
+.id-card__gov-line--sm { font-size: 9px; color: #8a959e; margin-top: 1px; }
+
+.id-card__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 22px 12px;
+  border-bottom: 1px solid #e6eaee;
+}
+
+.id-card__brand-seal {
+  width: 60px;
+  height: 60px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 2px solid #c8962a;
+  border-radius: 50%;
+  background: #fff;
+}
+.id-card__brand-seal img { width: 100%; height: 100%; object-fit: contain; }
+
+.id-card__brand-copy { min-width: 0; }
+.id-card__brand-filipino {
+  font-size: 9px;
+  font-weight: 700;
+  color: #a06c0a;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  line-height: 1.3;
+}
+.id-card__brand-name {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f2440;
+  line-height: 1.15;
+  margin-top: 2px;
+}
+.id-card__brand-line {
+  font-size: 9.5px;
+  color: #57606a;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  margin-top: 3px;
+}
+
+.id-card__school-id {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 20px;
+  background: #0f2440;
+  color: #ffffff;
+  font-size: 10.5px;
+  letter-spacing: .06em;
+}
+.id-card__school-id-label { color: #c8ddf5; text-transform: uppercase; font-weight: 600; }
+.id-card__school-id-value {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-weight: 700;
+  font-size: 12px;
+}
+
+.id-card__body {
+  display: flex;
+  flex: 1;
+  gap: 18px;
+  padding: 18px 22px;
+  min-height: 0;
+}
+
+.id-card__photo {
+  width: 172px;
+  height: 200px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid #c8962a;
+  border-radius: 4px;
+  background: #f4f6f8;
+}
+.id-card__photo img { width: 100%; height: 100%; object-fit: cover; }
+.id-card__photo-placeholder {
+  color: #8a959e;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+}
+
+.id-card__details {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.id-card__name {
+  font-size: 22px;
+  font-weight: 800;
+  color: #0f2440;
+  line-height: 1.12;
+  word-break: break-word;
+}
+
+.id-card__code {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  margin: 8px 0 14px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e6eaee;
+}
+.id-card__code-label {
+  font-size: 9.5px;
+  color: #57606a;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.id-card__code-value {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f2440;
+}
+
+.id-card__fields {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  font-size: 11px;
+}
+.id-card__fields > div {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 8px;
+  align-items: baseline;
+}
+.id-card__fields dt {
+  color: #57606a;
+  font-size: 9.5px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+.id-card__fields dd {
+  margin: 0;
+  color: #1f2328;
+  font-size: 11px;
+  font-weight: 600;
+  word-break: break-word;
+}
+
+.id-card__signatures {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  padding: 8px 22px 12px;
+  margin-top: auto;
+}
+.id-card__signature { text-align: center; }
+.id-card__signature-line {
+  height: 1px;
+  background: #57606a;
+  margin-bottom: 4px;
+}
+.id-card__signature-label {
+  font-size: 9px;
+  color: #57606a;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* Co-branding strip at the bottom of the front */
+.id-card__cobrand {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  padding: 10px 20px;
+  border-top: 1px solid #e6eaee;
+  background: #fafbfc;
+}
+.id-card__cobrand-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+.id-card__cobrand-seal {
+  width: 34px;
+  height: 34px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+.id-card__cobrand-seal img { width: 100%; height: 100%; object-fit: contain; }
+.id-card__cobrand-seal--text {
+  border: 1px solid #c8962a;
+  border-radius: 50%;
+  color: #0f2440;
+  font-size: 8px;
+  font-weight: 800;
+}
+.id-card__cobrand-copy { min-width: 0; line-height: 1.15; }
+.id-card__cobrand-label {
+  font-size: 7.5px;
+  font-weight: 700;
+  color: #8a959e;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.id-card__cobrand-title {
+  font-size: 9.5px;
+  font-weight: 700;
+  color: #0f2440;
+  margin-top: 1px;
+  word-break: break-word;
+}
+.id-card__cobrand-sub {
+  font-size: 8px;
+  color: #57606a;
+  margin-top: 1px;
+  word-break: break-word;
+}
+
+.id-card__foot {
+  display: flex;
+  justify-content: space-between;
+  padding: 10px 22px;
+  border-top: 1px solid #e6eaee;
+  background: #fafbfc;
+  color: #8a959e;
+  font-size: 9px;
+  letter-spacing: .04em;
+}
+
+/* BACK -------------------------------------------------------------- */
+.student-id-card__back {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+  padding: 18px 22px 14px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.id-card__back-header {
+  text-align: center;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #e6eaee;
+  width: 100%;
+}
+.id-card__back-brand {
+  font-size: 13px;
+  font-weight: 800;
+  color: #0f2440;
+  letter-spacing: .02em;
+}
+.id-card__back-brand-sub {
+  font-size: 9px;
+  color: #57606a;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-top: 2px;
+}
+
+.id-card__back-qr-frame {
+  margin: 18px 0 14px;
+  padding: 14px;
+  border: 3px solid #c8962a;
+  border-radius: 4px;
+  background: #ffffff;
+}
+
+.id-card__back-qr {
+  display: grid;
+  place-items: center;
+  width: 280px;
+  height: 280px;
+  background: #ffffff;
+}
+.id-card__back-qr img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  image-rendering: crisp-edges;
+}
+.id-card__qr-fallback {
+  color: #8a959e;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.id-card__back-caption {
+  font-size: 15px;
+  font-weight: 800;
+  color: #0f2440;
+  letter-spacing: .12em;
+  margin-top: 4px;
+}
+
+.id-card__back-sub {
+  margin-top: 4px;
+  font-size: 10.5px;
+  color: #57606a;
+  text-align: center;
+  max-width: 320px;
+  line-height: 1.5;
+}
+
+.id-card__back-steps {
+  margin-top: 10px;
+  padding: 8px 12px;
+  border: 1px solid #e6eaee;
+  border-radius: 3px;
+  background: #fafbfc;
+  width: 100%;
+  max-width: 380px;
+}
+.id-card__back-steps-title {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: #0f2440;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+.id-card__back-steps-list {
+  margin: 0;
+  padding-left: 16px;
+  font-size: 9px;
+  color: #57606a;
+  line-height: 1.5;
+}
+.id-card__back-steps-list li { margin-bottom: 2px; }
+
+.id-card__back-note {
+  margin-top: 14px;
+  padding: 10px 12px;
+  border: 1px solid #e6eaee;
+  border-left: 3px solid #c8962a;
+  border-radius: 3px;
+  background: #fafbfc;
+  font-size: 9.5px;
+  color: #57606a;
+  line-height: 1.55;
+  text-align: left;
+  max-width: 340px;
+}
+
+.id-card__back-footer {
+  margin-top: auto;
+  padding: 8px 0;
+  width: 100%;
+  border-top: 1px solid #e6eaee;
+  display: grid;
+  gap: 3px;
+}
+.id-card__back-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  color: #8a959e;
+  font-size: 8.5px;
+}
+.id-card__back-footer-row strong {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-weight: 600;
+  color: #1f2328;
+}
+
+/* ── Photo controls (outside the card) ── */
+.student-id-card__controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.student-id-print {
+  padding: 9px 16px;
+  border: 1px solid var(--navy-800);
+  border-radius: var(--radius-sm);
+  background: var(--navy-800);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-weight: 600;
+  font-size: 12px;
+}
+.student-id-print:hover { background: var(--navy-900); border-color: var(--navy-900); }
+.student-id-photo-button { position: relative; overflow: hidden; }
+.student-id-photo-button input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+/* Crop editor */
+.student-id-crop-editor {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 14px;
+  width: min(100%, 540px);
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+}
+.student-id-crop-preview {
+  width: 220px;
+  height: 220px;
+  overflow: hidden;
+  border: 3px solid #c8962a;
+  border-radius: 6px;
+  background: #e8eef5;
+}
+.student-id-crop-preview img { width: 100%; height: 100%; object-fit: cover; transform-origin: center; }
+.student-id-crop-controls { display: grid; align-content: center; gap: 10px; }
+.student-id-crop-controls label { display: grid; gap: 4px; color: var(--text-sub); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+.student-id-crop-controls input { width: 100%; accent-color: var(--navy-800); }
+.student-id-crop-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.student-id-print-secondary { background: var(--bg-card); color: var(--navy-800); border-color: var(--border-strong); }
+
+/* ── Mobile ── */
+@media (max-width: 640px) {
+  .student-id-toolbar { align-items: flex-start; flex-direction: column; width: 100%; }
+  .student-id-side-switch, .student-id-export-buttons { width: 100%; margin-left: 0; }
+  .student-id-side-switch button, .student-id-export-buttons button { flex: 1 1 auto; }
+  .student-id-viewport { padding: 12px; }
+  .id-card__cobrand { gap: 6px; padding-right: 14px; padding-left: 14px; }
+  .id-card__cobrand-cell { gap: 5px; }
+  .id-card__cobrand-seal { width: 28px; height: 28px; }
+  .id-card__cobrand-title { font-size: 8.5px; }
+  .id-card__cobrand-sub { font-size: 7px; }
+  .student-id-crop-editor { grid-template-columns: 1fr; }
+  .student-id-crop-preview { width: min(220px, 100%); justify-self: center; }
+  .student-id-crop-actions { grid-column: auto; }
+}
+
+/* ── Print ── */
+@media print {
+  @page { size: 53.98mm 85.60mm; margin: 0; }
+  body * { visibility: hidden !important; }
+  .student-id-sheet, .student-id-sheet * { visibility: visible !important; }
+  .student-id-sheet { position: absolute; top: 0; left: 0; width: 66mm; align-items: flex-start; }
+  .student-id-toolbar,
+  .student-id-card__controls,
+  .student-id-crop-editor { display: none !important; }
+  .student-id-card {
+    position: static;
+    width: 53.98mm;
+    height: 85.60mm;
+    transform: none !important;
+    border: .2mm solid #1f2328;
+    border-radius: 1mm;
+    box-shadow: none;
+  }
+  .no-print { display: none !important; }
+}
+
+/* CR100 upscale: 66 × 100 mm university ID size */
+.student-id-card {
+  width: 660px;
+  height: 1000px;
+}
+
+.student-id-preview-modal {
+  width: min(1080px, calc(100vw - 32px));
+}
+
+.student-id-toolbar {
+  width: min(100%, 990px);
+}
+
+.id-card__goldline { height: 10px; }
+.id-card__gov { padding: 16px 24px 12px; }
+.id-card__gov-line { font-size: 12px; line-height: 1.55; }
+.id-card__gov-line--sm { font-size: 11px; margin-top: 2px; }
+
+.id-card__brand { padding: 18px 26px 14px; gap: 16px; }
+.id-card__brand-seal {
+  width: 74px;
+  height: 74px;
+  border-width: 3px;
+}
+.id-card__brand-filipino { font-size: 11px; letter-spacing: .07em; }
+.id-card__brand-name { font-size: 19px; margin-top: 3px; line-height: 1.15; }
+.id-card__brand-line { font-size: 12px; margin-top: 4px; letter-spacing: .16em; }
+
+.id-card__school-id { padding: 8px 24px; gap: 10px; font-size: 13px; }
+.id-card__school-id-value { font-size: 15px; }
+
+.id-card__body { padding: 22px 26px; gap: 22px; }
+.id-card__photo {
+  width: 210px;
+  height: 254px;
+  border-width: 4px;
+}
+.id-card__photo-placeholder { font-size: 14px; }
+
+.id-card__name { font-size: 27px; line-height: 1.1; }
+.id-card__code { margin: 10px 0 16px; padding-bottom: 12px; gap: 10px; }
+.id-card__code-label { font-size: 11.5px; letter-spacing: .14em; }
+.id-card__code-value { font-size: 17px; }
+
+.id-card__fields { gap: 8px; font-size: 13.5px; }
+.id-card__fields > div { grid-template-columns: 96px 1fr; gap: 10px; }
+.id-card__fields dt { font-size: 11px; letter-spacing: .07em; }
+.id-card__fields dd { font-size: 13.5px; }
+
+.id-card__signatures { gap: 30px; padding: 10px 26px 14px; }
+.id-card__signature-line { height: 1.5px; margin-bottom: 5px; }
+.id-card__signature-label { font-size: 11px; letter-spacing: .1em; }
+
+.id-card__cobrand { gap: 16px; padding: 14px 26px; }
+.id-card__cobrand-cell { gap: 10px; }
+.id-card__cobrand-seal { width: 46px; height: 46px; }
+.id-card__cobrand-label { font-size: 9.5px; letter-spacing: .14em; }
+.id-card__cobrand-title { font-size: 12px; margin-top: 2px; }
+.id-card__cobrand-sub { font-size: 10.5px; margin-top: 1px; }
+
+.id-card__foot { padding: 12px 26px; font-size: 11.5px; letter-spacing: .05em; }
+
+.student-id-card__back { padding: 22px 26px 16px; }
+.id-card__back-header { padding-bottom: 12px; }
+.id-card__back-brand { font-size: 16px; }
+.id-card__back-brand-sub { font-size: 11px; letter-spacing: .14em; margin-top: 3px; }
+
+.id-card__back-qr-frame { margin: 22px 0 16px; padding: 18px; border-width: 4px; }
+.id-card__back-qr { width: 320px; height: 320px; }
+.id-card__qr-fallback { font-size: 15px; }
+.id-card__back-caption { font-size: 19px; margin-top: 6px; letter-spacing: .14em; }
+.id-card__back-sub { margin-top: 5px; font-size: 13px; max-width: 400px; line-height: 1.55; }
+
+.id-card__back-steps { margin-top: 14px; padding: 12px 16px; max-width: 480px; }
+.id-card__back-steps-title { font-size: 11px; margin-bottom: 6px; letter-spacing: .12em; }
+.id-card__back-steps-list { font-size: 11.5px; line-height: 1.6; padding-left: 20px; }
+.id-card__back-steps-list li { margin-bottom: 3px; }
+
+.id-card__back-note { margin-top: 14px; padding: 12px 16px; font-size: 11.5px; line-height: 1.6; max-width: 480px; }
+.id-card__back-footer { padding: 12px 0; gap: 5px; }
+.id-card__back-footer-row { font-size: 11px; }
+.id-card__back-footer-row strong { font-size: 11.5px; }
+
+@media print {
+  @page { size: 66mm 100mm; margin: 0; }
+  .student-id-card {
+    width: 66mm !important;
+    height: 100mm !important;
+  }
+}
+
+/* Force side-by-side cards when the browser viewport is desktop-width. */
+@media (min-width: 901px) {
+  .student-id-pair {
+    flex-direction: row !important;
+    gap: 24px !important;
+    align-items: flex-start !important;
+  }
+  .student-id-pair.is-stacked { flex-direction: row !important; }
+  .student-id-viewport {
+    overflow: hidden !important;
+    align-items: center !important;
+  }
+}
+
+.student-id-preview-modal {
+  width: min(1200px, calc(100vw - 20px)) !important;
+  max-width: 1200px !important;
+}
+
+/* ID card refinements: square photo and higher-contrast metadata */
+.id-card__photo {
+  width: 220px;
+  height: 220px;
+  border-width: 4px;
+}
+
+.id-card__cobrand {
+  gap: 14px;
+  padding: 12px 22px;
+}
+.id-card__cobrand-cell {
+  gap: 8px;
+  align-items: flex-start;
+}
+.id-card__cobrand-seal {
+  width: 40px;
+  height: 40px;
+}
+.id-card__cobrand-title {
+  font-size: 11px;
+  line-height: 1.2;
+}
+.id-card__cobrand-sub {
+  font-size: 9.5px;
+  line-height: 1.25;
+  margin-top: 1px;
+}
+
+.id-card__back-footer-row {
+  color: #57606a;
+  font-size: 11px;
+}
+.id-card__back-footer-row span { color: #8a959e; }
+.id-card__back-footer-row strong {
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  font-weight: 700;
+  color: #0f2440;
+  font-size: 11.5px;
+  min-width: 70px;
+  text-align: right;
+}
+.id-card__back-footer-row strong:empty::after {
+  content: '—';
+  color: #8a959e;
+}
+
+/* ID preview: native-size card with scroll instead of height-based shrinking */
+.student-id-preview-modal {
+  width: min(900px, calc(100vw - 24px));
+  max-width: 900px;
+  height: calc(100vh - 24px) !important;
+  max-height: calc(100vh - 24px) !important;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.student-id-preview-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  padding: 12px 16px 16px;
+}
+
+.student-id-viewport {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: flex-start;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+.student-id-card-scaler {
+  position: relative;
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+
+.student-id-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 660px;
+  height: 1000px;
+  transform-origin: top left;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  color: #1f2328;
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  overflow: hidden;
+}
+
+.student-id-toolbar {
+  width: 100%;
+  max-width: 660px;
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 0 auto 6px;
+  flex-shrink: 0;
+}
+.student-id-toolbar strong { font-size: 13px; }
+.student-id-toolbar span { font-size: 10px; }
+
+.student-id-card__controls {
+  width: 100%;
+  max-width: 660px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  margin: 6px auto 0;
+  flex-shrink: 0;
+}
+.student-id-print { padding: 7px 12px; font-size: 11px; }
+
+@media (max-width: 720px) {
+  .student-id-preview-modal {
+    width: calc(100vw - 12px);
+    max-width: calc(100vw - 12px);
+  }
+  .student-id-viewport {
+    overflow-y: auto;
+    overflow-x: hidden;
+    justify-content: center;
+    padding: 8px;
+  }
+  .student-id-card-scaler { margin: 0; }
+}
+
+@media print {
+  .student-id-toolbar,
+  .student-id-card__controls,
+  .student-id-crop-editor { display: none !important; }
+  .student-id-preview-modal,
+  .student-id-preview-modal .modal-body,
+  .student-id-viewport {
+    width: 66mm !important;
+    max-width: 66mm !important;
+    height: auto !important;
+    max-height: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    background: transparent !important;
+  }
+}
+
+/* Side-by-side ID preview: front and back visible together */
+.student-id-preview-modal {
+  width: min(1000px, calc(100vw - 24px)) !important;
+  max-width: 1000px !important;
+  height: calc(100vh - 24px) !important;
+  max-height: calc(100vh - 24px) !important;
+  overflow: hidden;
+}
+
+.student-id-preview-modal .modal-body {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 10px 14px 14px;
+  overflow: hidden;
+}
+
+.student-id-toolbar {
+  width: 100%;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.student-id-toolbar-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.student-id-toolbar strong { font-size: 13px; }
+.student-id-toolbar span { font-size: 10.5px; }
+
+.student-id-viewport {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 0;
+  min-width: 0;
+  overflow: hidden;
+  padding: 4px;
+  box-sizing: border-box;
+}
+
+.student-id-pair {
+  display: flex;
+  gap: 24px;
+  align-items: flex-start;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+}
+
+.student-id-pair.is-stacked {
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+}
+
+.student-id-side {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.student-id-side__label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  color: var(--text-muted);
+  text-transform: uppercase;
+}
+
+.student-id-card-scaler {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.student-id-card {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 660px;
+  height: 1000px;
+  transform-origin: top left;
+  background: #ffffff;
+  border: 1px solid #d0d7de;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.student-id-card__controls {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding-top: 10px;
+  margin-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.student-id-side-switch { display: none; }
+
+@media (max-width: 900px) {
+  .student-id-pair.is-stacked { flex-direction: column; }
+  .student-id-viewport {
+    overflow-y: auto;
+    align-items: flex-start;
+    padding: 8px;
+  }
+}
+
+@media print {
+  @page { size: 66mm 100mm; margin: 0; }
+
+  body * { visibility: hidden !important; }
+  .student-id-sheet,
+  .student-id-sheet * { visibility: visible !important; }
+
+  .student-id-toolbar,
+  .student-id-card__controls,
+  .student-id-crop-editor,
+  .student-id-side__label { display: none !important; }
+
+  .student-id-viewport {
+    padding: 0 !important;
+    overflow: visible !important;
+    display: block !important;
+  }
+
+  .student-id-pair {
+    display: block !important;
+    gap: 0 !important;
+  }
+
+  .student-id-side {
+    display: block !important;
+    page-break-after: always;
+    break-after: page;
+  }
+  .student-id-side:last-child { page-break-after: auto; break-after: auto; }
+
+  .student-id-card-scaler {
+    width: 66mm !important;
+    height: 100mm !important;
+    position: relative !important;
+  }
+
+  .student-id-card {
+    position: static !important;
+    width: 66mm !important;
+    height: 100mm !important;
+    transform: none !important;
+    border: .2mm solid #1f2328;
+    border-radius: 1mm;
+    box-shadow: none !important;
+  }
+}
+
+/* Force side-by-side cards when the browser viewport is desktop-width. */
+@media (min-width: 901px) {
+  .student-id-pair {
+    flex-direction: row !important;
+    gap: 24px !important;
+    align-items: flex-start !important;
+  }
+  .student-id-pair.is-stacked { flex-direction: row !important; }
+  .student-id-viewport {
+    overflow: hidden !important;
+    align-items: center !important;
+  }
+}
+
+.student-id-preview-modal {
+  width: min(1200px, calc(100vw - 20px)) !important;
+  max-width: 1200px !important;
+}

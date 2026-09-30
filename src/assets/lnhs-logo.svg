@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" role="img" aria-labelledby="title desc">
+  <title id="title">LNHS logo</title>
+  <desc id="desc">Looc National High School mark</desc>
+  <rect width="160" height="160" rx="24" fill="#0f2440"/>
+  <circle cx="80" cy="67" r="42" fill="#c8962a"/>
+  <path d="M51 64h58v39H51z" fill="#fff"/>
+  <path d="M47 61h66L80 43z" fill="#fff"/>
+  <path d="M61 73h12v22H61zm26 0h12v22H87z" fill="#0f2440"/>
+  <text x="80" y="137" text-anchor="middle" fill="#fff" font-family="Arial,sans-serif" font-size="20" font-weight="700" letter-spacing="2">LNHS</text>
+</svg>

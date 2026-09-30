@@ -1,0 +1,153 @@
+:root {
+  --navy-900: #0a1628;
+  --navy-800: #14233d;
+  --navy-700: #1a3050;
+  --navy-600: #234065;
+  --navy-500: #2f5080;
+  --navy-400: #3d6096;
+
+  --bg: #f0f2f6;
+  --surface: #ffffff;
+  --surface-alt: #f7f9fc;
+  --border: #e2e6ed;
+  --border-light: #f0f2f6;
+  --border-strong: #c8d4e2;
+
+  --text-primary: #0a1628;
+  --text-secondary: #1a2634;
+  --text-muted: #5a6f8a;
+  --text-light: #7a94b8;
+
+  --positive: #1a6b66;
+  --positive-bg: #e0f0ed;
+  --positive-border: #b8dcd7;
+
+  --warning: #9e7a3a;
+  --warning-bg: #f5ede0;
+  --warning-border: #e6d4b8;
+
+  --danger: #b84a42;
+  --danger-bg: #f5e8e6;
+  --danger-border: #e6c4c0;
+
+  --info: #1a3050;
+  --info-bg: #e4eaf3;
+  --info-border: #c4d0e0;
+
+  --neutral: #5a6f8a;
+  --neutral-bg: #eef0f3;
+
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --fs-xs: 11px;
+  --fs-sm: 12px;
+  --fs-base: 13px;
+  --fs-md: 14px;
+  --fs-lg: 16px;
+  --fs-xl: 20px;
+  --fs-2xl: 24px;
+
+  --sp-xs: 4px;
+  --sp-sm: 8px;
+  --sp-md: 12px;
+  --sp-lg: 16px;
+  --sp-xl: 20px;
+  --sp-2xl: 24px;
+  --sp-3xl: 32px;
+
+  --r-sm: 4px;
+  --r-md: 6px;
+  --r-lg: 8px;
+
+  --navy-950: var(--navy-900);
+  --navy-200: var(--info-border);
+  --navy-100: var(--info-bg);
+  --navy-50: #f4f6f9;
+  --gold-700: var(--warning);
+  --gold-600: var(--warning);
+  --gold-500: var(--warning);
+  --gold-400: #b99557;
+  --gold-100: var(--warning-bg);
+  --gold-50: #faf7f1;
+  --green-700: var(--positive);
+  --green-600: var(--positive);
+  --green-100: var(--positive-bg);
+  --green-50: #f3f8f7;
+  --red-700: var(--danger);
+  --red-600: var(--danger);
+  --red-100: var(--danger-bg);
+  --red-50: #fbf5f4;
+  --amber-700: var(--warning);
+  --amber-600: var(--warning);
+  --amber-100: var(--warning-bg);
+  --amber-50: #faf7f1;
+  --info-700: var(--info);
+  --info-100: var(--info-bg);
+
+  --bg-page: var(--bg);
+  --bg-card: var(--surface);
+  --bg-hover: var(--surface-alt);
+  --bg-sunken: var(--neutral-bg);
+  --header-bg: var(--navy-900);
+  --sidebar-bg: var(--navy-900);
+  --text-main: var(--text-primary);
+  --text-sub: var(--text-secondary);
+  --text-invert: #ffffff;
+  --border-subtle: var(--border-light);
+  --radius-sm: var(--r-sm);
+  --radius: var(--r-md);
+  --radius-lg: var(--r-lg);
+  --shadow-menu: 0 8px 24px rgba(10, 22, 40, .12);
+  --shadow-modal: 0 16px 48px rgba(10, 22, 40, .18);
+}
+
+/* ============================================================
+   DARK THEME OVERRIDES
+   Applied when ThemeContext sets <html data-theme="dark">.
+   Shell (sidebar + topbar) stays navy for LNHS identity.
+   Content surfaces flip to dark neutral tones.
+   ============================================================ */
+html[data-theme='dark'] {
+  /* Content surfaces */
+  --bg: #0d1726;
+  --surface: #131f30;
+  --surface-alt: #182739;
+  --bg-page: #0d1726;
+  --bg-card: #131f30;
+  --bg-hover: #182739;
+  --bg-sunken: #0a1220;
+
+  /* Borders */
+  --border: #1f3148;
+  --border-light: #182739;
+  --border-strong: #2a4060;
+  --border-subtle: #182739;
+
+  /* Text */
+  --text-primary: #e8f0ff;
+  --text-secondary: #c8d6e8;
+  --text-muted: #8aacd4;
+  --text-light: #5a7a9e;
+  --text-main: #e8f0ff;
+  --text-sub: #c8d6e8;
+  --text-invert: #0a1628;
+
+  /* Shell — keep navy identity intact */
+  --header-bg: var(--navy-900);
+  --sidebar-bg: var(--navy-900);
+
+  /* Status surfaces — slightly deeper for dark mode */
+  --positive-bg: #14332f;
+  --positive-border: #1a4a44;
+  --warning-bg: #3a2f1e;
+  --warning-border: #4a3a24;
+  --danger-bg: #3a1f1d;
+  --danger-border: #4a2a27;
+  --info-bg: #1a2a44;
+  --info-border: #243a5a;
+  --neutral-bg: #1a2332;
+
+  /* Neutral scale aliases used by some components */
+  --navy-50: #182739;
+  --navy-100: #1f3148;
+  --navy-200: #2a4060;
+}
