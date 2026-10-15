@@ -4,6 +4,7 @@ import Button from '../components/Button';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
 import { useData } from '../context/DataContext';
+import { displayValue } from '../utils/display';
 
 const STATUS_OPTS = ['All','sent','failed','simulated','skipped'];
 
@@ -72,26 +73,28 @@ export default function SmsLogs() {
             <tbody>
               {filtered.map((l) => {
                 const student = getStudent(l);
+                const message = displayValue(l.message);
+                const status = displayValue(l.status);
                 return <tr key={l.id}>
-                  <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{l.id}</span></td>
+                  <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.id)}</span></td>
                   <td>
-                    <div style={{ fontWeight:600, fontSize:'.875rem' }}>{student?.name || l.studentId || 'Unknown student'}</div>
-                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{student?.studentCode || student?.code || l.studentId || '—'}</div>
+                    <div style={{ fontWeight:600, fontSize:'.875rem' }}>{displayValue(student?.name)}</div>
+                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(student?.studentCode || student?.code || l.studentId)}</div>
                   </td>
-                  <td>{l.period || '—'}</td>
+                  <td>{displayValue(l.period)}</td>
                   <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.82rem', color:'var(--text-sub)' }}>{maskPhone(l.phone)}</span></td>
                   <td style={{ maxWidth:'220px' }}>
                     <span style={{ fontSize:'.82rem', color:'var(--text-sub)' }} title={l.message || ''}>
-                      {(l.message || '—').length>60 ? l.message.slice(0,60)+'…' : (l.message || '—')}
+                      {message.length > 60 ? `${message.slice(0, 60)}…` : message}
                     </span>
                   </td>
                   <td>
-                    <span className={`badge badge-${l.status}`}>
-                      {l.status.charAt(0).toUpperCase()+l.status.slice(1)}
-                    </span>
+                    {status === '—'
+                      ? <span className="text-muted">—</span>
+                      : <span className={`badge badge-${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>}
                   </td>
-                  <td style={{ fontSize:'.82rem', color:'var(--text-sub)' }}>{l.provider || '—'}</td>
-                  <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{l.createdAt || '—'}</span></td>
+                  <td style={{ fontSize:'.82rem', color:'var(--text-sub)' }}>{displayValue(l.provider)}</td>
+                  <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.createdAt)}</span></td>
                 </tr>
               })}
               {!filtered.length && (

@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
 import { useData } from '../context/DataContext';
+import { displayValue } from '../utils/display';
 
 function SectionModal({ onClose, onSave, existing, advisers }) {
   const [form, setForm] = useState(existing ?? { name:'', grade:'12', room:'', strand:'STEM', adviser:'' });
@@ -139,20 +140,20 @@ export default function Sections() {
                 <div className="flex items-start justify-between mb-3">
                   <div>
                     <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.95rem', color:'var(--navy-900)' }}>
-                      {sec.name}
+                      {displayValue(sec.name)}
                     </div>
-                    <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginTop:'1px' }}>{sec.room}</div>
+                    <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginTop:'1px' }}>{displayValue(sec.room)}</div>
                   </div>
-                  <span className="badge badge-navy">{sec.strand}</span>
+                  <span className="badge badge-navy">{displayValue(sec.strand)}</span>
                 </div>
                 <div className="space-y-1.5 mb-4 text-sm">
                   <div className="flex justify-between">
                     <span style={{ color:'var(--text-muted)' }}>Adviser</span>
-                    <span style={{ fontWeight:600, color:'var(--text-main)' }}>{sec.adviser}</span>
+                    <span style={{ fontWeight:600, color:'var(--text-main)' }}>{displayValue(sec.adviser)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color:'var(--text-muted)' }}>Students</span>
-                    <span style={{ fontFamily:'JetBrains Mono', fontWeight:500, color:'var(--navy-800)' }}>{students.filter((student) => (student.sectionId || student.section) === sec.id || (student.sectionId || student.section) === sec.name).length}</span>
+                    <span style={{ fontFamily:'JetBrains Mono', fontWeight:500, color:'var(--navy-800)' }}>{displayValue(students.filter((student) => (student.sectionId || student.section) === sec.id || (student.sectionId || student.section) === sec.name).length)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color:'var(--text-muted)' }}>Status</span>

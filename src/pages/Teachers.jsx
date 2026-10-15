@@ -6,6 +6,7 @@ import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
 import { useData } from '../context/DataContext';
+import { displayValue } from '../utils/display';
 
 function emailValid(v) { return /^[^\s@]+@lnhs\.edu\.ph$/i.test(v.trim()); }
 
@@ -165,21 +166,23 @@ export default function Teachers() {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => (
-                <tr key={t.uid}>
+              {filtered.map((t) => {
+                const assignedSections = (t.sections || (t.sectionId ? [t.sectionId] : []))
+                  .map((section) => displayValue(sectionNameById.get(section) || section));
+                return <tr key={t.uid}>
                   <td>
-                    <div style={{ fontWeight:600, color:'var(--text-main)' }}>{t.name || '—'}</div>
-                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{t.uid}</div>
+                    <div style={{ fontWeight:600, color:'var(--text-main)' }}>{displayValue(t.name)}</div>
+                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid)}</div>
                   </td>
-                  <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{String(t.email || '—').toLowerCase()}</td>
-                  <td><span className="badge badge-strand" data-strand={t.strand}>{t.strand}</span></td>
+                  <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{displayValue(String(t.email || '').toLowerCase())}</td>
+                  <td><span className="badge badge-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
                   <td>
                     <div className="flex flex-wrap gap-1">
-                      {(t.sections || (t.sectionId ? [t.sectionId] : [])).map((sec) => (
-                        <span key={sec} style={{ fontSize:'.74rem', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px' }}>
-                          {sectionNameById.get(sec) || sec}
+                      {assignedSections.length ? assignedSections.map((section) => (
+                        <span key={section} style={{ fontSize:'.74rem', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px' }}>
+                          {section}
                         </span>
-                      ))}
+                      )) : <span className="text-muted">—</span>}
                     </div>
                   </td>
                   <td>
@@ -199,8 +202,8 @@ export default function Teachers() {
                       )}
                     </div>
                   </td>
-                </tr>
-              ))}
+                </tr>;
+              })}
               {!filtered.length && (
                 <EmptyTableRow
                   colSpan={6}

@@ -7,6 +7,7 @@ import FormField from '../components/FormField';
 import Modal from '../components/Modal';
 import StudentIdCard from '../components/StudentIdCard';
 import { useData } from '../context/DataContext';
+import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
 
 const STRANDS = ['All Strands', 'STEM', 'ABM', 'HUMSS', 'TVL', 'GAS'];
@@ -350,11 +351,11 @@ export default function Students() {
                 const parent = parentByStudentId.get(student.id);
                 return <tr key={student.id}>
                   <td className="mono students-table__id">{displayStudentId(student)}</td>
-                  <td><span className="cell-name">{student.name || '—'}</span></td>
-                  <td><span className="badge badge-strand" data-strand={student.strand}>{student.strand}</span></td>
-                  <td>{student.section || sectionById.get(student.sectionId)?.name || '—'}</td>
-                  <td>{student.adviser || sectionById.get(student.sectionId)?.adviser || '—'}</td>
-                  <td className="mono students-table__phone">{parent?.parentPhone || student.parentPhone || '—'}</td>
+                  <td><span className="cell-name">{displayValue(student.name)}</span></td>
+                  <td><span className="badge badge-strand" data-strand={student.strand}>{displayValue(student.strand)}</span></td>
+                  <td>{displayValue(student.section || sectionById.get(student.sectionId)?.name)}</td>
+                  <td>{displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser)}</td>
+                  <td className="mono students-table__phone">{displayValue(parent?.parentPhone || student.parentPhone)}</td>
                   <td><span className={`badge ${student.active ? 'badge-active' : 'badge-inactive'}`}>{student.active ? 'Active' : 'Inactive'}</span></td>
                   <td className="right"><div className="row-actions">
                     <Button variant="ghost" size="sm" onClick={() => setEditing({

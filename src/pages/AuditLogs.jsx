@@ -4,6 +4,7 @@ import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
+import { displayValue } from '../utils/display';
 
 const ACTION_LABELS = {
   'attendance.recorded': 'Attendance recorded',
@@ -172,11 +173,11 @@ export default function AuditLogs() {
             <tbody>
               {filtered.map((log) => (
                 <tr key={log.id}>
-                  <td className="audit-id">{log.id || '—'}</td>
-                  <td className="audit-actor" title={log.actorUid || ''}>{log.actor}</td>
+                  <td className="audit-id">{displayValue(log.id)}</td>
+                  <td className="audit-actor" title={log.actorUid || ''}>{displayValue(log.actor)}</td>
                   <td><span className="audit-action">{log.actionLabel}</span></td>
-                  <td className="audit-target" title={log.targetId || ''}>{log.targetLabel}</td>
-                  <td className="audit-details">{log.summary}</td>
+                  <td className="audit-target" title={log.targetId || ''}>{displayValue(log.targetLabel)}</td>
+                  <td className="audit-details">{displayValue(log.summary)}</td>
                   <td className="audit-time">{formatTimestamp(log.createdAt)}</td>
                 </tr>
               ))}

@@ -55,30 +55,33 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page">
-      <div className="login-card">
-        <div className="login-card__gov">
-          <div className="login-card__gov-line">Republic of the Philippines</div>
-          <div className="login-card__gov-line">Department of Education</div>
-          <div className="login-card__gov-line login-card__gov-line--sm">
+    <div className="login-shell">
+      <aside className="login-brand" aria-label="Looc National High School">
+        <div className="login-brand__gov">
+          <div className="login-brand__gov-line">Republic of the Philippines</div>
+          <div className="login-brand__gov-line">Department of Education</div>
+          <div className="login-brand__gov-line login-brand__gov-line--sm">
             Region IV-B MIMAROPA · Division of Romblon
           </div>
         </div>
 
-        <div className="login-card__school">
-          <div className="login-card__seal">
+        <div className="login-brand__center">
+          <div className="login-brand__seal">
             <img src={lnhsLogo} alt="Looc National High School seal" />
           </div>
-          <h1 className="login-card__school-name">Looc National High School</h1>
-          <p className="login-card__school-sub">
+          <h1 className="login-brand__name">Looc National High School</h1>
+          <p className="login-brand__tagline">
             Mataas na Paaralang Nasyonal ng Looc · Est. 1948
           </p>
-          <p className="login-card__school-id">School ID: 301765</p>
-          <p className="login-card__system">Attendance Monitoring System</p>
+          <p className="login-brand__id">School ID: 301765</p>
         </div>
 
-        <div className="login-card__form-wrap">
-          <div className="login-card__form-header">
+        <p className="login-brand__system">Attendance Monitoring System</p>
+      </aside>
+
+      <main className="login-form-panel">
+        <div className="login-form-panel__inner">
+          <div className="login-form-panel__header">
             <LogIn size={15} />
             <span>Sign in to your account</span>
           </div>
@@ -146,15 +149,13 @@ export default function Login() {
               For account concerns, contact the school administrator.
             </p>
           </form>
+          <p className="login-form-panel__notice">For official use of LNHS faculty and staff only.</p>
         </div>
 
-        <div className="login-card__footer">
-          <span>v2.0</span>
-          <span>Copyright {new Date().getFullYear()} LNHS</span>
-        </div>
-      </div>
-
-      <p className="login-page__foot">For official use of LNHS faculty and staff only.</p>
+        <footer className="login-form-panel__footer">
+          <span>v2.0 · © {new Date().getFullYear()} LNHS</span>
+        </footer>
+      </main>
     </div>
   );
 }
