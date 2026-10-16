@@ -1,13 +1,26 @@
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { BarChart2, ClipboardList, MessageSquare, Users, QrCode, CheckCircle2, Clock3, UserRoundX } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import {
+  Activity,
+  AlertTriangle,
+  BarChart3,
+  Calendar,
+  CheckCircle,
+  Clock,
+  Info,
+  MessageSquare,
+  Percent,
+  QrCode,
+  ShieldCheck,
+  Users,
+} from 'lucide-react';
 import { useData } from '../context/DataContext';
-import Button from '../components/Button';
+import EmptyState from '../components/EmptyState';
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
+const VALID_STATUSES = ['present', 'late', 'absent'];
 
 function getPeriodScan(record, period) {
-  if (record.scans) return record.scans[period] || null;
   if (record.scans?.[period]) return record.scans[period];
   if (period === 'AM-1' && record.status) {
     return { time: record.time || null, status: record.status, smsStatus: record.smsStatus };
@@ -15,271 +28,436 @@ function getPeriodScan(record, period) {
   return null;
 }
 
-function arrivalStatus(record) {
-  if ('arrivalStatus' in record) return record.arrivalStatus;
-  if (record.scans) return record.scans['AM-1']?.status || '';
-  return record.status;
+function getArrivalStatus(record) {
+  return record.arrivalStatus || record.scans?.['AM-1']?.status || record.status || '';
 }
 
-function percentage(value, total) {
-  if (!total) return '—';
-  return `${((value / total) * 100).toFixed(1)}%`;
+function getDateKey(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
+}
+
+function getTimeMinutes(value) {
+  if (typeof value !== 'string') return null;
+  const match = value.trim().match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?$/i);
+  if (!match) return null;
+  let hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const meridiem = match[3]?.toUpperCase();
+  if (minute > 59 || hour > 23 || (meridiem && hour > 12)) return null;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+  if (meridiem === 'PM' && hour < 12) hour += 12;
+  return hour * 60 + minute;
+}
+
+function formatClock(minutes) {
+  if (minutes === null || minutes === undefined) return '—';
+  const hour24 = Math.floor(minutes / 60);
+  const hour12 = hour24 % 12 || 12;
+  return `${hour12}:${String(minutes % 60).padStart(2, '0')} ${hour24 < 12 ? 'AM' : 'PM'}`;
+}
+
+function formatTimestamp(value) {
+  if (!value) return '—';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat('en-PH', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila',
+  }).format(date);
+}
+
+function getStatusClass(status) {
+  return VALID_STATUSES.includes(status) ? status : 'unknown';
+}
+
+function MetricCard({ icon: Icon, label, value, detail, tone }) {
+  return (
+    <article className="dashboard-kpi">
+      <div className="dashboard-kpi__top">
+        <p>{label}</p>
+        <span className={`dashboard-kpi__icon dashboard-kpi__icon--${tone}`}><Icon size={20} aria-hidden="true" /></span>
+      </div>
+      <strong className="dashboard-kpi__value">{value}</strong>
+      <span className="dashboard-kpi__detail">{detail}</span>
+    </article>
+  );
+}
+
+function PanelHeading({ icon: Icon, title, subtitle, action }) {
+  return (
+    <div className="dashboard-panel__heading">
+      <div className="dashboard-panel__heading-copy">
+        <div className="dashboard-panel__title-row">
+          {Icon && <Icon size={17} aria-hidden="true" />}
+          <h2>{title}</h2>
+        </div>
+        {subtitle && <p>{subtitle}</p>}
+      </div>
+      {action}
+    </div>
+  );
+}
+
+function AttendanceLineChart({ data }) {
+  const plotLeft = 48;
+  const plotRight = 680;
+  const plotTop = 16;
+  const plotBottom = 194;
+  const maximum = Math.max(1, ...data.flatMap((point) => [point.present, point.late, point.absent]));
+  const scaleMaximum = Math.max(5, Math.ceil(maximum / 5) * 5);
+  const xPosition = (index) => plotLeft + (index * (plotRight - plotLeft)) / Math.max(1, data.length - 1);
+  const yPosition = (value) => plotBottom - (value / scaleMaximum) * (plotBottom - plotTop);
+  const pointsFor = (key) => data.map((point, index) => `${xPosition(index)},${yPosition(point[key])}`).join(' ');
+  const ticks = [scaleMaximum, Math.round(scaleMaximum / 2), 0];
+
+  return (
+    <svg className="dashboard-line-chart" viewBox="0 0 700 250" role="img" aria-label="Attendance scans by hour and status">
+      {ticks.map((tick) => {
+        const y = yPosition(tick);
+        return <g key={tick}><line className="dashboard-chart__gridline" x1={plotLeft} y1={y} x2={plotRight} y2={y} /><text className="dashboard-chart__axis-label" x={plotLeft - 10} y={y + 4} textAnchor="end">{tick}</text></g>;
+      })}
+      <polyline className="dashboard-chart__line dashboard-chart__line--present" points={pointsFor('present')} />
+      <polyline className="dashboard-chart__line dashboard-chart__line--late" points={pointsFor('late')} />
+      <polyline className="dashboard-chart__line dashboard-chart__line--absent" points={pointsFor('absent')} />
+      {data.map((point, index) => (
+        <g key={point.hour}>
+          <circle className="dashboard-chart__point dashboard-chart__point--present" cx={xPosition(index)} cy={yPosition(point.present)} r="3.5" />
+          <circle className="dashboard-chart__point dashboard-chart__point--late" cx={xPosition(index)} cy={yPosition(point.late)} r="3.5" />
+          <circle className="dashboard-chart__point dashboard-chart__point--absent" cx={xPosition(index)} cy={yPosition(point.absent)} r="3.5" />
+          <text className="dashboard-chart__axis-label" x={xPosition(index)} y="222" textAnchor="middle">{point.label}</text>
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+function AttendanceDonut({ rate, total }) {
+  const radius = 48;
+  const circumference = 2 * Math.PI * radius;
+  const progress = rate === null ? 0 : circumference * Math.min(rate, 100) / 100;
+  return (
+    <svg className="dashboard-donut" viewBox="0 0 120 120" role="img" aria-label={rate === null ? 'No attendance rate available' : `Attendance rate ${rate.toFixed(1)} percent`}>
+      <circle className="dashboard-donut__track" cx="60" cy="60" r={radius} />
+      {total > 0 && <circle className="dashboard-donut__progress" cx="60" cy="60" r={radius} transform="rotate(-90 60 60)" strokeDasharray={`${progress} ${circumference}`} />}
+      <text className="dashboard-donut__value" x="60" y="57" textAnchor="middle">{rate === null ? '—' : `${rate.toFixed(1)}%`}</text>
+      <text className="dashboard-donut__caption" x="60" y="75" textAnchor="middle">ATTENDANCE</text>
+    </svg>
+  );
+}
+
+function WeeklyBarChart({ days }) {
+  const plotTop = 14;
+  const plotBottom = 160;
+  const plotHeight = plotBottom - plotTop;
+  const maximum = Math.max(1, ...days.map((day) => day.total));
+  const scaleMaximum = Math.max(5, Math.ceil(maximum / 5) * 5);
+  const barWidth = 38;
+  const startX = 52;
+  const spacing = 88;
+  const ticks = [scaleMaximum, Math.round(scaleMaximum / 2), 0];
+
+  return (
+    <svg className="dashboard-week-chart" viewBox="0 0 700 220" role="img" aria-label="Seven-day attendance totals by status">
+      {ticks.map((tick) => {
+        const y = plotBottom - (tick / scaleMaximum) * plotHeight;
+        return <g key={tick}><line className="dashboard-chart__gridline" x1="38" y1={y} x2="690" y2={y} /><text className="dashboard-chart__axis-label" x="30" y={y + 4} textAnchor="end">{tick}</text></g>;
+      })}
+      {days.map((day, index) => {
+        const x = startX + index * spacing;
+        const presentHeight = (day.present / scaleMaximum) * plotHeight;
+        const lateHeight = (day.late / scaleMaximum) * plotHeight;
+        const absentHeight = (day.absent / scaleMaximum) * plotHeight;
+        return (
+          <g key={day.date}>
+            <rect className="dashboard-week-chart__bar dashboard-week-chart__bar--present" x={x} y={plotBottom - presentHeight} width={barWidth} height={presentHeight} />
+            <rect className="dashboard-week-chart__bar dashboard-week-chart__bar--late" x={x} y={plotBottom - presentHeight - lateHeight} width={barWidth} height={lateHeight} />
+            <rect className="dashboard-week-chart__bar dashboard-week-chart__bar--absent" x={x} y={plotBottom - presentHeight - lateHeight - absentHeight} width={barWidth} height={absentHeight} />
+            <text className="dashboard-chart__axis-label" x={x + barWidth / 2} y="184" textAnchor="middle">{day.day}</text>
+            <text className="dashboard-week-chart__date" x={x + barWidth / 2} y="202" textAnchor="middle">{day.shortDate}</text>
+          </g>
+        );
+      })}
+    </svg>
+  );
 }
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { isAdmin } = useAuth();
-  const { students, attendance, sections, teachers, smsLogs, today } = useData();
+  const [range, setRange] = useState('today');
+  const { students = [], attendance = [], sections = [], smsLogs = [], auditLogs = [], today, loading } = useData();
 
-  const todayLabel = new Date().toLocaleDateString('en-PH', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-  });
+  const dashboardData = useMemo(() => {
+    const studentById = new Map(students.map((student) => [student.id, student]));
+    const sectionById = new Map(sections.map((section) => [section.id, section]));
+    const todayAttendance = attendance.filter((record) => getDateKey(record.date) === today);
+    const arrivals = todayAttendance
+      .map((record) => getArrivalStatus(record))
+      .filter((status) => VALID_STATUSES.includes(status));
+    const present = arrivals.filter((status) => status === 'present').length;
+    const late = arrivals.filter((status) => status === 'late').length;
+    const absent = arrivals.filter((status) => status === 'absent').length;
+    const arrivalTotal = present + late + absent;
+    const attendanceRate = arrivalTotal ? ((present + late) / arrivalTotal) * 100 : null;
 
-  const activeStudents = students.filter((student) => student.active !== false);
-  const roster = activeStudents.length ? activeStudents : students;
-  const todayAttendance = attendance.filter((record) => record.date === today);
-  const present = todayAttendance.filter((record) => arrivalStatus(record) === 'present').length;
-  const late = todayAttendance.filter((record) => arrivalStatus(record) === 'late').length;
-  const absent = todayAttendance.filter((record) => arrivalStatus(record) === 'absent').length;
-  const scansToday = todayAttendance.reduce((count, record) => count + PERIODS.filter((period) => getPeriodScan(record, period)).length, 0);
-  const smsAlertsToday = smsLogs.filter((record) => String(record.createdAt || record.sentAt || '').slice(0, 10) === today).length;
-  const overallPresent = present + late;
-  const overallRate = roster.length
-    ? Math.round((overallPresent / roster.length) * 1000) / 10
-    : 0;
-  const todayAtNoon = new Date(`${today}T12:00:00+08:00`);
-  const weeklyTrend = Array.from({ length: 7 }, (_, index) => {
-    const date = new Date(todayAtNoon);
-    date.setUTCDate(date.getUTCDate() - (6 - index));
-    const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
-    const dayRecords = attendance.filter((record) => record.date === dateKey);
-    const attended = dayRecords.filter((record) => ['present', 'late'].includes(arrivalStatus(record))).length;
-    const rate = roster.length ? attended / roster.length : 0;
-    return {
-      date: dateKey,
-      day: date.toLocaleDateString('en-PH', { weekday: 'short', timeZone: 'Asia/Manila' }),
-      rate,
-      label: `${(rate * 100).toFixed(0)}%`,
-    };
-  });
+    const scansFromRecords = (records) => records.flatMap((record) => PERIODS.flatMap((period) => {
+      const scan = getPeriodScan(record, period);
+      if (!scan) return [];
+      const status = scan.status || (period === 'AM-1' ? getArrivalStatus(record) : '');
+      const time = scan.time || (period === 'AM-1' ? record.time : '') || '';
+      const student = studentById.get(record.studentId);
+      const sectionId = student?.sectionId || record.sectionId || '';
+      return [{
+        id: `${record.id}-${period}`,
+        studentId: record.studentId,
+        studentName: student?.name || record.studentId || '—',
+        sectionName: student?.section || sectionById.get(sectionId)?.name || sectionId || '—',
+        period,
+        status,
+        time,
+        timeMinutes: getTimeMinutes(time),
+      }];
+    }));
+    const todayScans = scansFromRecords(todayAttendance);
+    const rangeStart = new Date(`${today}T12:00:00+08:00`);
+    if (range === 'week') rangeStart.setUTCDate(rangeStart.getUTCDate() - ((rangeStart.getUTCDay() + 6) % 7));
+    if (range === 'month') rangeStart.setUTCDate(1);
+    const rangeStartKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(rangeStart);
+    const rangeAttendance = attendance.filter((record) => {
+      const recordDate = getDateKey(record.date);
+      return recordDate >= rangeStartKey && recordDate <= today;
+    });
+    const rangeScans = range === 'today' ? todayScans : scansFromRecords(rangeAttendance);
 
-  const sectionById = new Map(sections.map((section) => [section.id, section]));
-  const recent = [...todayAttendance]
-    .sort((first, second) => String(second.time).localeCompare(String(first.time)))
-    .slice(0, 10)
-    .map((record) => {
-      const student = students.find((item) => item.id === record.studentId);
-      const section = sectionById.get(student?.sectionId || record.sectionId);
+    const hourlyScans = Array.from({ length: 13 }, (_, index) => ({
+      hour: index + 6,
+      label: index + 6 === 12 ? '12 PM' : `${(index + 6) % 12 || 12} ${index + 6 < 12 ? 'AM' : 'PM'}`,
+      present: 0,
+      late: 0,
+      absent: 0,
+    }));
+    rangeScans.forEach((scan) => {
+      if (scan.timeMinutes === null || !VALID_STATUSES.includes(scan.status)) return;
+      const hour = Math.floor(scan.timeMinutes / 60);
+      if (hour >= 6 && hour <= 18) hourlyScans[hour - 6][scan.status] += 1;
+    });
+
+    const timedArrivals = todayScans.filter((scan) => scan.period === 'AM-1' && ['present', 'late'].includes(scan.status) && scan.timeMinutes !== null);
+    const averageArrival = timedArrivals.length
+      ? Math.round(timedArrivals.reduce((total, scan) => total + scan.timeMinutes, 0) / timedArrivals.length)
+      : null;
+    const todayHourlyCounts = new Map();
+    todayScans.forEach((scan) => {
+      if (scan.timeMinutes === null) return;
+      const hour = Math.floor(scan.timeMinutes / 60);
+      if (hour >= 6 && hour <= 18) todayHourlyCounts.set(hour, (todayHourlyCounts.get(hour) || 0) + 1);
+    });
+    const peakHour = [...todayHourlyCounts.entries()].reduce((peak, [hour, count]) => (
+      count > peak.count ? { hour, count } : peak
+    ), { hour: null, count: 0 });
+
+    const todaySms = smsLogs.filter((record) => getDateKey(record.createdAt || record.sentAt || record.date) === today);
+    const todayAtNoon = new Date(`${today}T12:00:00+08:00`);
+    const weeklyTrend = Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(todayAtNoon);
+      date.setUTCDate(date.getUTCDate() - (6 - index));
+      const dateKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(date);
+      const records = attendance.filter((record) => getDateKey(record.date) === dateKey);
+      const counts = records.reduce((result, record) => {
+        const status = getArrivalStatus(record);
+        if (VALID_STATUSES.includes(status)) result[status] += 1;
+        return result;
+      }, { present: 0, late: 0, absent: 0 });
       return {
-        ...record,
-        name: student?.name || record.studentId,
-        sectionName: student?.section || section?.name || record.sectionId || '—',
+        date: dateKey,
+        day: new Intl.DateTimeFormat('en-PH', { weekday: 'short', timeZone: 'Asia/Manila' }).format(date),
+        shortDate: new Intl.DateTimeFormat('en-PH', { month: 'short', day: 'numeric', timeZone: 'Asia/Manila' }).format(date),
+        ...counts,
+        total: counts.present + counts.late + counts.absent,
       };
     });
 
-  const sectionRows = sections.map((section) => {
-    const members = roster.filter((student) => {
-      const sectionId = student.sectionId || student.section;
-      return sectionId === section.id || sectionId === section.name;
-    });
-    const records = todayAttendance.filter(
-      (record) => record.sectionId === section.id || record.sectionId === section.name,
-    );
-    const adviser = teachers.find((teacher) => teacher.uid === section.teacherId)?.name;
-    const sectionPresent = records.filter((record) => arrivalStatus(record) === 'present').length;
-    const sectionLate = records.filter((record) => arrivalStatus(record) === 'late').length;
-    const sectionAbsent = records.filter((record) => arrivalStatus(record) === 'absent').length;
-    const sectionRate = members.length
-      ? Math.round(((sectionPresent + sectionLate) / members.length) * 1000) / 10
-      : 0;
+    const recentActivity = [...todayScans]
+      .sort((first, second) => (second.timeMinutes ?? -1) - (first.timeMinutes ?? -1))
+      .slice(0, 10);
+    const latestAudit = [...auditLogs].sort((first, second) => Date.parse(second.createdAt || '') - Date.parse(first.createdAt || ''))[0];
+    const notifications = [
+      ...todaySms
+        .filter((record) => ['failed', 'pending'].includes(String(record.status || '').toLowerCase()))
+        .map((record) => {
+          const studentName = studentById.get(record.studentId)?.name || record.studentId || 'Student';
+          const status = String(record.status).toLowerCase();
+          return {
+            id: `sms-${record.id}`,
+            tone: status === 'failed' ? 'danger' : 'warning',
+            title: `SMS ${status} for ${studentName}`,
+            time: formatTimestamp(record.createdAt || record.sentAt),
+            sortValue: Date.parse(record.createdAt || record.sentAt || '') || 0,
+          };
+        }),
+      ...todayAttendance
+        .filter((record) => {
+          const student = studentById.get(record.studentId);
+          return !(student?.sectionId || student?.section || record.sectionId);
+        })
+        .map((record) => ({
+          id: `section-${record.id}`,
+          tone: 'warning',
+          title: `Attendance record missing section for ${studentById.get(record.studentId)?.name || record.studentId || 'student'}`,
+          time: record.time || 'Today',
+          sortValue: getTimeMinutes(record.time) || 0,
+        })),
+      ...(latestAudit ? [{
+        id: `audit-${latestAudit.id}`,
+        tone: 'info',
+        title: `Audit activity: ${latestAudit.action || 'Administrative event'}`,
+        time: formatTimestamp(latestAudit.createdAt),
+        sortValue: Date.parse(latestAudit.createdAt || '') || 0,
+      }] : []),
+    ].sort((first, second) => second.sortValue - first.sortValue).slice(0, 5);
 
     return {
-      name: section.name,
-      adviser: section.adviser || section.teacherName || section.teacher || adviser || '—',
-      enrolled: members.length,
-      present: sectionPresent,
-      late: sectionLate,
-      absent: sectionAbsent,
-      rate: sectionRate,
+      todayAttendanceCount: todayAttendance.length,
+      todayScans, todaySms, present, late, absent, arrivalTotal, attendanceRate,
+      hourlyScans, averageArrival, peakHour, weeklyTrend, recentActivity, notifications,
+      studentsTotal: students.length,
     };
-  });
+  }, [attendance, auditLogs, range, sections, smsLogs, students, today]);
+
+  const hourlyTotal = dashboardData.hourlyScans.reduce((total, point) => total + point.present + point.late + point.absent, 0);
+  const weeklyTotal = dashboardData.weeklyTrend.reduce((total, day) => total + day.total, 0);
+  const peakWindow = dashboardData.peakHour.hour === null
+    ? '—'
+    : `${formatClock(dashboardData.peakHour.hour * 60)} – ${formatClock((dashboardData.peakHour.hour + 1) * 60)}`;
+  const lateRatio = dashboardData.arrivalTotal ? `${((dashboardData.late / dashboardData.arrivalTotal) * 100).toFixed(1)}%` : '—';
+  const attendanceRateLabel = dashboardData.attendanceRate === null ? '—' : `${dashboardData.attendanceRate.toFixed(1)}%`;
+  const quickActions = [
+    { title: 'Scan QR Code', subtitle: 'Open Scanner', icon: QrCode, path: '/scanner' },
+    { title: 'View Reports', subtitle: 'Attendance & Analytics', icon: BarChart3, path: '/reports' },
+    { title: 'Manage Students', subtitle: 'Add / Edit / View', icon: Users, path: '/students' },
+    { title: 'SMS Logs', subtitle: 'View message history', icon: MessageSquare, path: '/sms-logs' },
+  ];
 
   return (
-    <div className="animate-fade-in">
-      <div className="page-header">
+    <div className="dashboard-page animate-fade-in">
+      <header className="dashboard-page__header">
         <div>
-          <h1 className="page-title">Dashboard</h1>
-          <p className="page-sub">{todayLabel}</p>
+          <p className="dashboard-page__eyebrow">Administrator Panel</p>
+          <h1>Dashboard</h1>
+          <p className="dashboard-page__subtitle">Monitor attendance, manage records, and keep LNHS connected.</p>
         </div>
-        <div className="page-header__actions">
-          {isAdmin && (
-            <Button variant="ghost" size="sm" onClick={() => navigate('/reports')}>
-              <BarChart2 size={13} /> Reports
-            </Button>
-          )}
-          <Button variant="ghost" size="sm" onClick={() => navigate('/attendance')}>
-            <ClipboardList size={13} /> Attendance Records
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => navigate('/sms-logs')}>
-            <MessageSquare size={13} /> SMS Logs
-          </Button>
-        </div>
+      </header>
+
+      <section className="dashboard-kpi-strip" aria-label="Today's key metrics">
+        <MetricCard icon={Users} label="Total Students Enrolled" value={loading && !dashboardData.studentsTotal ? '—' : dashboardData.studentsTotal} detail="students in roster" tone="navy" />
+        <MetricCard icon={QrCode} label="Attendance Scans Today" value={loading && !dashboardData.todayAttendanceCount ? '—' : dashboardData.todayAttendanceCount} detail="attendance records today" tone="blue" />
+        <MetricCard icon={CheckCircle} label="On-time Arrivals" value={loading && !dashboardData.arrivalTotal ? '—' : dashboardData.present} detail="AM-1, present status" tone="positive" />
+        <MetricCard icon={AlertTriangle} label="Late Arrivals" value={loading && !dashboardData.arrivalTotal ? '—' : dashboardData.late} detail="AM-1, late status" tone="warning" />
+        <MetricCard icon={Percent} label="Today's Attendance Rate" value={loading && !dashboardData.arrivalTotal ? '—' : attendanceRateLabel} detail={`${dashboardData.arrivalTotal} recorded AM-1 arrivals`} tone="teal" />
+        <MetricCard icon={MessageSquare} label="SMS Alerts Sent Today" value={loading && !dashboardData.todaySms.length ? '—' : dashboardData.todaySms.length} detail="SMS log records today" tone="slate" />
+      </section>
+
+      <div className="dashboard-main-grid">
+        <section className="dashboard-panel">
+          <PanelHeading
+            icon={Activity}
+            title="Attendance Overview"
+            subtitle="Recorded attendance scans by hour and status"
+            action={(
+              <label className="dashboard-range">
+                <Calendar size={13} aria-hidden="true" />
+                <select aria-label="Attendance chart range" value={range} onChange={(event) => setRange(event.target.value)}>
+                  <option value="today">Today</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                </select>
+              </label>
+            )}
+          />
+          <div className="dashboard-legend" aria-label="Chart legend">
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--present" />Present</span>
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--late" />Late</span>
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--absent" />Absent</span>
+          </div>
+          {loading && !hourlyTotal ? <EmptyState icon={Activity} title="Loading attendance data" /> : hourlyTotal ? <AttendanceLineChart data={dashboardData.hourlyScans} /> : <EmptyState icon={Activity} title="No attendance data for this range" />}
+        </section>
+
+        <section className="dashboard-panel dashboard-panel--activity">
+          <PanelHeading icon={Users} title="Recent Attendance Activity" action={<button className="dashboard-text-link" type="button" onClick={() => navigate('/attendance')}>View All <span aria-hidden="true">→</span></button>} />
+          {dashboardData.recentActivity.length ? (
+            <div className="dashboard-table-wrap">
+              <table className="dashboard-activity-table">
+                <thead><tr><th>Student</th><th>Time</th><th className="dashboard-section-column">Section</th><th>Status</th></tr></thead>
+                <tbody>{dashboardData.recentActivity.map((record) => (
+                  <tr key={record.id}>
+                    <td><span className="dashboard-activity-table__name">{record.studentName}</span><span className="dashboard-activity-table__period">{record.period}</span></td>
+                    <td className="dashboard-activity-table__time">{record.time || '—'}</td>
+                    <td className="dashboard-section-column">{record.sectionName}</td>
+                    <td><span className={`dashboard-status dashboard-status--${getStatusClass(record.status)}`}>{record.status || 'Unknown'}</span></td>
+                  </tr>
+                ))}</tbody>
+              </table>
+            </div>
+          ) : <EmptyState icon={Info} title={loading ? 'Loading attendance records' : 'No attendance scans today'} />}
+        </section>
+
+        <section className="dashboard-panel dashboard-panel--rate">
+          <PanelHeading icon={Percent} title="Attendance Rate" subtitle="Based on recorded AM-1 arrival statuses" />
+          <div className="dashboard-rate-layout">
+            <div className="dashboard-rate-summary">
+              <AttendanceDonut rate={dashboardData.attendanceRate} total={dashboardData.arrivalTotal} />
+              <p>{dashboardData.present + dashboardData.late} <span>/ {dashboardData.arrivalTotal}</span></p>
+              <small>present or late / recorded arrivals</small>
+            </div>
+            <div className="dashboard-rate-details">
+              <div className="dashboard-rate-breakdown">
+                <div><span><i className="dashboard-legend__dot dashboard-legend__dot--present" />Present</span><strong>{dashboardData.present}</strong></div>
+                <div><span><i className="dashboard-legend__dot dashboard-legend__dot--late" />Late</span><strong>{dashboardData.late}</strong></div>
+                <div><span><i className="dashboard-legend__dot dashboard-legend__dot--absent" />Absent</span><strong>{dashboardData.absent}</strong></div>
+              </div>
+              <div className="dashboard-quick-stats">
+                <h3>Quick Stats</h3>
+                <div><span>Peak scan window</span><strong>{peakWindow}</strong><small>Highest timed scan count</small></div>
+                <div><span>Average AM-1 arrival</span><strong>{formatClock(dashboardData.averageArrival)}</strong><small>Present or late scans with a time</small></div>
+                <div><span>Late ratio</span><strong>{lateRatio}</strong><small>Late / recorded AM-1 arrivals</small></div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="dashboard-panel dashboard-panel--notifications">
+          <PanelHeading icon={ShieldCheck} title="System Notifications" subtitle="Derived from today's loaded records" action={<button className="dashboard-text-link" type="button" onClick={() => navigate('/sms-logs')}>SMS Logs <span aria-hidden="true">→</span></button>} />
+          {dashboardData.notifications.length ? (
+            <ul className="dashboard-notifications">{dashboardData.notifications.map((notification) => (
+              <li key={notification.id}>
+                <span className={`dashboard-notifications__dot dashboard-notifications__dot--${notification.tone}`} />
+                <span className="dashboard-notifications__title">{notification.title}</span>
+                <time>{notification.time}</time>
+              </li>
+            ))}</ul>
+          ) : <EmptyState icon={CheckCircle} title={loading ? 'Loading system records' : 'No logged alerts'} subtitle="No failed or pending SMS or missing-section attendance records were found today." />}
+        </section>
+
+        <section className="dashboard-panel">
+          <PanelHeading icon={BarChart3} title="Attendance Trend" subtitle="AM-1 arrival status · last 7 days" />
+          <div className="dashboard-legend" aria-label="Chart legend">
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--present" />Present</span>
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--late" />Late</span>
+            <span><i className="dashboard-legend__dot dashboard-legend__dot--absent" />Absent</span>
+          </div>
+          {loading && !weeklyTotal ? <EmptyState icon={BarChart3} title="Loading weekly attendance" /> : weeklyTotal ? <WeeklyBarChart days={dashboardData.weeklyTrend} /> : <EmptyState icon={BarChart3} title="No attendance data for the last 7 days" />}
+        </section>
       </div>
 
-      <section className="card dash-block">
-        <div className="card-header">
-          <span className="card-title">Daily Attendance Summary</span>
-        </div>
-        <div className="dash-summary">
-          <table className="dash-summary__table">
-            <thead>
-              <tr><th>Metric</th><th className="num">Count</th><th className="num">Percentage</th></tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td><span className="dash-metric-label"><Users size={14} /> Enrolled students</span></td>
-                <td className="num">{roster.length}</td>
-                <td className="num">—</td>
-              </tr>
-              <tr>
-                <td><span className="dash-metric-label"><CheckCircle2 size={14} /> On-time arrivals (AM-1)</span></td>
-                <td className="num">{present}</td>
-                <td className="num">{percentage(present, roster.length)}</td>
-              </tr>
-              <tr>
-                <td><span className="dash-metric-label"><Clock3 size={14} /> Late arrivals (AM-1)</span></td>
-                <td className="num">{late}</td>
-                <td className="num">{percentage(late, roster.length)}</td>
-              </tr>
-              <tr><td><span className="dash-metric-label"><QrCode size={14} /> Period scans today</span></td><td className="num">{scansToday}</td><td className="num">—</td></tr>
-              <tr><td><span className="dash-metric-label"><MessageSquare size={14} /> SMS attempts today</span></td><td className="num">{smsAlertsToday}</td><td className="num">—</td></tr>
-              <tr>
-                <td><span className="dash-metric-label"><UserRoundX size={14} /> Absent today</span></td>
-                <td className="num">{absent}</td>
-                <td className="num">{percentage(absent, roster.length)}</td>
-              </tr>
-              <tr className="dash-summary__total">
-                <td>Overall attendance</td>
-                <td className="num">{overallPresent}</td>
-                <td className="num">{overallRate.toFixed(1)}%</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card dash-block">
-        <div className="card-header">
-          <span className="card-title">Attendance Rate</span>
-          <span className="dash-rate__value">{overallRate.toFixed(1)}%</span>
-        </div>
-        <div className="dash-rate">
-          <div className="dash-rate__track">
-            <div className="dash-rate__fill" style={{ width: `${Math.min(overallRate, 100)}%` }} />
-          </div>
-          <div className="dash-rate__scale">
-            <span>0%</span>
-            <span>50%</span>
-            <span>100%</span>
-          </div>
-        </div>
-      </section>
-
-      <section className="card dash-block">
-        <div className="card-header"><span className="card-title">Weekly Attendance Trend</span><span className="scanner-log__count">AM-1 arrival rate · last 7 days</span></div>
-        <div className="chart-bars" role="img" aria-label="AM-1 attendance rate for the past seven days">
-          {weeklyTrend.map((day) => (
-            <div className="chart-bar-wrap" key={day.date}>
-              <span className="bar-value">{day.label}</span>
-              <div className="chart-bar" style={{ height: `${Math.max(12, day.rate * 90)}px` }} />
-              <span className="day-label">{day.day}</span>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section className="card dash-block">
-        <div className="card-header">
-          <span className="card-title">Recent Attendance — Today</span>
-          <button type="button" className="text-link" onClick={() => navigate('/attendance')}>
-            View all records →
+      <section className="dashboard-quick-actions" aria-label="Quick actions">
+        {quickActions.map(({ title, subtitle, icon: Icon, path }) => (
+          <button className="dashboard-action" type="button" key={path} onClick={() => navigate(path)}>
+            <span className="dashboard-action__icon"><Icon size={20} aria-hidden="true" /></span>
+            <span className="dashboard-action__copy"><strong>{title}</strong><small>{subtitle}</small></span>
           </button>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table dash-table">
-            <thead>
-              <tr><th>Date</th><th>Student</th><th>Section</th>{PERIODS.map((period) => <th key={period}>{period}</th>)}<th>SMS</th></tr>
-            </thead>
-            <tbody>
-              {recent.map((record) => (
-                <tr key={record.id}>
-                  <td data-label="Date" className="mono">{record.date}</td>
-                  <td>
-                    <div className="cell-name">{record.name}</div>
-                    <div className="cell-sub mono">{record.id}</div>
-                  </td>
-                  <td data-label="Section">{record.sectionName}</td>
-                  {PERIODS.map((period) => {
-                    const scan = getPeriodScan(record, period);
-                    return (
-                      <td data-label={period} key={period}>
-                        {scan ? <div className="period-cell"><span className="period-cell__time">{scan.time}</span><span className={`badge badge-${scan.status}`}>{scan.status === 'present' ? (period === 'AM-1' ? 'ON-TIME' : 'PRESENT') : scan.status.toUpperCase()}</span></div> : <span className="period-cell__empty">—</span>}
-                      </td>
-                    );
-                  })}
-                  <td data-label="SMS"><span className={`badge badge-${record.smsStatus || 'skipped'}`}>{String(record.smsStatus || 'skipped').toUpperCase()}</span></td>
-                </tr>
-              ))}
-              {!recent.length && (
-                <tr>
-                  <td colSpan="8" className="empty-row">No attendance recorded today.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </section>
-
-      <section className="card dash-block">
-        <div className="card-header">
-          <span className="card-title">Section Breakdown — Today</span>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="data-table dash-table">
-            <thead>
-              <tr>
-                <th>Section</th>
-                <th>Adviser</th>
-                <th className="num">Enrolled</th>
-                <th className="num">Present</th>
-                <th className="num">Late</th>
-                <th className="num">Absent</th>
-                <th className="num">Rate</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sectionRows.map((record) => (
-                <tr key={record.name}>
-                  <td className="cell-name">{record.name}</td>
-                  <td>{record.adviser}</td>
-                  <td className="num mono">{record.enrolled}</td>
-                  <td className="num mono">{record.present}</td>
-                  <td className="num mono">{record.late}</td>
-                  <td className="num mono">{record.absent}</td>
-                  <td className="num mono">{record.rate.toFixed(1)}%</td>
-                </tr>
-              ))}
-              {!sectionRows.length && (
-                <tr>
-                  <td colSpan="7" className="empty-row">No sections available.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+        ))}
       </section>
     </div>
   );
