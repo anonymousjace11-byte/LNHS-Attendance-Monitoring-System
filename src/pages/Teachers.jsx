@@ -12,6 +12,7 @@ function emailValid(v) { return /^[^\s@]+@lnhs\.edu\.ph$/i.test(v.trim()); }
 
 function TeacherModal({ onClose, onSave, existing, sections }) {
   const [form, setForm] = useState(existing ? {
+    id: existing.id, uid: existing.uid,
     name: existing.name, email: existing.email, strand: existing.strand,
     sectionId: existing.sectionId || '', approved: existing.approved, password: '', confirmPassword: '',
   } : { name: '', email: '', strand: 'STEM', sectionId: '', approved: true, password: '', confirmPassword: '' });
@@ -35,7 +36,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
     const e = validate();
     if (Object.keys(e).length) { setErrs(e); return; }
     setSaving(true);
-    await onSave({ ...form, uid: existing?.uid });
+    await onSave({ ...form, id: existing?.id, uid: existing?.uid });
     setSaving(false);
     onClose();
   };
@@ -57,14 +58,16 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
           <input id="email" type="email" className={`field-input${errs.email?' error':''}`} placeholder="j.delacruz@lnhs.edu.ph"
             value={form.email} onChange={(e)=>set('email',e.target.value)} onBlur={()=>setErrs(p=>({...p,email:validate().email}))} disabled={!!existing} />
         </FormField>
-        <div className="grid grid-cols-2 gap-3">
-          <FormField label={existing ? 'New Password (optional)' : 'Password'} required={!existing} id="teacher-password" error={errs.password} hint="At least 6 characters. Stored securely in Firebase Authentication.">
-            <input id="teacher-password" type="password" className={`field-input${errs.password?' error':''}`} value={form.password} onChange={(e)=>set('password',e.target.value)} autoComplete="new-password" />
-          </FormField>
-          <FormField label="Confirm Password" required={!existing} id="teacher-confirm-password" error={errs.confirmPassword}>
-            <input id="teacher-confirm-password" type="password" className={`field-input${errs.confirmPassword?' error':''}`} value={form.confirmPassword} onChange={(e)=>set('confirmPassword',e.target.value)} autoComplete="new-password" />
-          </FormField>
-        </div>
+        {(!existing || existing.uid) && (
+          <div className="grid grid-cols-2 gap-3">
+            <FormField label={existing ? 'New Password (optional)' : 'Password'} required={!existing} id="teacher-password" error={errs.password} hint="At least 6 characters. Stored securely in Firebase Authentication.">
+              <input id="teacher-password" type="password" className={`field-input${errs.password?' error':''}`} value={form.password} onChange={(e)=>set('password',e.target.value)} autoComplete="new-password" />
+            </FormField>
+            <FormField label="Confirm Password" required={!existing} id="teacher-confirm-password" error={errs.confirmPassword}>
+              <input id="teacher-confirm-password" type="password" className={`field-input${errs.confirmPassword?' error':''}`} value={form.confirmPassword} onChange={(e)=>set('confirmPassword',e.target.value)} autoComplete="new-password" />
+            </FormField>
+          </div>
+        )}
         <FormField label="Strand" id="strand">
           <select id="strand" className="field-input" value={form.strand} onChange={(e)=>set('strand',e.target.value)}>
             {['STEM','ABM','HUMSS','TVL','GAS'].map(s=><option key={s}>{s}</option>)}
@@ -115,11 +118,13 @@ export default function Teachers() {
     setTimeout(() => setSuccess(''), 4000);
   };
 
-  const approve = async (uid) => {
-    const teacher = teachers.find((item) => item.uid === uid);
+  const approve = async (teacherId) => {
+    const teacher = teachers.find((item) => (item.uid || item.id) === teacherId);
     if (!teacher) return;
     await saveTeacher({ ...teacher, approved: true });
-    setSuccess('Teacher approved. Role claims will be assigned by the backend.');
+    setSuccess(teacher.uid
+      ? 'Teacher approved. Role claims will be assigned by the backend.'
+      : 'Teacher record approved. No Firebase Auth account is linked.');
     setTimeout(() => setSuccess(''), 4000);
   };
 
@@ -127,7 +132,7 @@ export default function Teachers() {
     <div className="animate-fade-in">
       {(showModal || editing) && (
         <TeacherModal
-          key={editing?.uid || 'new-teacher'}
+          key={editing?.id || editing?.uid || 'new-teacher'}
           onClose={() => { setShowModal(false); setEditing(null); }}
           onSave={handleSave}
           existing={editing}
@@ -169,10 +174,10 @@ export default function Teachers() {
               {filtered.map((t) => {
                 const assignedSections = (t.sections || (t.sectionId ? [t.sectionId] : []))
                   .map((section) => displayValue(sectionNameById.get(section) || section));
-                return <tr key={t.uid}>
+                return <tr key={t.uid || t.id}>
                   <td>
                     <div style={{ fontWeight:600, color:'var(--text-main)' }}>{displayValue(t.name)}</div>
-                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid)}</div>
+                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid || t.id)}</div>
                   </td>
                   <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{displayValue(String(t.email || '').toLowerCase())}</td>
                   <td><span className="badge badge-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
@@ -196,7 +201,7 @@ export default function Teachers() {
                         <Pencil size={12} /> Edit
                       </Button>
                       {!t.approved && (
-                        <Button variant="success" size="sm" onClick={() => approve(t.uid)}>
+                        <Button variant="success" size="sm" onClick={() => approve(t.uid || t.id)}>
                           <CheckCircle size={12} /> Approve
                         </Button>
                       )}

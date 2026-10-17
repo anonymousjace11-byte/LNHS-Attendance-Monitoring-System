@@ -1057,7 +1057,7 @@ app.post("/admin/teachers", async (req, res) => {
   const authResult = await verifyAdminRequest(req);
   if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ error: authResult.error });
 
-  const { action = "list", uid, name, email, password = "", strand = "", sectionId = "", approved = true } = req.body || {};
+  const { action = "list", id = "", uid = "", name, email, password = "", strand = "", sectionId = "", approved = true } = req.body || {};
   try {
     const db = getFirestore(authResult.adminSdk);
     if (action === "list") {
@@ -1072,23 +1072,36 @@ app.post("/admin/teachers", async (req, res) => {
       });
       return res.json({ success: true, teachers: [...teachers.values()] });
     }
-    if (action !== "save" || !uid || !name || !email) {
-      return res.status(400).json({ error: "Missing required teacher fields: uid, name, email" });
+    const teacherId = String(id || uid).trim();
+    if (action !== "save" || !teacherId || !name || !email) {
+      return res.status(400).json({ error: "Missing required teacher fields: id or uid, name, email" });
     }
     if (password && password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
-    const previousTeacher = await db.collection("teachers").doc(uid).get();
+    if (id && password && !uid) {
+      return res.status(400).json({ error: "Cannot update a password without a Firebase Auth UID" });
+    }
+    const teacherRef = db.collection("teachers").doc(teacherId);
+    const previousTeacher = await teacherRef.get();
+    if (id && !previousTeacher.exists) return res.status(404).json({ error: "Teacher record not found" });
     const previousSectionId = previousTeacher.exists ? String(previousTeacher.data()?.sectionId || "") : "";
-    await setRoleClaims(authResult.adminSdk, uid, "teacher", email.trim().toLowerCase(), name.trim(), password);
-    const teacher = { uid, name: name.trim(), email: email.trim().toLowerCase(), strand, sectionId, approved: !!approved, updatedAt: new Date() };
-    await db.collection("teachers").doc(uid).set(teacher, { merge: true });
-    await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: "teacher" }, { merge: true });
+    const teacherAuth = getAuth(authResult.adminSdk);
+    if (!id) {
+      await setRoleClaims(authResult.adminSdk, uid, "teacher", email.trim().toLowerCase(), name.trim(), password);
+    } else if (uid) {
+      await teacherAuth.getUser(uid);
+      if (password) await teacherAuth.updateUser(uid, { password });
+      await teacherAuth.setCustomUserClaims(uid, { admin: false, teacher: true, student: false });
+    }
+    const teacher = { ...(uid ? { uid } : {}), name: name.trim(), email: email.trim().toLowerCase(), strand, sectionId, approved: !!approved, updatedAt: new Date() };
+    await teacherRef.set(teacher, { merge: true });
+    if (uid) await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: "teacher" }, { merge: true });
     if (previousSectionId && previousSectionId !== sectionId) {
       await db.collection("sections").doc(previousSectionId).set({ teacherId: "", updatedAt: new Date() }, { merge: true });
     }
     if (sectionId) {
-      await db.collection("sections").doc(sectionId).set({ teacherId: uid, updatedAt: new Date() }, { merge: true });
+      await db.collection("sections").doc(sectionId).set({ teacherId: uid || teacherId, updatedAt: new Date() }, { merge: true });
     }
-    return res.json({ success: true, teacher });
+    return res.json({ success: true, teacher: { id: teacherId, ...teacher } });
   } catch (error) {
     console.error("Admin teachers write error:", error);
     return res.status(500).json({ error: "Failed to save teacher" });

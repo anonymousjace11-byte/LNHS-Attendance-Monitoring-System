@@ -317,8 +317,16 @@ export function DataProvider({ children }) {
     return result;
   };
   const saveTeacher = async (teacher) => {
-    const result = await adminRequest('/admin/teachers', 'POST', { action: 'save', ...teacher, uid: teacher.uid || crypto.randomUUID() });
-    if (result.teacher) setData((current) => ({ ...current, teachers: [...current.teachers.filter((item) => item.uid !== result.teacher.uid), result.teacher] }));
+    const payload = { action: 'save', ...teacher };
+    if (!teacher.id && !teacher.uid) payload.uid = crypto.randomUUID();
+    const result = await adminRequest('/admin/teachers', 'POST', payload);
+    if (result.teacher) {
+      const savedTeacher = { ...result.teacher, id: result.teacher.id || teacher.id || result.teacher.uid };
+      setData((current) => ({
+        ...current,
+        teachers: [...current.teachers.filter((item) => item.id !== savedTeacher.id), savedTeacher],
+      }));
+    }
     return result;
   };
   const saveParentContact = async (contact) => {
