@@ -4,7 +4,7 @@ import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   QrCode, ClipboardList, BarChart2, MessageSquare,
   ShieldCheck, Settings, LogOut, Menu, ChevronDown, UsersRound, X,
-  User as UserIcon, KeyRound, Info
+  User as UserIcon, Info, Calendar, Clock
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
@@ -37,8 +37,8 @@ const NAV_FULL = [
 
 function formatClock(date) {
   const time = date.toLocaleTimeString('en-PH', {
-    hour: '2-digit', minute: '2-digit', second: '2-digit',
-    hour12: false, timeZone: 'Asia/Manila',
+    hour: 'numeric', minute: '2-digit',
+    hour12: true, timeZone: 'Asia/Manila',
   });
   const dayDate = date.toLocaleDateString('en-PH', {
     weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
@@ -61,7 +61,7 @@ export default function Layout({ children }) {
   const roleLabel = isAdmin ? 'Admin' : 'Staff';
 
   useEffect(() => {
-    const clockInterval = window.setInterval(() => setNow(new Date()), 1000);
+    const clockInterval = window.setInterval(() => setNow(new Date()), 60000);
     return () => window.clearInterval(clockInterval);
   }, []);
 
@@ -128,7 +128,7 @@ export default function Layout({ children }) {
           <span>Official Use Only</span>
         </div>
 
-        <header className="app-topbar">
+        <header className="app-topbar app-header">
           <button
             type="button"
             className="app-topbar__menu"
@@ -139,39 +139,43 @@ export default function Layout({ children }) {
             {sidebarOpen ? <X size={18} /> : <Menu size={18} />}
           </button>
 
-          <div className="app-topbar__title">
-            <strong>Looc National High School</strong>
-            <span>Attendance Monitoring System</span>
+          <div className="app-header__left">
+            <div className="app-header__school">
+              <strong className="app-header__name">Looc National High School</strong>
+              <span className="app-header__motto">Discipline Builds Tomorrow</span>
+            </div>
           </div>
 
-          <div className="app-topbar__right">
-            <div className="app-topbar__clock" aria-label="Current time in Asia/Manila">
-              <span className="app-topbar__clock-time">{time}</span>
-              <span className="app-topbar__clock-date">{dayDate}</span>
+          <div className="app-topbar__right app-header__right">
+            <div className="app-header__datetime" aria-label="Current date and time in Asia/Manila">
+              <span className="app-header__time-item"><Calendar size={14} aria-hidden="true" />{dayDate}</span>
+              <span className="app-header__time-item"><Clock size={14} aria-hidden="true" />{time}</span>
             </div>
 
-            <div className="app-topbar__user">
+            <span className="app-header__divider app-header__right-divider" aria-hidden="true" />
+
+            <div className="app-topbar__user app-header__user">
               <button
                 onClick={() => setUserMenuOpen((isOpen) => !isOpen)}
-                className="account-trigger"
+                className="account-trigger app-header__user-trigger"
                 aria-expanded={userMenuOpen}
                 aria-haspopup="menu"
                 aria-label={`Account menu for ${displayName}`}
                 type="button"
               >
-                <div className="account-trigger-avatar">
+                <div className="account-trigger-avatar app-header__avatar">
                   {displayName.charAt(0).toUpperCase()}
                   <span className="account-trigger-status" />
                 </div>
-                <span className="account-trigger-copy">
-                  <strong>{displayName}</strong>
-                  <small>{roleLabel}</small>
+                <span className="account-trigger-copy app-header__user-info">
+                  <strong className="app-header__user-name">{displayName}</strong>
+                  <small className="app-header__user-role">{roleLabel}</small>
                 </span>
                 <ChevronDown size={13} className="account-trigger-chevron" />
               </button>
 
               {userMenuOpen && (
-                <div className="account-menu">
+                <div className="account-menu app-header__dropdown" role="menu">
                   <div className="account-menu__header">
                     <div className="account-menu__name">{displayName}</div>
                     <div className="account-menu__email">{user?.email}</div>
@@ -181,23 +185,18 @@ export default function Layout({ children }) {
                     <button
                       type="button"
                       onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}
-                      className="account-menu-link"
+                      className="account-menu-link app-header__dropdown-item"
+                      role="menuitem"
                     >
-                      <UserIcon size={14} /> Profile
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}
-                      className="account-menu-link"
-                    >
-                      <KeyRound size={14} /> Change Password
+                      <Settings size={14} /> Settings
                     </button>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="account-menu-link account-menu-link--danger"
+                      className="account-menu-link account-menu-link--danger app-header__dropdown-item"
+                      role="menuitem"
                     >
-                      <LogOut size={14} /> Sign Out
+                      <LogOut size={14} /> Logout
                     </button>
                   </div>
                 </div>

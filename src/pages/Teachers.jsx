@@ -5,6 +5,7 @@ import { EmptyTableRow } from '../components/EmptyState';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
@@ -211,15 +212,12 @@ export default function Teachers() {
         />
       )}
 
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">Teachers</h1>
-          <p className="page-sub">{teachers.length} accounts · {teachers.filter(t=>t.approved).length} approved</p>
-        </div>
-        <Button variant="primary" size="sm" onClick={() => { setEditing(null); setShowModal(true); }}>
-          <Plus size={13} /> Add Teacher
-        </Button>
-      </div>
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Teachers"
+        subtitle={`${teachers.length} accounts · ${teachers.filter(t=>t.approved).length} approved`}
+        actions={<Button variant="primary" size="sm" onClick={() => { setEditing(null); setShowModal(true); }}><Plus size={13} /> Add Teacher</Button>}
+      />
 
       {success && <Alert type="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
       {deleteError && !deleting && <Alert type="error" onClose={() => setDeleteError('')} className="mb-4">{deleteError}</Alert>}

@@ -6,6 +6,7 @@ import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
 import StudentIdCard from '../components/StudentIdCard';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
@@ -315,16 +316,17 @@ export default function Students() {
           sections={sections.filter((section) => section.id && section.name)} advisers={adviserNames} />
       )}
 
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Students</h1>
-          <p className="page-sub">{students.length} registered · {students.filter((student) => student.active).length} active</p>
-        </div>
-        <div className="page-header__actions">
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Students"
+        subtitle={`${students.length} registered · ${students.filter((student) => student.active).length} active`}
+        actions={(
+          <>
           <Button variant="ghost" size="sm" type="button" aria-label="Export students"><Download size={13} /> Export</Button>
           <Button variant="primary" size="sm" onClick={() => { setEditing(null); setShowModal(true); }}><Plus size={13} /> Add Student</Button>
-        </div>
-      </div>
+          </>
+        )}
+      />
 
       {success && <Alert type="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
 

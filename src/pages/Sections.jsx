@@ -6,6 +6,7 @@ import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
@@ -170,18 +171,12 @@ export default function Sections() {
         />
       )}
 
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">Sections</h1>
-          <p className="page-sub">
-            {sections.filter(s=>s.active).length} active sections ·&nbsp;
-            {students.filter((student) => sections.some((section) => section.id === (student.sectionId || student.section) || section.name === (student.sectionId || student.section))).length} students enrolled
-          </p>
-        </div>
-        <Button variant="primary" size="sm" onClick={()=>{setEditing(null);setShowModal(true);}}>
-          <Plus size={13} /> Add Section
-        </Button>
-      </div>
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Sections"
+        subtitle={`${sections.filter(s=>s.active).length} active sections · ${students.filter((student) => sections.some((section) => section.id === (student.sectionId || student.section) || section.name === (student.sectionId || student.section))).length} students enrolled`}
+        actions={<Button variant="primary" size="sm" onClick={()=>{setEditing(null);setShowModal(true);}}><Plus size={13} /> Add Section</Button>}
+      />
 
       {success && <Alert type="success" onClose={()=>setSuccess('')} className="mb-4">{success}</Alert>}
       {deleteError && !deleting && <Alert type="error" onClose={()=>setDeleteError('')} className="mb-4">{deleteError}</Alert>}

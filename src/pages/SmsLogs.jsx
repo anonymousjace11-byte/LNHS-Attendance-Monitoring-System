@@ -3,6 +3,7 @@ import { Search, Download, MessageSquare, RotateCw } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
@@ -101,15 +102,12 @@ export default function SmsLogs() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">SMS Logs</h1>
-          <p className="page-sub">Parent notification history. Phone numbers masked in display.</p>
-        </div>
-        <Button variant="ghost" size="sm" onClick={handleExport}>
-          <Download size={13} /> Export CSV
-        </Button>
-      </div>
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="SMS Logs"
+        subtitle="Parent notification history. Phone numbers masked in display."
+        actions={<Button variant="ghost" size="sm" onClick={handleExport}><Download size={13} /> Export CSV</Button>}
+      />
 
       <Alert type="warn" className="mb-4">
         <strong>Privacy:</strong> Phone numbers are masked in the table and export. Simulated delivery is never shown as real.

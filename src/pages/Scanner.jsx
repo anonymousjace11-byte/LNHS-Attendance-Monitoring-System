@@ -5,6 +5,7 @@ import { auth } from '../firebase';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import Modal from '../components/Modal';
+import PageCover from '../components/PageCover';
 
 const API_URL = import.meta.env.VITE_API_URL || (() => {
   if (typeof window === 'undefined') return 'http://127.0.0.1:5000';
@@ -382,12 +383,12 @@ export default function Scanner() {
 
   return (
     <div className="scanner-page animate-fade-in">
-      <header className="page-header">
-        <div>
-          <h1 className="page-title">QR Scanner</h1>
-          <p className="page-sub">Scan student QR credentials via USB scanner or keyboard input.</p>
-        </div>
-        <div className="page-header__actions scanner-header-actions">
+      <PageCover
+        eyebrow="Operations"
+        title="QR Scanner"
+        subtitle="Scan student QR credentials via USB scanner or keyboard input."
+        actions={(
+          <>
           <div className={`status-pill ${online ? 'status-pill--ok' : 'status-pill--err'}`}>
             {online ? <Wifi size={13} /> : <WifiOff size={13} />}
             {online ? 'Backend Connected' : 'Offline'}
@@ -395,8 +396,9 @@ export default function Scanner() {
           <Button variant="ghost" size="sm" onClick={() => setSoundOn((current) => !current)} aria-pressed={soundOn}>
             Sound {soundOn ? 'On' : 'Off'}
           </Button>
-        </div>
-      </header>
+          </>
+        )}
+      />
 
       {!online && (
         <Alert type="error" className="mb-4">

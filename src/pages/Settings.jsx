@@ -4,6 +4,7 @@ import Alert from '../components/Alert';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
+import PageCover from '../components/PageCover';
 import { useAuth } from '../context/AuthContext';
 import { staffApiGet, useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
@@ -236,14 +237,9 @@ export default function Settings() {
           <a href="#sms-runtime-control" onClick={openRuntimeControl}>Go to Runtime Control</a>
         </div>
       )}
-      <div className="page-header">
-        <div>
-          <h1 className="page-title">Settings</h1>
-          <p className="page-sub">School configuration and system parameters.</p>
-        </div>
-        {saved && <Alert type="success">Attendance settings saved successfully.</Alert>}
-        {saveError && <Alert type={tab === 'attendance' ? 'error' : 'warn'}>{saveError}</Alert>}
-      </div>
+      <PageCover eyebrow="Administrator Panel" title="Settings" subtitle="School configuration and system parameters." />
+      {saved && <Alert type="success" className="mb-4">Attendance settings saved successfully.</Alert>}
+      {saveError && <Alert type={tab === 'attendance' ? 'error' : 'warn'} className="mb-4">{saveError}</Alert>}
 
       <div className="settings-layout">
         <nav className="settings-tabs" aria-label="Settings sections" role="tablist">

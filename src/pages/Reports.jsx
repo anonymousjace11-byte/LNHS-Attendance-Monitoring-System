@@ -3,6 +3,7 @@ import { Download, FileText } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import EmptyState, { EmptyTableRow } from '../components/EmptyState';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
@@ -167,12 +168,7 @@ export default function Reports() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">Reports</h1>
-          <p className="page-sub">Attendance summary, section breakdown, and data exports.</p>
-        </div>
-      </div>
+      <PageCover eyebrow="Administrator Panel" title="Reports" subtitle="Attendance summary, section breakdown, and data exports." />
 
       {notice && <Alert type="success" onClose={() => setNotice('')} dismissAfter={4000} className="mb-4">{notice}</Alert>}
 

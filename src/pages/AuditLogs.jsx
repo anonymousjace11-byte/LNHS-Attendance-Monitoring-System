@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Search, ShieldCheck } from 'lucide-react';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
+import PageCover from '../components/PageCover';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
@@ -140,12 +141,7 @@ export default function AuditLogs() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">Audit Logs</h1>
-          <p className="page-sub">Append-only log of sensitive administrative actions.</p>
-        </div>
-      </div>
+      <PageCover eyebrow="Administrator Panel" title="Audit Logs" subtitle="Append-only log of sensitive administrative actions." />
 
       <Alert type="info" className="mb-4">
         <ShieldCheck size={14} style={{ flexShrink: 0 }} />

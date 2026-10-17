@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { Search, Download } from 'lucide-react';
 import Button from '../components/Button';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 
 const STATUS_OPTS = ['All Status','Present','Late','Absent','Excused'];
@@ -51,15 +52,12 @@ export default function Attendance() {
 
   return (
     <div className="animate-fade-in">
-      <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-        <div>
-          <h1 className="page-title">Attendance Records</h1>
-          <p className="page-sub">Daily attendance register · four scan periods · server time is authoritative.</p>
-        </div>
-        <Button variant="ghost" size="sm">
-          <Download size={13} /> Export CSV
-        </Button>
-      </div>
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Attendance Records"
+        subtitle="Daily attendance register · four scan periods · server time is authoritative."
+        actions={<Button variant="ghost" size="sm"><Download size={13} /> Export CSV</Button>}
+      />
 
       {/* Filters */}
       <div className="card p-4 mb-4 flex flex-wrap gap-3">

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useData } from '../context/DataContext';
 import EmptyState from '../components/EmptyState';
+import PageCover from '../components/PageCover';
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
 const VALID_STATUSES = ['present', 'late', 'absent'];
@@ -342,13 +343,11 @@ export default function Dashboard() {
 
   return (
     <div className="dashboard-page animate-fade-in">
-      <header className="dashboard-page__header">
-        <div>
-          <p className="dashboard-page__eyebrow">Administrator Panel</p>
-          <h1>Dashboard</h1>
-          <p className="dashboard-page__subtitle">Monitor attendance, manage records, and keep LNHS connected.</p>
-        </div>
-      </header>
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Dashboard"
+        subtitle="Monitor attendance, manage records, and keep LNHS connected."
+      />
 
       <section className="dashboard-kpi-strip" aria-label="Today's key metrics">
         <MetricCard icon={Users} label="Total Students Enrolled" value={loading && !dashboardData.studentsTotal ? '—' : dashboardData.studentsTotal} detail="students in roster" tone="navy" />

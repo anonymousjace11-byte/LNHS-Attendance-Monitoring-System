@@ -1,11 +1,22 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Eye, EyeOff, LogIn } from 'lucide-react';
+import {
+  BarChart3,
+  Eye,
+  EyeOff,
+  Lock,
+  LogIn,
+  Mail,
+  MessageSquare,
+  QrCode,
+  ShieldCheck,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import FormField from '../components/FormField';
 import lnhsLogo from '../imports/LNHS LOGO.png';
+import lnhsBanner from '../imports/lnhs-banner.png';
 
 function validateEmail(value) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.trim());
@@ -56,35 +67,76 @@ export default function Login() {
 
   return (
     <div className="login-shell">
-      <aside className="login-brand" aria-label="Looc National High School">
-        <div className="login-brand__gov">
-          <div className="login-brand__gov-line">Republic of the Philippines</div>
-          <div className="login-brand__gov-line">Department of Education</div>
-          <div className="login-brand__gov-line login-brand__gov-line--sm">
-            Region IV-B MIMAROPA · Division of Romblon
-          </div>
+      <img className="login-shell__banner" src={lnhsBanner} alt="" aria-hidden="true" />
+      <div className="login-shell__overlay" aria-hidden="true" />
+
+      <header className="login-header">
+        <div className="login-header__copy">
+          <p className="login-header__title">LNHS ATTENDSYNC</p>
+          <p className="login-header__subtitle">with SMS Notification Using QR Code</p>
         </div>
+      </header>
 
-        <div className="login-brand__center">
-          <div className="login-brand__seal">
-            <img src={lnhsLogo} alt="Looc National High School seal" />
+      <main className="login-content">
+        <section className="login-left" aria-label="Looc National High School">
+          <div className="login-left__seal-row">
+            <img className="login-left__seal" src={lnhsLogo} alt="Looc National High School seal" />
+            <span className="login-left__accent" aria-hidden="true" />
+            <div className="login-left__wordmark">
+              <h1>
+                <span>LOOC NATIONAL</span>
+                <span>HIGH SCHOOL</span>
+              </h1>
+              <p className="login-left__motto">The School of Achievers</p>
+            </div>
           </div>
-          <h1 className="login-brand__name">Looc National High School</h1>
-          <p className="login-brand__tagline">
-            Mataas na Paaralang Nasyonal ng Looc · Est. 1948
-          </p>
-          <p className="login-brand__id">School ID: 301765</p>
-        </div>
 
-        <p className="login-brand__system">Attendance Monitoring System</p>
-      </aside>
+          <div className="login-left__divider" aria-hidden="true" />
 
-      <main className="login-form-panel">
-        <div className="login-form-panel__inner">
-          <div className="login-form-panel__header">
-            <LogIn size={15} />
-            <span>Sign in to your account</span>
+          <div className="login-left__description">
+            <span className="login-left__system-icon" aria-hidden="true">
+              <QrCode size={24} />
+            </span>
+            <div>
+              <h2>Attendance Monitoring System</h2>
+              <p>
+                A modern and secure system for real-time attendance tracking with SMS
+                notifications using QR Code technology.
+              </p>
+            </div>
           </div>
+
+          <div className="login-left__features" aria-label="System features">
+            <div className="login-left__feature">
+              <span><QrCode size={22} /></span>
+              <p>QR Code<br />Scanning</p>
+            </div>
+            <div className="login-left__feature">
+              <span><MessageSquare size={22} /></span>
+              <p>Auto SMS<br />Notifications</p>
+            </div>
+            <div className="login-left__feature">
+              <span><ShieldCheck size={22} /></span>
+              <p>Secure &amp;<br />Reliable</p>
+            </div>
+            <div className="login-left__feature">
+              <span><BarChart3 size={22} /></span>
+              <p>Real-time<br />Reports</p>
+            </div>
+          </div>
+
+          <footer className="login-left__footer">
+            <p>Looc National High School</p>
+            <span>The School of Achievers</span>
+          </footer>
+        </section>
+
+        <section className="login-card login-card--reference" aria-label="LNHS AttendSync sign in">
+          <div className="login-card__title">
+            <h2>LNHS ATTENDSYNC</h2>
+            <p>Sign in to your account</p>
+          </div>
+          <div className="login-card__divider" aria-hidden="true" />
 
           {error && (
             <Alert type="error" onClose={() => setError('')} className="mb-4">
@@ -92,25 +144,29 @@ export default function Login() {
             </Alert>
           )}
 
-          <form onSubmit={handleSubmit} noValidate className="login-form">
-            <FormField label="School Email Address" required id="email" error={emailError}>
-              <input
-                id="email"
-                type="email"
-                className={`field-input ${emailError ? 'error' : ''}`}
-                placeholder="you@lnhs.edu.ph"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                onBlur={() => setTouched((current) => ({ ...current, email: true }))}
-                autoComplete="username"
-                autoFocus
-                aria-invalid={!!emailError}
-                disabled={loading}
-              />
+          <form onSubmit={handleSubmit} noValidate className="login-form login-card__form">
+            <FormField label="SCHOOL EMAIL ADDRESS" required id="email" error={emailError}>
+              <div className="login-field">
+                <Mail className="login-field__icon" size={16} aria-hidden="true" />
+                <input
+                  id="email"
+                  type="email"
+                  className={`field-input ${emailError ? 'error' : ''}`}
+                  placeholder="you@lnhs.edu.ph"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+                  autoComplete="username"
+                  autoFocus
+                  aria-invalid={!!emailError}
+                  disabled={loading}
+                />
+              </div>
             </FormField>
 
-            <FormField label="Password" required id="password" error={passwordError}>
-              <div className="login-form__pw">
+            <FormField label="PASSWORD" required id="password" error={passwordError}>
+              <div className="login-form__pw login-field">
+                <Lock className="login-field__icon" size={16} aria-hidden="true" />
                 <input
                   id="password"
                   type={showPassword ? 'text' : 'password'}
@@ -142,6 +198,7 @@ export default function Login() {
               loading={loading}
               className="login-form__submit"
             >
+              <LogIn size={16} aria-hidden="true" />
               {loading ? 'Signing in...' : 'Sign In'}
             </Button>
 
@@ -149,13 +206,17 @@ export default function Login() {
               For account concerns, contact the school administrator.
             </p>
           </form>
-          <p className="login-form-panel__notice">For official use of LNHS faculty and staff only.</p>
-        </div>
 
-        <footer className="login-form-panel__footer">
-          <span>v2.0 · © {new Date().getFullYear()} LNHS</span>
-        </footer>
+          <div className="login-card__authorized">
+            <span>Authorized Users Only</span>
+          </div>
+          <p className="login-card__footer">
+            Looc National High School | Attendance Monitoring System
+          </p>
+        </section>
       </main>
+
+      <div className="login-footer">v2.0 · © {new Date().getFullYear()} LNHS</div>
     </div>
   );
 }

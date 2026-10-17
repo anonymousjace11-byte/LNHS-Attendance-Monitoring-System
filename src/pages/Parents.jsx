@@ -5,6 +5,7 @@ import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
+import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
@@ -77,10 +78,12 @@ export default function Parents() {
 
   return <div className="animate-fade-in">
     {editing && <ParentModal key={editing.id || 'new-parent'} onClose={() => setEditing(null)} onSave={save} existing={editing.id ? editing : null} students={students} />}
-    <div className="flex items-start justify-between mb-5 gap-4 flex-wrap">
-      <div><h1 className="page-title">Parents</h1><p className="page-sub">Register the contact used for attendance SMS notifications.</p></div>
-      <Button variant="primary" size="sm" onClick={() => setEditing({ studentId: '', parentName: '', parentPhone: '' })}><Plus size={13} /> Register Parent</Button>
-    </div>
+    <PageCover
+      eyebrow="Administrator Panel"
+      title="Parents"
+      subtitle="Register the contact used for attendance SMS notifications."
+      actions={<Button variant="primary" size="sm" onClick={() => setEditing({ studentId: '', parentName: '', parentPhone: '' })}><Plus size={13} /> Register Parent</Button>}
+    />
     {success && <Alert type="success" className="mb-4" onClose={() => setSuccess('')}>{success}</Alert>}
     <div className="relative mb-4" style={{ maxWidth: '340px' }}>
       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)', pointerEvents: 'none' }} />
