@@ -352,6 +352,27 @@ export function DataProvider({ children }) {
     }));
     return result;
   };
+  const retrySmsLog = async (logId) => {
+    const sourceLog = data.smsLogs.find((log) => log.id === logId);
+    const result = await adminRequest(`/admin/sms-logs/${encodeURIComponent(logId)}/retry`, 'POST', {});
+    const retryLog = {
+      id: result.retryLogId,
+      retryOf: logId,
+      studentId: sourceLog?.studentId || '',
+      attendanceId: sourceLog?.attendanceId || '',
+      period: sourceLog?.period || '',
+      phone: sourceLog?.phone || '',
+      message: sourceLog?.message || '',
+      status: result.status || 'failed',
+      provider: sourceLog?.provider || '',
+      mode: result.mode || '',
+      reason: result.reason || '',
+      createdAt: new Date().toISOString(),
+      manual: sourceLog?.manual === true,
+    };
+    setData((current) => ({ ...current, smsLogs: [retryLog, ...current.smsLogs] }));
+    return result;
+  };
   const saveAttendanceSettings = (cutoff) => adminRequest('/admin/settings/attendance', 'POST', { cutoff });
   const saveSmsTemplates = async ({ present, late, absent }) => adminRequest('/admin/settings/sms-templates', 'POST', { present, late, absent });
   const saveSmsRuntime = async ({ mode, disabled, dailyCapPerStudent }) => adminRequest('/admin/settings/sms-runtime', 'POST', { mode, disabled, dailyCapPerStudent });
@@ -366,7 +387,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {
