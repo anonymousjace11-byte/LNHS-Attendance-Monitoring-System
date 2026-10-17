@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Pencil, Layers } from 'lucide-react';
+import { Plus, Pencil, Layers, Trash2 } from 'lucide-react';
 import Button from '../components/Button';
 import EmptyState from '../components/EmptyState';
 import Modal from '../components/Modal';
@@ -73,13 +73,33 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
   );
 }
 
+function SectionDeleteModal({ section, onClose, onConfirm, loading, error }) {
+  return (
+    <Modal title="Delete Section" onClose={onClose} maxWidth="420px"
+      footer={<>
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="destructive" size="sm" loading={loading} onClick={onConfirm}>
+          <Trash2 size={13} /> Delete
+        </Button>
+      </>}>
+      <div className="space-y-3">
+        <p>Delete {section.name}? This cannot be undone.</p>
+        {error && <Alert type="error">{error}</Alert>}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Sections() {
-  const { sections: liveSections, teachers, students, saveSection } = useData();
+  const { sections: liveSections, teachers, students, saveSection, deleteSection } = useData();
   const navigate = useNavigate();
   const [sections, setSections]   = useState([]);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing]     = useState(null);
   const [success, setSuccess]     = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => setSections(liveSections.map((section) => ({
     ...section,
@@ -94,11 +114,52 @@ export default function Sections() {
     setTimeout(()=>setSuccess(''),4000);
   };
 
+  const requestDelete = (section) => {
+    const studentCount = students.filter((student) =>
+      student.sectionId === section.id
+      || student.section === section.id
+      || student.sectionId === section.name
+      || student.section === section.name
+    ).length;
+    if (studentCount > 0) {
+      setDeleteError(`Cannot delete: section has ${studentCount} student(s).`);
+      return;
+    }
+    setDeleteError('');
+    setDeleting(section);
+  };
+
+  const confirmDelete = async () => {
+    if (!deleting?.id) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await deleteSection(deleting.id);
+      setSections((current) => current.filter((section) => section.id !== deleting.id));
+      setSuccess(`${deleting.name} deleted successfully.`);
+      setTimeout(() => setSuccess(''), 4000);
+      setDeleting(null);
+    } catch (error) {
+      setDeleteError(error.message || 'Unable to delete section.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   const normalizeGrade = (value) => String(value || '').replace(/^grade\s*/i, '').trim();
   const grades = [...new Set(sections.map((section) => normalizeGrade(section.grade)).filter(Boolean))].sort((a,b)=>Number(b)-Number(a));
 
   return (
     <div className="animate-fade-in">
+      {deleting && (
+        <SectionDeleteModal
+          section={deleting}
+          onClose={() => { if (!deleteLoading) { setDeleting(null); setDeleteError(''); } }}
+          onConfirm={confirmDelete}
+          loading={deleteLoading}
+          error={deleteError}
+        />
+      )}
       {(showModal || editing) && (
         <SectionModal
           key={editing?.id || 'new-section'}
@@ -123,6 +184,7 @@ export default function Sections() {
       </div>
 
       {success && <Alert type="success" onClose={()=>setSuccess('')} className="mb-4">{success}</Alert>}
+      {deleteError && !deleting && <Alert type="error" onClose={()=>setDeleteError('')} className="mb-4">{deleteError}</Alert>}
 
       {!sections.length ? (
         <EmptyState icon={Layers} title="No sections yet." subtitle="Add a section to organize students and advisers." />
@@ -162,11 +224,20 @@ export default function Sections() {
                     </span>
                   </div>
                 </div>
-                <div className="section-actions flex gap-2">
+                <div className="section-actions flex gap-2 flex-wrap">
                   <Button variant="ghost" size="sm" className="flex-1" onClick={()=>setEditing(sec)}>
                     <Pencil size={12} /> Edit
                   </Button>
-                  <Button variant="ghost" size="sm" className="flex-1" onClick={() => navigate(`/attendance?section=${encodeURIComponent(sec.name)}`)}>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1"
+                    style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                    onClick={() => requestDelete(sec)}
+                  >
+                    <Trash2 size={12} /> Delete
+                  </Button>
+                  <Button variant="ghost" size="sm" className="w-full" onClick={() => navigate(`/attendance?section=${encodeURIComponent(sec.name)}`)}>
                     View Attendance
                   </Button>
                 </div>

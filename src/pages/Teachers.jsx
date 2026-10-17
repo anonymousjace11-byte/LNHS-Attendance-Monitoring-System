@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Search, Plus, Pencil, CheckCircle, Users } from 'lucide-react';
+import { Search, Plus, Pencil, CheckCircle, Trash2, Users } from 'lucide-react';
 import Button from '../components/Button';
 import { EmptyTableRow } from '../components/EmptyState';
 import Modal from '../components/Modal';
@@ -96,13 +96,33 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
   );
 }
 
+function TeacherDeleteModal({ teacher, onClose, onConfirm, loading, error }) {
+  return (
+    <Modal title="Delete Teacher" onClose={onClose} maxWidth="420px"
+      footer={<>
+        <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button variant="destructive" size="sm" loading={loading} onClick={onConfirm}>
+          <Trash2 size={13} /> Delete
+        </Button>
+      </>}>
+      <div className="space-y-3">
+        <p>Delete {teacher.name}? This cannot be undone.</p>
+        {error && <Alert type="error">{error}</Alert>}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Teachers() {
-  const { teachers: liveTeachers, sections, saveTeacher } = useData();
+  const { teachers: liveTeachers, sections, saveTeacher, deleteTeacher } = useData();
   const [teachers, setTeachers]   = useState([]);
   const [search, setSearch]       = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing]     = useState(null);
   const [success, setSuccess]     = useState('');
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => setTeachers(liveTeachers), [liveTeachers]);
 
@@ -128,8 +148,59 @@ export default function Teachers() {
     setTimeout(() => setSuccess(''), 4000);
   };
 
+  const requestDelete = (teacher) => {
+    const teacherIds = new Set([teacher.id, teacher.uid, teacher.name].filter(Boolean).map(String));
+    const assignedSections = new Set([
+      teacher.sectionId,
+      ...(Array.isArray(teacher.sections) ? teacher.sections : []),
+    ].filter(Boolean).map(String));
+    const advisedSections = sections.filter((section) => {
+      const adviserReferences = [section.teacherId, section.adviser, section.adviserName, section.teacherName, section.teacher];
+      return adviserReferences.some((reference) => teacherIds.has(String(reference || '')))
+        || assignedSections.has(section.id)
+        || assignedSections.has(section.name);
+    });
+    if (advisedSections.length) {
+      setDeleteError(`Cannot delete: teacher advises ${advisedSections.map((section) => section.name).join(', ')}.`);
+      return;
+    }
+    if (!teacher.id && !teacher.uid) {
+      setDeleteError('Cannot delete: teacher record has no document ID.');
+      return;
+    }
+    setDeleteError('');
+    setDeleting(teacher);
+  };
+
+  const confirmDelete = async () => {
+    const teacherId = deleting?.id || deleting?.uid;
+    if (!teacherId) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await deleteTeacher(teacherId);
+      setTeachers((current) => current.filter((teacher) => teacher.id !== deleting.id && teacher.uid !== deleting.uid));
+      setSuccess(`${deleting.name} deleted successfully.`);
+      setTimeout(() => setSuccess(''), 4000);
+      setDeleting(null);
+    } catch (error) {
+      setDeleteError(error.message || 'Unable to delete teacher.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
+      {deleting && (
+        <TeacherDeleteModal
+          teacher={deleting}
+          onClose={() => { if (!deleteLoading) { setDeleting(null); setDeleteError(''); } }}
+          onConfirm={confirmDelete}
+          loading={deleteLoading}
+          error={deleteError}
+        />
+      )}
       {(showModal || editing) && (
         <TeacherModal
           key={editing?.id || editing?.uid || 'new-teacher'}
@@ -151,6 +222,7 @@ export default function Teachers() {
       </div>
 
       {success && <Alert type="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
+      {deleteError && !deleting && <Alert type="error" onClose={() => setDeleteError('')} className="mb-4">{deleteError}</Alert>}
 
       <div className="relative mb-4" style={{ maxWidth: '340px' }}>
         <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color:'var(--text-muted)', pointerEvents:'none' }} />
@@ -199,6 +271,14 @@ export default function Teachers() {
                     <div className="flex gap-1.5">
                       <Button variant="ghost" size="sm" onClick={() => setEditing(t)}>
                         <Pencil size={12} /> Edit
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                        onClick={() => requestDelete(t)}
+                      >
+                        <Trash2 size={12} /> Delete
                       </Button>
                       {!t.approved && (
                         <Button variant="success" size="sm" onClick={() => approve(t.uid || t.id)}>

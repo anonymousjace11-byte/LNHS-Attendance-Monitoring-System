@@ -339,8 +339,19 @@ export function DataProvider({ children }) {
     setData((current) => ({ ...current, parentContacts: current.parentContacts.filter((item) => item.id !== contactId) }));
     return result;
   };
-  const deleteSection = (id) => adminRequest(`/admin/sections/${id}`, 'DELETE');
-  const deleteTeacher = (id) => adminRequest(`/admin/teachers/${id}`, 'DELETE');
+  const deleteSection = async (id) => {
+    const result = await adminRequest(`/admin/sections/${encodeURIComponent(id)}`, 'DELETE');
+    setData((current) => ({ ...current, sections: current.sections.filter((section) => section.id !== id) }));
+    return result;
+  };
+  const deleteTeacher = async (id) => {
+    const result = await adminRequest(`/admin/teachers/${encodeURIComponent(id)}`, 'DELETE');
+    setData((current) => ({
+      ...current,
+      teachers: current.teachers.filter((teacher) => teacher.id !== id && teacher.uid !== id),
+    }));
+    return result;
+  };
   const saveAttendanceSettings = (cutoff) => adminRequest('/admin/settings/attendance', 'POST', { cutoff });
   const saveSmsTemplates = async ({ present, late, absent }) => adminRequest('/admin/settings/sms-templates', 'POST', { present, late, absent });
   const saveSmsRuntime = async ({ mode, disabled, dailyCapPerStudent }) => adminRequest('/admin/settings/sms-runtime', 'POST', { mode, disabled, dailyCapPerStudent });
