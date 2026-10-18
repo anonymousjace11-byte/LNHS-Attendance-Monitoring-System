@@ -69,13 +69,10 @@ export default function Login() {
     <div className="login-shell">
       <img className="login-shell__banner" src={lnhsBanner} alt="" aria-hidden="true" />
       <div className="login-shell__overlay" aria-hidden="true" />
-
-      <header className="login-header">
-        <div className="login-header__copy">
-          <p className="login-header__title">LNHS ATTENDSYNC</p>
-          <p className="login-header__subtitle">with SMS Notification Using QR Code</p>
-        </div>
-      </header>
+      <div className="login-system-badge">
+        <div className="login-system-badge__name">LNHS ATTENDSYNC</div>
+        <div className="login-system-badge__desc">with SMS Notification Using QR Code</div>
+      </div>
 
       <main className="login-content">
         <section className="login-left" aria-label="Looc National High School">
@@ -133,8 +130,8 @@ export default function Login() {
 
         <section className="login-card login-card--reference" aria-label="LNHS AttendSync sign in">
           <div className="login-card__title">
-            <h2>LNHS ATTENDSYNC</h2>
-            <p>Sign in to your account</p>
+            <h2><LogIn size={18} aria-hidden="true" /> Sign in</h2>
+            <p>to your LNHS AttendSync account</p>
           </div>
           <div className="login-card__divider" aria-hidden="true" />
 
