@@ -5,13 +5,16 @@ import Button from '../components/Button';
 import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 import StudentIdCard from '../components/StudentIdCard';
 import PageCover from '../components/PageCover';
+import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
 
 const STRANDS = ['All Strands', 'STEM', 'ABM', 'HUMSS', 'TVL', 'GAS'];
+const PAGE_SIZE = 10;
 const EMPTY_FORM = {
   lastName: '', firstName: '', middle: '', studentCode: '', strand: 'STEM',
   sectionId: '', section: '', adviser: '', parentName: '', parentPhone: '', relationship: 'Parent',
@@ -234,6 +237,9 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [strand, setStrand] = useState('All Strands');
+  const [sortColumn, setSortColumn] = useState('studentId');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [success, setSuccess] = useState('');
@@ -256,6 +262,8 @@ export default function Students() {
       && (strand === 'All Strands' || student.strand === strand);
   }), [students, search, strand]);
 
+  useEffect(() => setCurrentPage(1), [search, strand]);
+
   const displayStudentId = (student) => {
     const source = student.studentCode || student.code;
     if (source) {
@@ -263,6 +271,23 @@ export default function Students() {
       return normalized.startsWith('LNHS-') ? normalized : `LNHS-${normalized}`;
     }
     return `LNHS-${String(student.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 10).toUpperCase()}`;
+  };
+
+  const sortedStudents = useMemo(() => sortRows(filtered, sortColumn, sortDirection, (student, column) => {
+    if (column === 'studentId') return displayStudentId(student);
+    if (column === 'section') return student.section || sectionById.get(student.sectionId)?.name || '';
+    if (column === 'status') return student.active ? 'Active' : 'Inactive';
+    return student[column] || '';
+  }), [filtered, sortColumn, sortDirection, sectionById]);
+  const pageStudents = sortedStudents.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const changeSort = (column) => {
+    if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
   };
 
   const handleSave = async (data, photoFile) => {
@@ -345,33 +370,38 @@ export default function Students() {
         <div className="overflow-x-auto">
           <table className="data-table students-table">
             <thead><tr>
-              <th>Student ID</th><th>Name</th><th>Strand</th><th>Section</th>
-              <th>Adviser</th><th>Parent Contact</th><th>Status</th><th className="right">Actions</th>
+              <SortableHeader label="Student ID" column="studentId" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <SortableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <SortableHeader label="Strand" column="strand" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <SortableHeader label="Section" column="section" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <th>Adviser</th><th>Parent Contact</th>
+              <SortableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <th className="right">Actions</th>
             </tr></thead>
             <tbody>
-              {filtered.map((student) => {
+              {pageStudents.map((student) => {
                 const parent = parentByStudentId.get(student.id);
                 return <tr key={student.id}>
                   <td className="mono students-table__id">{displayStudentId(student)}</td>
                   <td><span className="cell-name">{displayValue(student.name)}</span></td>
-                  <td><span className="badge badge-strand" data-strand={student.strand}>{displayValue(student.strand)}</span></td>
+                  <td><span className="pill-strand badge-strand" data-strand={student.strand}>{displayValue(student.strand)}</span></td>
                   <td>{displayValue(student.section || sectionById.get(student.sectionId)?.name)}</td>
                   <td>{displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser)}</td>
                   <td className="mono students-table__phone">{displayValue(parent?.parentPhone || student.parentPhone)}</td>
-                  <td><span className={`badge ${student.active ? 'badge-active' : 'badge-inactive'}`}>{student.active ? 'Active' : 'Inactive'}</span></td>
+                  <td><span className={`pill-status ${student.active ? 'pill-status--active' : 'pill-status--inactive'}`}>{student.active ? 'Active' : 'Inactive'}</span></td>
                   <td className="right"><div className="row-actions">
-                    <Button variant="ghost" size="sm" onClick={() => setEditing({
+                    <Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing({
                       ...student,
                       parentName: parent?.parentName || student.parentName || '',
                       parentPhone: parent?.parentPhone || student.parentPhone || '',
                     })} title="Edit student" aria-label={`Edit ${student.name || 'student'}`}><Pencil size={12} /> Edit</Button>
-                    <Button variant="ghost" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
-                    <Button variant="primary" size="sm" onClick={() => {
+                    <Button variant="outline" className="table-action--preview" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
+                    <Button variant="outline" className="table-action--export" size="sm" onClick={() => {
                       handleIdExport(student);
                       setPreviewStudent(student);
                       window.setTimeout(() => window.print(), 150);
                     }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
-                    <Button variant={student.active ? 'danger' : 'success'} size="sm" onClick={() => toggleActive(student.id)}
+                    <Button variant="outline" className={student.active ? 'table-action--delete' : 'table-action--approve'} size="sm" onClick={() => toggleActive(student.id)}
                       title={student.active ? 'Deactivate' : 'Activate'} aria-label={`${student.active ? 'Deactivate' : 'Activate'} ${student.name || 'student'}`}>
                       <UserX size={12} /> {student.active ? 'Deactivate' : 'Activate'}
                     </Button>
@@ -389,7 +419,7 @@ export default function Students() {
             </tbody>
           </table>
         </div>
-        <div className="table-footer">Showing {filtered.length} of {students.length} students</div>
+        <Pagination totalItems={sortedStudents.length} currentPage={currentPage} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} itemLabel="students" />
       </div>
     </div>
   );
