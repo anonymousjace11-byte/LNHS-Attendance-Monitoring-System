@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
-export default function Modal({ title, onClose, children, footer, maxWidth = '480px', className = '' }) {
+export default function Modal({ title, onClose, children, footer, maxWidth = '480px', className = '', portal = false }) {
   const dialogRef = useRef(null);
 
   // Trap focus and close on Escape
@@ -21,7 +22,7 @@ export default function Modal({ title, onClose, children, footer, maxWidth = '48
     };
   }, [onClose]);
 
-  return (
+  const content = (
     <div
       className={`modal-overlay animate-fade-in ${className ? `${className}-overlay` : ''}`}
       onClick={(e) => e.target === e.currentTarget && onClose?.()}
@@ -51,4 +52,8 @@ export default function Modal({ title, onClose, children, footer, maxWidth = '48
       </div>
     </div>
   );
+
+  return portal && typeof document !== 'undefined'
+    ? createPortal(content, document.body)
+    : content;
 }

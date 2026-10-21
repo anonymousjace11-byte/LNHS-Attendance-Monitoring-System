@@ -1,7 +1,7 @@
 .app-loader {
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 10000;
   overflow: hidden;
   background: #0a1628;
   opacity: 1;
@@ -87,15 +87,15 @@
   background: repeating-linear-gradient(90deg, transparent 0 38px, rgba(255, 255, 255, .28) 38px 64px, transparent 64px 96px);
 }
 
-.app-loader__student-img {
+.loader-student-gif {
   position: absolute;
   bottom: 60px;
   left: -20%;
   z-index: 4;
   width: 140px;
-  height: auto;
-  filter: brightness(0);
-  animation: walk-across 6s linear infinite;
+  height: 140px;
+  object-fit: contain;
+  animation: walk-across 8.4s linear infinite;
 }
 
 .app-loader__caption {
@@ -175,7 +175,7 @@
 
 @media (max-width: 600px) {
   .app-loader__seal { top: 8%; width: 92px; height: 92px; }
-  .app-loader__student-img { width: 140px; }
+  .loader-student-gif { width: 140px; }
   .app-loader__caption { bottom: 6%; }
   .app-loader__name { font-size: 11px; letter-spacing: 1.3px; }
 }

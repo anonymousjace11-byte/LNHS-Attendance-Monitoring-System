@@ -58,7 +58,7 @@ export default function Layout({ children }) {
 
   const nav = NAV_FULL.filter((section) => !section.adminOnly || isAdmin);
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin';
-  const roleLabel = isAdmin ? 'Admin' : 'Staff';
+  const roleLabel = isAdmin ? 'Admin' : isTeacher ? 'Teacher' : 'Staff';
 
   useEffect(() => {
     const clockInterval = window.setInterval(() => setNow(new Date()), 60000);

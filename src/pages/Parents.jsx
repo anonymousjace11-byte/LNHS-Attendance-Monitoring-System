@@ -1,11 +1,13 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Pencil, Plus, Search, Trash2, Users } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
 import FormField from '../components/FormField';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 import PageCover from '../components/PageCover';
+import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
@@ -53,8 +55,12 @@ function ParentModal({ onClose, onSave, existing, students }) {
 export default function Parents() {
   const { parentContacts, students, saveParentContact, deleteParentContact } = useData();
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState('student');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [editing, setEditing] = useState(null);
   const [success, setSuccess] = useState('');
+  const pageSize = 10;
   const rows = useMemo(() => parentContacts.map((contact) => ({
     ...contact,
     student: students.find((item) => item.id === contact.studentId),
@@ -62,6 +68,22 @@ export default function Parents() {
     const query = search.toLowerCase();
     return !query || contact.parentName?.toLowerCase().includes(query) || contact.student?.name?.toLowerCase().includes(query) || contact.studentId?.toLowerCase().includes(query);
   }), [parentContacts, students, search]);
+  useEffect(() => setCurrentPage(1), [search]);
+  const sortedRows = sortRows(rows, sortColumn, sortDirection, (contact, column) => {
+    if (column === 'student') return contact.student?.name || contact.studentId || '';
+    if (column === 'parent') return contact.parentName || '';
+    if (column === 'mobile') return contact.parentPhone || '';
+    return contact[column] || '';
+  });
+  const pageRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const changeSort = (column) => {
+    if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
 
   async function save(contact) {
     await saveParentContact(contact);
@@ -90,13 +112,18 @@ export default function Parents() {
       <input className="field-input pl-9" placeholder="Search parent or student…" value={search} onChange={(event) => setSearch(event.target.value)} />
     </div>
     <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="data-table w-full">
-      <thead><tr><th>Student</th><th>Parent / Guardian</th><th>Mobile Number</th><th>Notifications</th><th>Actions</th></tr></thead>
-      <tbody>{rows.map((contact) => <tr key={contact.id}>
+      <thead><tr>
+        <SortableHeader label="Student" column="student" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+        <SortableHeader label="Parent / Guardian" column="parent" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+        <SortableHeader label="Mobile Number" column="mobile" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+        <th>Notifications</th><th>Actions</th>
+      </tr></thead>
+      <tbody>{pageRows.map((contact) => <tr key={contact.id}>
         <td><div style={{ fontWeight: 600 }}>{displayValue(contact.student?.name)}</div><div style={{ fontFamily: 'JetBrains Mono', fontSize: '.72rem', color: 'var(--text-muted)' }}>{displayValue(contact.studentId)}</div></td>
         <td>{displayValue(contact.parentName)}</td><td style={{ fontFamily: 'JetBrains Mono', color: 'var(--text-sub)' }}>{displayValue(contact.parentPhone)}</td>
-        <td><span className="badge badge-active">Enabled</span></td>
-        <td><div className="flex gap-1.5"><Button variant="ghost" size="sm" onClick={() => setEditing(contact)} title="Edit parent contact" aria-label="Edit parent contact"><Pencil size={12} /></Button><Button variant="danger" size="sm" onClick={() => remove(contact)} title="Remove parent contact" aria-label="Remove parent contact"><Trash2 size={12} /></Button></div></td>
+        <td><span className="pill-status pill-status--enabled">Enabled</span></td>
+        <td><div className="row-actions"><Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing(contact)} title="Edit parent contact" aria-label="Edit parent contact"><Pencil size={12} /> Edit</Button><Button variant="outline" className="table-action--remove" size="sm" onClick={() => remove(contact)} title="Remove parent contact" aria-label="Remove parent contact"><Trash2 size={12} /> Remove</Button></div></td>
       </tr>)}{!rows.length && <EmptyTableRow colSpan={5} icon={Users} title={parentContacts.length ? 'No parent contacts match your search.' : 'No parent contacts yet.'} subtitle={parentContacts.length ? 'Try another parent or student name.' : 'Register parent contacts to enable SMS notifications.'} />}</tbody>
-    </table></div></div>
+    </table></div><Pagination totalItems={sortedRows.length} currentPage={currentPage} pageSize={pageSize} onPageChange={setCurrentPage} itemLabel="parent contacts" /></div>
   </div>;
 }

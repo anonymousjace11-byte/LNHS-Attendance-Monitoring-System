@@ -3,13 +3,16 @@ import { Search, Plus, Pencil, CheckCircle, Trash2, Users } from 'lucide-react';
 import Button from '../components/Button';
 import { EmptyTableRow } from '../components/EmptyState';
 import Modal from '../components/Modal';
+import Pagination from '../components/Pagination';
 import FormField from '../components/FormField';
 import Alert from '../components/Alert';
 import PageCover from '../components/PageCover';
+import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
 function emailValid(v) { return /^[^\s@]+@lnhs\.edu\.ph$/i.test(v.trim()); }
+const PAGE_SIZE = 10;
 
 function TeacherModal({ onClose, onSave, existing, sections }) {
   const [form, setForm] = useState(existing ? {
@@ -118,6 +121,9 @@ export default function Teachers() {
   const { teachers: liveTeachers, sections, saveTeacher, deleteTeacher } = useData();
   const [teachers, setTeachers]   = useState([]);
   const [search, setSearch]       = useState('');
+  const [sortColumn, setSortColumn] = useState('name');
+  const [sortDirection, setSortDirection] = useState('asc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing]     = useState(null);
   const [success, setSuccess]     = useState('');
@@ -131,7 +137,19 @@ export default function Teachers() {
     const q = search.toLowerCase();
     return !q || t.name.toLowerCase().includes(q) || t.email.toLowerCase().includes(q);
   });
+  useEffect(() => setCurrentPage(1), [search]);
   const sectionNameById = new Map(sections.map((section) => [section.id, section.name]));
+  const sortedTeachers = sortRows(filtered, sortColumn, sortDirection);
+  const pageTeachers = sortedTeachers.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+
+  const changeSort = (column) => {
+    if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
 
   const handleSave = async (data) => {
     await saveTeacher(data);
@@ -232,16 +250,16 @@ export default function Teachers() {
           <table className="data-table w-full">
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Strand</th>
+                <SortableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <SortableHeader label="Email" column="email" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <SortableHeader label="Strand" column="strand" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
                 <th>Assigned Sections</th>
-                <th>Approval</th>
+                <SortableHeader label="Approval" column="approved" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((t) => {
+              {pageTeachers.map((t) => {
                 const assignedSections = (t.sections || (t.sectionId ? [t.sectionId] : []))
                   .map((section) => displayValue(sectionNameById.get(section) || section));
                 return <tr key={t.uid || t.id}>
@@ -250,7 +268,7 @@ export default function Teachers() {
                     <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid || t.id)}</div>
                   </td>
                   <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{displayValue(String(t.email || '').toLowerCase())}</td>
-                  <td><span className="badge badge-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
+                  <td><span className="pill-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
                   <td>
                     <div className="flex flex-wrap gap-1">
                       {assignedSections.length ? assignedSections.map((section) => (
@@ -261,25 +279,25 @@ export default function Teachers() {
                     </div>
                   </td>
                   <td>
-                    <span className={`badge ${t.approved ? 'badge-approved' : 'badge-pending'}`}>
+                    <span className={`pill-status ${t.approved ? 'pill-status--approved' : 'pill-status--pending'}`}>
                       {t.approved ? 'Approved' : 'Pending'}
                     </span>
                   </td>
                   <td>
-                    <div className="flex gap-1.5">
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(t)}>
+                    <div className="row-actions">
+                      <Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing(t)}>
                         <Pencil size={12} /> Edit
                       </Button>
                       <Button
                         variant="outline"
                         size="sm"
-                        style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                        className="table-action--delete"
                         onClick={() => requestDelete(t)}
                       >
                         <Trash2 size={12} /> Delete
                       </Button>
                       {!t.approved && (
-                        <Button variant="success" size="sm" onClick={() => approve(t.uid || t.id)}>
+                        <Button variant="outline" className="table-action--approve" size="sm" onClick={() => approve(t.uid || t.id)}>
                           <CheckCircle size={12} /> Approve
                         </Button>
                       )}
@@ -298,6 +316,7 @@ export default function Teachers() {
             </tbody>
           </table>
         </div>
+        <Pagination totalItems={sortedTeachers.length} currentPage={currentPage} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} itemLabel="teachers" />
       </div>
     </div>
   );

@@ -25,10 +25,20 @@ export function AuthProvider({ children }) {
       try {
         const token = await firebaseUser.getIdTokenResult();
         const profileSnapshot = await getDoc(doc(db, 'users', firebaseUser.uid));
-        const profileRole = profileSnapshot.exists() ? profileSnapshot.data()?.role : '';
-        const claimsRole = token.claims.admin ? 'admin' : token.claims.teacher ? 'teacher' : 'student';
+        const profile = profileSnapshot.exists() ? profileSnapshot.data() : {};
+        const profileRole = profile.role || '';
+        const claimsRole = token.claims.admin === true ? 'admin' : token.claims.teacher === true ? 'teacher' : '';
+        const isPendingTeacher = profileRole === 'pending'
+          || (profileRole === 'teacher' && profile.approved === false);
+        const resolvedRole = claimsRole === 'admin' || profileRole === 'admin'
+          ? 'admin'
+          : isPendingTeacher
+            ? 'pending'
+          : claimsRole === 'teacher' || profileRole === 'teacher'
+            ? 'teacher'
+            : 'student';
         if (currentRequest === requestId) {
-          setRole(['admin', 'teacher', 'student'].includes(profileRole) ? profileRole : claimsRole);
+          setRole(resolvedRole);
         }
       } catch (error) {
         console.warn('Failed to read role claims:', error);

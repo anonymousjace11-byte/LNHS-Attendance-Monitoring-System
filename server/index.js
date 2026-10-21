@@ -376,6 +376,17 @@ async function requireStaffAuth(req, res, next) {
       return res.status(403).json({ error: "Admin or teacher access required." });
     }
 
+    if (isTeacher && !isAdmin) {
+      const db = getFirestore(adminSdk);
+      const [teacherProfile, userProfile] = await Promise.all([
+        db.collection("teachers").doc(decodedToken.uid).get(),
+        db.collection("users").doc(decodedToken.uid).get()
+      ]);
+      if ([teacherProfile, userProfile].some(profile => profile.exists && profile.data()?.approved === false)) {
+        return res.status(403).json({ error: "Teacher account pending approval." });
+      }
+    }
+
     req.auth = decodedToken;
     req.adminSdk = adminSdk;
     req.isAdmin = isAdmin;
@@ -1086,15 +1097,15 @@ app.post("/admin/teachers", async (req, res) => {
     const previousSectionId = previousTeacher.exists ? String(previousTeacher.data()?.sectionId || "") : "";
     const teacherAuth = getAuth(authResult.adminSdk);
     if (!id) {
-      await setRoleClaims(authResult.adminSdk, uid, "teacher", email.trim().toLowerCase(), name.trim(), password);
+      await setRoleClaims(authResult.adminSdk, uid, approved ? "teacher" : "pending", email.trim().toLowerCase(), name.trim(), password);
     } else if (uid) {
       await teacherAuth.getUser(uid);
       if (password) await teacherAuth.updateUser(uid, { password });
-      await teacherAuth.setCustomUserClaims(uid, { admin: false, teacher: true, student: false });
+      await teacherAuth.setCustomUserClaims(uid, { admin: false, teacher: approved === true, student: false });
     }
     const teacher = { ...(uid ? { uid } : {}), name: name.trim(), email: email.trim().toLowerCase(), strand, sectionId, approved: !!approved, updatedAt: new Date() };
     await teacherRef.set(teacher, { merge: true });
-    if (uid) await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: "teacher" }, { merge: true });
+    if (uid) await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: approved ? "teacher" : "pending" }, { merge: true });
     if (previousSectionId && previousSectionId !== sectionId) {
       await db.collection("sections").doc(previousSectionId).set({ teacherId: "", updatedAt: new Date() }, { merge: true });
     }
@@ -1599,8 +1610,7 @@ app.post("/attendance/finalize", requireStaffAuth, async (req, res) => {
 });
 
 app.get("/attendance/section/:sectionId/today", requireStaffAuth, async (req, res) => {
-  const date = new Date();
-  const today = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const { date: today } = getAttendanceDateParts();
   if (!requireTeacherSection(req, res, req.params.sectionId)) return;
   try {
     const snapshot = await getFirestore(req.adminSdk).collection("attendance").where("sectionId", "==", req.params.sectionId).where("date", "==", today).get();

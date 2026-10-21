@@ -1,7 +1,7 @@
 import './Loader.css';
 import schoolPhoto from '../imports/lnhs-banner.png';
 import teamSeal from '../imports/TEAM SEAL.png';
-import studentSilhouette from '../imports/Walking Schoolgirl Silhouette with Backpack.png';
+import walkingStudentGif from '../imports/walking-student.gif';
 
 export default function Loader({ exiting = false }) {
   return (
@@ -23,9 +23,10 @@ export default function Loader({ exiting = false }) {
       </div>
 
       <img
-        className="app-loader__student-img"
-        src={studentSilhouette}
-        alt="Student walking"
+        className="loader-student-gif"
+        src={walkingStudentGif}
+        alt=""
+        aria-hidden="true"
       />
 
       <div className="app-loader__caption">

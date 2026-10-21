@@ -639,8 +639,8 @@
 
 .id-card__goldline { height: 10px; }
 .id-card__gov { padding: 16px 24px 12px; }
-.id-card__gov-line { font-size: 12px; line-height: 1.55; }
-.id-card__gov-line--sm { font-size: 11px; margin-top: 2px; }
+.id-card__gov-line { font-size: 13px; line-height: 1.45; }
+.id-card__gov-line--sm { font-size: 12px; margin-top: 2px; }
 
 .id-card__brand { padding: 18px 26px 14px; gap: 16px; }
 .id-card__brand-seal {
@@ -665,44 +665,44 @@
 
 .id-card__name { font-size: 27px; line-height: 1.1; }
 .id-card__code { margin: 10px 0 16px; padding-bottom: 12px; gap: 10px; }
-.id-card__code-label { font-size: 11.5px; letter-spacing: .14em; }
+.id-card__code-label { font-size: 12px; letter-spacing: .12em; }
 .id-card__code-value { font-size: 17px; }
 
 .id-card__fields { gap: 8px; font-size: 13.5px; }
 .id-card__fields > div { grid-template-columns: 96px 1fr; gap: 10px; }
-.id-card__fields dt { font-size: 11px; letter-spacing: .07em; }
+.id-card__fields dt { font-size: 12px; letter-spacing: .06em; }
 .id-card__fields dd { font-size: 13.5px; }
 
 .id-card__signatures { gap: 30px; padding: 10px 26px 14px; }
 .id-card__signature-line { height: 1.5px; margin-bottom: 5px; }
-.id-card__signature-label { font-size: 11px; letter-spacing: .1em; }
+.id-card__signature-label { font-size: 12px; letter-spacing: .08em; }
 
 .id-card__cobrand { gap: 16px; padding: 14px 26px; }
 .id-card__cobrand-cell { gap: 10px; }
 .id-card__cobrand-seal { width: 46px; height: 46px; }
-.id-card__cobrand-label { font-size: 9.5px; letter-spacing: .14em; }
-.id-card__cobrand-title { font-size: 12px; margin-top: 2px; }
-.id-card__cobrand-sub { font-size: 10.5px; margin-top: 1px; }
+.id-card__cobrand-label { font-size: 10.5px; letter-spacing: .12em; }
+.id-card__cobrand-title { font-size: 13px; margin-top: 2px; }
+.id-card__cobrand-sub { font-size: 11.5px; margin-top: 1px; }
 
-.id-card__foot { padding: 12px 26px; font-size: 11.5px; letter-spacing: .05em; }
+.id-card__foot { padding: 12px 26px; font-size: 12px; letter-spacing: .04em; }
 
 .student-id-card__back { padding: 22px 26px 16px; }
 .id-card__back-header { padding-bottom: 12px; }
 .id-card__back-brand { font-size: 16px; }
-.id-card__back-brand-sub { font-size: 11px; letter-spacing: .14em; margin-top: 3px; }
+.id-card__back-brand-sub { font-size: 12px; letter-spacing: .12em; margin-top: 3px; }
 
 .id-card__back-qr-frame { margin: 22px 0 16px; padding: 18px; border-width: 4px; }
 .id-card__back-qr { width: 320px; height: 320px; }
 .id-card__qr-fallback { font-size: 15px; }
 .id-card__back-caption { font-size: 19px; margin-top: 6px; letter-spacing: .14em; }
-.id-card__back-sub { margin-top: 5px; font-size: 13px; max-width: 400px; line-height: 1.55; }
+.id-card__back-sub { margin-top: 5px; font-size: 13.5px; max-width: 400px; line-height: 1.45; }
 
 .id-card__back-steps { margin-top: 14px; padding: 12px 16px; max-width: 480px; }
-.id-card__back-steps-title { font-size: 11px; margin-bottom: 6px; letter-spacing: .12em; }
-.id-card__back-steps-list { font-size: 11.5px; line-height: 1.6; padding-left: 20px; }
+.id-card__back-steps-title { font-size: 12px; margin-bottom: 6px; letter-spacing: .1em; }
+.id-card__back-steps-list { font-size: 12px; line-height: 1.45; padding-left: 20px; }
 .id-card__back-steps-list li { margin-bottom: 3px; }
 
-.id-card__back-note { margin-top: 14px; padding: 12px 16px; font-size: 11.5px; line-height: 1.6; max-width: 480px; }
+.id-card__back-note { margin-top: 12px; padding: 10px 14px; font-size: 12px; line-height: 1.45; max-width: 480px; }
 .id-card__back-footer { padding: 12px 0; gap: 5px; }
 .id-card__back-footer-row { font-size: 11px; }
 .id-card__back-footer-row strong { font-size: 11.5px; }
@@ -732,6 +732,420 @@
 .student-id-preview-modal {
   width: min(1200px, calc(100vw - 20px)) !important;
   max-width: 1200px !important;
+}
+
+/* Exported PNG/PDF cards are rasterized at 3x, then placed at CR100 size. */
+.student-id-card--export .id-card__gov-line { font-size: 24px; line-height: 1.3; }
+.student-id-card--export .id-card__gov-line--sm { font-size: 20px; }
+.student-id-card--export .id-card__brand-filipino { font-size: 18px; }
+.student-id-card--export .id-card__brand-name { font-size: 28px; }
+.student-id-card--export .id-card__brand-line { font-size: 20px; }
+.student-id-card--export .id-card__school-id,
+.student-id-card--export .id-card__school-id-value { font-size: 22px; }
+.student-id-card--export .id-card__name { font-size: 32px; }
+.student-id-card--export .id-card__code-label { font-size: 20px; }
+.student-id-card--export .id-card__code-value { font-size: 22px; }
+.student-id-card--export .id-card__fields dt { font-size: 18px; }
+.student-id-card--export .id-card__fields dd { font-size: 20px; }
+.student-id-card--export .id-card__fields > div { grid-template-columns: 132px minmax(0, 1fr); }
+.student-id-card--export .id-card__signature-label { font-size: 17px; }
+.student-id-card--export .id-card__cobrand-label { font-size: 17px; }
+.student-id-card--export .id-card__cobrand-title { font-size: 20px; }
+.student-id-card--export .id-card__cobrand-sub { font-size: 18px; }
+.student-id-card--export .id-card__foot { flex-direction: column; align-items: center; gap: 2px; font-size: 20px; line-height: 1.2; text-align: center; }
+.student-id-card--export .id-card__back-brand { font-size: 24px; }
+.student-id-card--export .id-card__back-brand-sub { font-size: 20px; }
+.student-id-card--export .id-card__back-caption { font-size: 24px; }
+.student-id-card--export .id-card__back-sub { font-size: 18px; }
+.student-id-card--export .id-card__back-steps-title { font-size: 18px; }
+.student-id-card--export .id-card__back-steps-list { font-size: 17px; line-height: 1.35; }
+.student-id-card--export .id-card__back-note { font-size: 17px; line-height: 1.35; }
+.student-id-card--export .id-card__back-footer-row { font-size: 16px; }
+.student-id-card--export .id-card__back-footer-row strong { font-size: 18px; }
+
+@media print {
+  @page { size: 66mm 100mm; margin: 0; }
+
+  html,
+  body {
+    width: 66mm !important;
+    height: 100mm !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  body * { visibility: hidden !important; }
+
+  .modal-overlay.student-id-preview-modal-overlay,
+  .modal.student-id-preview-modal,
+  .student-id-preview-modal .modal-body,
+  .student-id-sheet,
+  .student-id-sheet * { visibility: visible !important; }
+
+  .modal-overlay.student-id-preview-modal-overlay,
+  .modal.student-id-preview-modal,
+  .student-id-preview-modal .modal-body {
+    position: static !important;
+    display: block !important;
+    width: 66mm !important;
+    max-width: none !important;
+    height: auto !important;
+    max-height: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    box-shadow: none !important;
+    -webkit-backdrop-filter: none !important;
+    backdrop-filter: none !important;
+  }
+
+  .student-id-sheet {
+    position: static !important;
+    display: block !important;
+    width: 66mm !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  .student-id-toolbar,
+  .student-id-card__controls,
+  .student-id-crop-editor,
+  .student-id-side__label,
+  .no-print { display: none !important; }
+
+  .student-id-viewport {
+    display: block !important;
+    width: 66mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    overflow: visible !important;
+  }
+
+  .student-id-pair { display: block !important; width: 66mm !important; height: auto !important; }
+  .student-id-side { display: block !important; width: 66mm !important; page-break-after: always; break-after: page; }
+  .student-id-side:last-child { page-break-after: auto; break-after: auto; }
+
+  .student-id-card-scaler {
+    position: relative !important;
+    width: 66mm !important;
+    height: 100mm !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .student-id-card {
+    position: relative !important;
+    top: auto !important;
+    left: auto !important;
+    display: flex !important;
+    box-sizing: border-box !important;
+    width: 66mm !important;
+    height: 100mm !important;
+    transform: none !important;
+    transform-origin: top left !important;
+    overflow: hidden !important;
+    border: .2mm solid #1f2328 !important;
+    border-radius: 0 !important;
+    background: #fff !important;
+    color: #1f2328 !important;
+    box-shadow: none !important;
+    print-color-adjust: exact !important;
+    -webkit-print-color-adjust: exact !important;
+  }
+
+  .student-id-card__front,
+  .student-id-card__back {
+    display: flex !important;
+    flex: 1 1 auto !important;
+    flex-direction: column !important;
+    min-width: 0 !important;
+    min-height: 0 !important;
+    overflow: hidden !important;
+  }
+
+  .id-card__goldline {
+    flex: 0 0 1mm !important;
+    height: 1mm !important;
+    background: #c8962a !important;
+  }
+
+  .id-card__gov {
+    flex: 0 0 auto !important;
+    padding: 1.5mm 2mm 1mm !important;
+    background: #fafbfc !important;
+  }
+  .id-card__gov-line { font-size: 8pt !important; line-height: 1.2 !important; }
+  .id-card__gov-line--sm { margin-top: .3mm !important; font-size: 7pt !important; }
+
+  .id-card__brand { flex: 0 0 auto !important; gap: 2mm !important; padding: 2mm 3mm !important; }
+  .id-card__brand-seal { width: 11mm !important; height: 11mm !important; border-width: .5mm !important; }
+  .id-card__brand-filipino { font-size: 6.5pt !important; line-height: 1.15 !important; }
+  .id-card__brand-name { margin-top: .4mm !important; font-size: 10pt !important; line-height: 1.1 !important; }
+  .id-card__brand-line { margin-top: .5mm !important; font-size: 7pt !important; letter-spacing: .08em !important; }
+
+  .id-card__school-id { flex: 0 0 auto !important; gap: 1.5mm !important; padding: 1.2mm 2mm !important; background: #0f2440 !important; color: #fff !important; font-size: 7.5pt !important; }
+  .id-card__school-id-value { font-size: 8pt !important; }
+
+  .id-card__body { flex: 1 1 auto !important; gap: 2mm !important; padding: 3mm !important; overflow: hidden !important; }
+  .id-card__photo { flex: 0 0 20mm !important; width: 20mm !important; height: 24mm !important; border-width: .7mm !important; border-radius: .5mm !important; }
+  .id-card__details { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; }
+  .id-card__name { font-size: 10pt !important; line-height: 1.1 !important; }
+  .id-card__code { flex-wrap: wrap !important; gap: 1mm !important; margin: 1mm 0 1.5mm !important; padding-bottom: 1mm !important; }
+  .id-card__code-label { font-size: 7pt !important; letter-spacing: .04em !important; }
+  .id-card__code-value { font-size: 8pt !important; }
+  .id-card__fields { gap: 1mm !important; font-size: 7pt !important; }
+  .id-card__fields > div { grid-template-columns: 13mm minmax(0, 1fr) !important; gap: 1mm !important; }
+  .id-card__fields dt { font-size: 6.5pt !important; letter-spacing: 0 !important; }
+  .id-card__fields dd { font-size: 7pt !important; line-height: 1.15 !important; }
+
+  .id-card__signatures { flex: 0 0 auto !important; gap: 4mm !important; padding: 1mm 3mm 2mm !important; margin-top: auto !important; }
+  .id-card__signature-label { font-size: 6.5pt !important; letter-spacing: .02em !important; }
+
+  .id-card__cobrand { flex: 0 0 auto !important; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) !important; gap: 2mm !important; padding: 1.5mm 2.5mm !important; background: #fafbfc !important; }
+  .id-card__cobrand-cell { align-items: center !important; gap: 1mm !important; }
+  .id-card__cobrand-seal { flex: 0 0 7mm !important; width: 7mm !important; height: 7mm !important; }
+  .id-card__cobrand-label { font-size: 6pt !important; letter-spacing: .04em !important; }
+  .id-card__cobrand-title { font-size: 7pt !important; line-height: 1.1 !important; }
+  .id-card__cobrand-sub { font-size: 6.5pt !important; line-height: 1.1 !important; }
+
+  .id-card__foot {
+    flex: 0 0 auto !important;
+    flex-direction: column !important;
+    align-items: center !important;
+    gap: .4mm !important;
+    padding: 1mm 2mm !important;
+    background: #fafbfc !important;
+    font-size: 7pt !important;
+    line-height: 1.1 !important;
+    letter-spacing: 0 !important;
+    text-align: center !important;
+  }
+
+  .student-id-card__back { align-items: center !important; padding: 3mm 4mm 2mm !important; background: #fff !important; }
+  .id-card__back-header { flex: 0 0 auto !important; padding-bottom: 1.5mm !important; }
+  .id-card__back-brand { font-size: 10pt !important; line-height: 1.1 !important; }
+  .id-card__back-brand-sub { margin-top: .5mm !important; font-size: 7pt !important; letter-spacing: .08em !important; }
+  .id-card__back-qr-frame { flex: 0 0 auto !important; margin: 2mm 0 1.5mm !important; padding: 1.5mm !important; border-width: .8mm !important; border-radius: .5mm !important; }
+  .id-card__back-qr { width: 27mm !important; height: 27mm !important; }
+  .id-card__back-caption { flex: 0 0 auto !important; margin-top: 1mm !important; font-size: 9pt !important; letter-spacing: .08em !important; }
+  .id-card__back-sub { flex: 0 0 auto !important; max-width: 54mm !important; margin-top: .7mm !important; font-size: 7pt !important; line-height: 1.2 !important; }
+  .id-card__back-steps { flex: 0 0 auto !important; width: 100% !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-radius: .5mm !important; background: #fafbfc !important; }
+  .id-card__back-steps-title { margin-bottom: .7mm !important; font-size: 7pt !important; letter-spacing: .05em !important; }
+  .id-card__back-steps-list { padding-left: 4mm !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
+  .id-card__back-steps-list li { margin-bottom: .4mm !important; }
+  .id-card__back-note { flex: 0 0 auto !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-left-width: .8mm !important; border-radius: .5mm !important; background: #fafbfc !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
+  .id-card__back-footer { flex: 0 0 auto !important; gap: .5mm !important; padding: 1.5mm 0 0 !important; margin-top: auto !important; }
+  .id-card__back-footer-row { font-size: 6.5pt !important; }
+  .id-card__back-footer-row strong { min-width: 18mm !important; font-size: 7pt !important; }
+}
+
+@media print {
+  @page { size: 66mm 100mm; margin: 0; }
+
+  html,
+  body {
+    width: 66mm !important;
+    margin: 0 !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .student-id-sheet,
+  .student-id-sheet * {
+    visibility: visible !important;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .student-id-sheet {
+    position: absolute !important;
+    inset: 0 auto auto 0 !important;
+    display: block !important;
+    width: 66mm !important;
+    max-width: none !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  .student-id-card {
+    box-sizing: border-box !important;
+    width: 66mm !important;
+    height: 100mm !important;
+    border: .2mm solid #1f2328 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #fff !important;
+  }
+
+  .id-card__goldline { background: #c8962a !important; }
+  .id-card__school-id { background: #0f2440 !important; color: #fff !important; }
+
+  .id-card__gov-line { font-size: 9.5pt !important; line-height: 1.2 !important; }
+  .id-card__gov-line--sm { font-size: 8.5pt !important; }
+  .id-card__brand-filipino,
+  .id-card__brand-line { font-size: 8.5pt !important; }
+  .id-card__back-brand-sub { font-size: 8.5pt !important; }
+  .id-card__brand-name,
+  .id-card__back-brand { font-size: 11pt !important; }
+  .id-card__school-id,
+  .id-card__code-value,
+  .id-card__back-caption { font-size: 9.5pt !important; }
+  .id-card__code-label,
+  .id-card__fields dt,
+  .id-card__signature-label,
+  .id-card__cobrand-label,
+  .id-card__back-steps-title,
+  .id-card__back-steps-list,
+  .id-card__back-footer-row { font-size: 8.5pt !important; }
+  .id-card__cobrand-sub,
+  .id-card__back-note,
+  .id-card__back-sub,
+  .id-card__fields dd { font-size: 9pt !important; }
+  .id-card__cobrand-title,
+  .id-card__back-footer-row strong { font-size: 9pt !important; }
+  .id-card__foot { font-size: 9pt !important; }
+
+  .id-card__fields > div { grid-template-columns: 24mm minmax(0, 1fr) !important; gap: 1mm !important; }
+  .id-card__foot { gap: 2mm; padding: 2mm 3mm !important; }
+  .id-card__back-steps { padding: 2mm 3mm !important; }
+  .id-card__back-steps-list { line-height: 1.25 !important; }
+  .id-card__back-note { line-height: 1.3 !important; }
+
+  .student-id-toolbar,
+  .student-id-card__controls,
+  .student-id-crop-editor,
+  .student-id-side__label,
+  .no-print { display: none !important; }
+}
+
+/* Keep the preview above the page and constrain both scaled card faces to it. */
+.modal-overlay.student-id-preview-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center !important;
+  justify-content: center;
+  width: 100%;
+  height: 100vh !important;
+  height: 100dvh !important;
+  padding: 16px;
+  overflow: auto;
+  background: rgba(5, 12, 22, .68);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+.modal.student-id-preview-modal {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex: 0 1 auto;
+  flex-direction: column;
+  width: min(1080px, calc(100vw - 32px)) !important;
+  max-width: 1080px !important;
+  height: min(820px, calc(100dvh - 32px)) !important;
+  max-height: calc(100dvh - 32px) !important;
+  margin: auto;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: 0 24px 72px rgba(0, 0, 0, .32);
+}
+
+.student-id-preview-modal .modal-header {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.student-id-preview-modal .modal-title {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.student-id-preview-modal .modal-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 10px 14px 14px;
+  overflow: hidden;
+  background: var(--surface);
+}
+
+.student-id-preview-modal .student-id-sheet {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+}
+
+.student-id-preview-modal .student-id-toolbar {
+  flex: 0 0 auto;
+  width: 100%;
+  max-width: none;
+  margin: 0 0 8px;
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.student-id-preview-modal .student-id-viewport {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  width: 100%;
+  align-items: center !important;
+  justify-content: center;
+  overflow: auto !important;
+  padding: 8px;
+}
+
+.student-id-preview-modal .student-id-pair {
+  flex: 0 0 auto;
+  width: max-content;
+  height: auto;
+  align-items: flex-start;
+}
+
+.student-id-preview-modal .student-id-side {
+  flex: 0 0 auto;
+}
+
+.student-id-preview-modal .student-id-card-scaler {
+  flex: 0 0 auto;
+}
+
+.student-id-preview-modal .student-id-card {
+  box-sizing: border-box;
+}
+
+@media (max-width: 720px) {
+  .modal-overlay.student-id-preview-modal-overlay { padding: 8px; }
+  .modal.student-id-preview-modal {
+    width: calc(100vw - 16px) !important;
+    height: calc(100dvh - 16px) !important;
+    max-height: calc(100dvh - 16px) !important;
+  }
+  .student-id-preview-modal .modal-body { padding: 8px; }
+  .student-id-preview-modal .student-id-toolbar-top { align-items: flex-start; }
 }
 
 /* ID card refinements: square photo and higher-contrast metadata */

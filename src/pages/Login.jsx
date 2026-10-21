@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
   BarChart3,
@@ -15,6 +15,7 @@ import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import FormField from '../components/FormField';
+import Loader from '../components/Loader';
 import lnhsLogo from '../imports/LNHS LOGO.png';
 import lnhsBanner from '../imports/lnhs-banner.png';
 
@@ -31,9 +32,15 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [btnState, setBtnState] = useState('idle');
   const [error, setError] = useState('');
   const [touched, setTouched] = useState({ email: false, password: false });
   const [submitted, setSubmitted] = useState(false);
+  const submitTimers = useRef([]);
+
+  useEffect(() => () => {
+    submitTimers.current.forEach((timer) => window.clearTimeout(timer));
+  }, []);
 
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -45,16 +52,11 @@ export default function Login() {
   const emailError = emailInvalid ? 'Enter a valid school email address.' : '';
   const passwordError = passwordInvalid ? 'Password must be at least 6 characters.' : '';
 
-  const handleSubmit = async (event) => {
-    event.preventDefault();
-    setSubmitted(true);
-    setError('');
-
-    if (!validateEmail(email) || !validatePassword(password)) return;
-
+  const completeSignIn = async () => {
     setLoading(true);
     const result = await login(email.trim().toLowerCase(), password);
     setLoading(false);
+    setBtnState('idle');
 
     if (!result.ok) {
       setError(result.message);
@@ -65,15 +67,29 @@ export default function Login() {
     navigate(from, { replace: true });
   };
 
+  const handleSubmit = (event) => {
+    event.preventDefault();
+    setSubmitted(true);
+    setError('');
+
+    if (loading || btnState !== 'idle' || !validateEmail(email) || !validatePassword(password)) return;
+
+    setBtnState('circle');
+    const qrTimer = window.setTimeout(() => setBtnState('qr'), 800);
+    const signInTimer = window.setTimeout(() => {
+      submitTimers.current = [];
+      completeSignIn();
+    }, 2000);
+    submitTimers.current = [qrTimer, signInTimer];
+  };
+
+  const isSubmitting = loading || btnState !== 'idle';
+
   return (
     <div className="login-shell">
+      {loading && <Loader />}
       <img className="login-shell__banner" src={lnhsBanner} alt="" aria-hidden="true" />
       <div className="login-shell__overlay" aria-hidden="true" />
-      <div className="login-system-badge">
-        <div className="login-system-badge__name">LNHS ATTENDSYNC</div>
-        <div className="login-system-badge__desc">with SMS Notification Using QR Code</div>
-      </div>
-
       <main className="login-content">
         <section className="login-left" aria-label="Looc National High School">
           <div className="login-left__seal-row">
@@ -128,89 +144,95 @@ export default function Login() {
           </footer>
         </section>
 
-        <section className="login-card login-card--reference" aria-label="LNHS AttendSync sign in">
-          <div className="login-card__title">
-            <h2><LogIn size={18} aria-hidden="true" /> Sign in</h2>
-            <p>to your LNHS AttendSync account</p>
+        <div className="login-right">
+          <div className="login-system-badge">
+            <div className="login-system-badge__name">LNHS ATTENDSYNC</div>
+            <div className="login-system-badge__desc">with SMS Notification Using QR Code</div>
           </div>
-          <div className="login-card__divider" aria-hidden="true" />
+          <section className="login-card login-card--reference" aria-label="LNHS AttendSync sign in">
+            {error && (
+              <Alert type="error" onClose={() => setError('')} className="mb-4">
+                {error}
+              </Alert>
+            )}
 
-          {error && (
-            <Alert type="error" onClose={() => setError('')} className="mb-4">
-              {error}
-            </Alert>
-          )}
+            <form onSubmit={handleSubmit} noValidate className="login-form login-card__form">
+              <FormField label="SCHOOL EMAIL ADDRESS" required id="email" error={emailError}>
+                <div className="login-field">
+                  <Mail className="login-field__icon" size={16} aria-hidden="true" />
+                  <input
+                    id="email"
+                    type="email"
+                    className={`field-input ${emailError ? 'error' : ''}`}
+                    placeholder="you@lnhs.edu.ph"
+                    value={email}
+                    onChange={(event) => setEmail(event.target.value)}
+                    onBlur={() => setTouched((current) => ({ ...current, email: true }))}
+                    autoComplete="username"
+                    autoFocus
+                    aria-invalid={!!emailError}
+                    disabled={isSubmitting}
+                  />
+                </div>
+              </FormField>
 
-          <form onSubmit={handleSubmit} noValidate className="login-form login-card__form">
-            <FormField label="SCHOOL EMAIL ADDRESS" required id="email" error={emailError}>
-              <div className="login-field">
-                <Mail className="login-field__icon" size={16} aria-hidden="true" />
-                <input
-                  id="email"
-                  type="email"
-                  className={`field-input ${emailError ? 'error' : ''}`}
-                  placeholder="you@lnhs.edu.ph"
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
-                  onBlur={() => setTouched((current) => ({ ...current, email: true }))}
-                  autoComplete="username"
-                  autoFocus
-                  aria-invalid={!!emailError}
-                  disabled={loading}
-                />
-              </div>
-            </FormField>
+              <FormField label="PASSWORD" required id="password" error={passwordError}>
+                <div className="login-form__pw login-field">
+                  <Lock className="login-field__icon" size={16} aria-hidden="true" />
+                  <input
+                    id="password"
+                    type={showPassword ? 'text' : 'password'}
+                    className={`field-input ${passwordError ? 'error' : ''}`}
+                    placeholder="Enter your password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    onBlur={() => setTouched((current) => ({ ...current, password: true }))}
+                    autoComplete="current-password"
+                    aria-invalid={!!passwordError}
+                    disabled={isSubmitting}
+                  />
+                  <button
+                    type="button"
+                    className="login-form__reveal"
+                    onClick={() => setShowPassword((visible) => !visible)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </FormField>
 
-            <FormField label="PASSWORD" required id="password" error={passwordError}>
-              <div className="login-form__pw login-field">
-                <Lock className="login-field__icon" size={16} aria-hidden="true" />
-                <input
-                  id="password"
-                  type={showPassword ? 'text' : 'password'}
-                  className={`field-input ${passwordError ? 'error' : ''}`}
-                  placeholder="Enter your password"
-                  value={password}
-                  onChange={(event) => setPassword(event.target.value)}
-                  onBlur={() => setTouched((current) => ({ ...current, password: true }))}
-                  autoComplete="current-password"
-                  aria-invalid={!!passwordError}
-                  disabled={loading}
-                />
-                <button
-                  type="button"
-                  className="login-form__reveal"
-                  onClick={() => setShowPassword((visible) => !visible)}
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                  tabIndex={-1}
-                >
-                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
-                </button>
-              </div>
-            </FormField>
+              <Button
+                type="submit"
+                variant="primary"
+                size="lg"
+                solid
+                loading={loading}
+                disabled={isSubmitting}
+                aria-label={btnState === 'idle' ? 'Sign In' : 'Signing in'}
+                className={`login-form__submit${btnState === 'idle' ? '' : ` btn-morphing btn-${btnState === 'circle' ? 'hollow-circle' : 'qr-code'}`}`}
+              >
+                {btnState === 'idle' ? (
+                  <><LogIn size={16} aria-hidden="true" />Sign In</>
+                ) : btnState === 'qr' ? (
+                  <QrCode className="login-form__qr-icon" size={22} aria-hidden="true" />
+                ) : null}
+              </Button>
 
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              loading={loading}
-              className="login-form__submit"
-            >
-              <LogIn size={16} aria-hidden="true" />
-              {loading ? 'Signing in...' : 'Sign In'}
-            </Button>
+              <p className="login-form__help">
+                For account concerns, contact the school administrator.
+              </p>
+            </form>
 
-            <p className="login-form__help">
-              For account concerns, contact the school administrator.
+            <div className="login-card__authorized">
+              <span>Authorized Users Only</span>
+            </div>
+            <p className="login-card__footer">
+              Looc National High School | Attendance Monitoring System
             </p>
-          </form>
-
-          <div className="login-card__authorized">
-            <span>Authorized Users Only</span>
-          </div>
-          <p className="login-card__footer">
-            Looc National High School | Attendance Monitoring System
-          </p>
-        </section>
+          </section>
+        </div>
       </main>
 
       <div className="login-footer">v2.0 · © {new Date().getFullYear()} LNHS</div>

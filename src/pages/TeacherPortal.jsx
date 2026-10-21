@@ -94,6 +94,11 @@ export default function TeacherPortal() {
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
             {data.sections.map((section) => {
               const daily = data.todayBySection[section.id] || {};
+              const grade = String(section.grade || '').trim();
+              const room = String(section.room || '').trim();
+              const gradeLabel = grade ? (/^grade\b/i.test(grade) ? grade : `Grade ${grade}`) : '';
+              const roomLabel = room ? (/^room\b/i.test(room) ? room : `Room ${room}`) : '';
+              const sectionDetails = [gradeLabel, section.strand, roomLabel].filter(Boolean).join(' · ');
               const studentsInSection = data.students.filter((student) => {
                 const assignedSection = student.sectionId || student.section;
                 return assignedSection === section.id || assignedSection === section.name;
@@ -103,7 +108,7 @@ export default function TeacherPortal() {
                   <div className="flex items-start justify-between gap-3">
                     <div>
                       <h2 className="text-base font-semibold">{section.name || 'Assigned section'}</h2>
-                      <p className="text-sm text-muted">{section.grade ? `Grade ${section.grade}` : ''}{section.strand ? ` · ${section.strand}` : ''}{section.room ? ` · ${section.room}` : ''}</p>
+                      <p className="text-sm text-muted">{sectionDetails}</p>
                     </div>
                     <span className="text-sm text-muted">{studentsInSection.length} students</span>
                   </div>

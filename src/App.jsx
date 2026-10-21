@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
 import { AuthProvider } from './context/AuthContext';
 import { DataProvider } from './context/DataContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -20,6 +21,7 @@ import TeacherPortal from './pages/TeacherPortal';
 import About from './pages/About';
 import Home from './pages/Home';
 import { useAuth } from './context/AuthContext';
+import Loader from './components/Loader';
 
 function AppShell() {
   const { isTeacher } = useAuth();
@@ -52,16 +54,52 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <DataProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Home />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/*" element={<AppShell />} />
-            </Routes>
-          </BrowserRouter>
+          <AppContent />
         </DataProvider>
       </AuthProvider>
     </ThemeProvider>
+  );
+}
+
+function AppContent() {
+  const { loading } = useAuth();
+  const [minTimePassed, setMinTimePassed] = useState(false);
+  const [showLoader, setShowLoader] = useState(true);
+  const [loaderExiting, setLoaderExiting] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setMinTimePassed(true), 3000);
+    return () => window.clearTimeout(timer);
+  }, []);
+
+  useEffect(() => {
+    if (loading) {
+      setShowLoader(true);
+      setLoaderExiting(false);
+      return undefined;
+    }
+
+    if (!minTimePassed) return undefined;
+
+    setLoaderExiting(true);
+    let fadeTimeout;
+    fadeTimeout = window.setTimeout(() => setShowLoader(false), 360);
+    return () => window.clearTimeout(fadeTimeout);
+  }, [loading, minTimePassed]);
+
+  return (
+    <>
+      {!loading && (
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Home />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/*" element={<AppShell />} />
+          </Routes>
+        </BrowserRouter>
+      )}
+      {showLoader && <Loader exiting={loaderExiting} />}
+    </>
   );
 }

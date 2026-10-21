@@ -1,13 +1,16 @@
-import { Fragment, useState, useMemo } from 'react';
+import { Fragment, useEffect, useState, useMemo } from 'react';
 import { Search, Download, MessageSquare, RotateCw } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
 import PageCover from '../components/PageCover';
+import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
 const STATUS_OPTS = ['All','sent','failed','simulated','skipped'];
+const PAGE_SIZE = 10;
 
 function maskPhone(value) {
   const digits = String(value || '').replace(/\D/g, '');
@@ -67,6 +70,9 @@ function downloadCsv(rows, getStudent) {
 export default function SmsLogs() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('All');
+  const [sortColumn, setSortColumn] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
   const [retryingId, setRetryingId] = useState('');
   const [retryErrors, setRetryErrors] = useState({});
   const { smsLogs: logs, students, retrySmsLog } = useData();
@@ -85,6 +91,22 @@ export default function SmsLogs() {
     return (!q || studentName.toLowerCase().includes(q) || studentCode.toLowerCase().includes(q) || String(l.phone || '').includes(q))
         && (status === 'All' || l.status === status);
   }), [latestLogs, students, search, status]);
+
+  useEffect(() => setCurrentPage(1), [search, status]);
+  const sortedLogs = sortRows(filtered, sortColumn, sortDirection, (log, column) => {
+    if (column === 'createdAt') return new Date(log.createdAt || 0).getTime();
+    if (column === 'student') return getStudent(log)?.name || log.studentId || '';
+    return log[column] || '';
+  });
+  const pageLogs = sortedLogs.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const changeSort = (column) => {
+    if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
 
   const handleRetry = async (log) => {
     setRetryingId(log.id);
@@ -134,12 +156,18 @@ export default function SmsLogs() {
           <table className="data-table w-full sms-logs-table">
             <thead>
               <tr>
-                <th>Log ID</th><th>Student</th><th>Period</th><th>Recipient (masked)</th>
-                <th>Message Preview</th><th>Status</th><th>Provider</th><th>Timestamp</th><th>Actions</th>
+                <th>Log ID</th>
+                <SortableHeader label="Student" column="student" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <SortableHeader label="Period" column="period" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <th>Recipient (masked)</th><th>Message Preview</th>
+                <SortableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <th>Provider</th>
+                <SortableHeader label="Date/Time" column="createdAt" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {filtered.map((l) => {
+              {pageLogs.map((l) => {
                 const student = getStudent(l);
                 const message = displayValue(l.message);
                 const status = displayValue(l.status);
@@ -166,7 +194,7 @@ export default function SmsLogs() {
                     <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.createdAt)}</span></td>
                     <td>
                       {l.status === 'failed' && (
-                        <Button variant="outline" size="sm" loading={retryingId === l.id} onClick={() => handleRetry(l)}>
+                        <Button variant="outline" className="table-action--retry" size="sm" loading={retryingId === l.id} onClick={() => handleRetry(l)}>
                           <RotateCw size={12} /> Retry
                         </Button>
                       )}
@@ -190,6 +218,7 @@ export default function SmsLogs() {
             </tbody>
           </table>
         </div>
+        <Pagination totalItems={sortedLogs.length} currentPage={currentPage} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} itemLabel="SMS logs" />
       </div>
     </div>
   );

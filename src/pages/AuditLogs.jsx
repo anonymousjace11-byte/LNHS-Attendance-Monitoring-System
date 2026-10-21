@@ -1,8 +1,10 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, ShieldCheck } from 'lucide-react';
 import Alert from '../components/Alert';
 import { EmptyTableRow } from '../components/EmptyState';
+import Pagination from '../components/Pagination';
 import PageCover from '../components/PageCover';
+import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
@@ -113,8 +115,12 @@ function formatTimestamp(value) {
 
 export default function AuditLogs() {
   const [search, setSearch] = useState('');
+  const [sortColumn, setSortColumn] = useState('createdAt');
+  const [sortDirection, setSortDirection] = useState('desc');
+  const [currentPage, setCurrentPage] = useState(1);
   const { auditLogs: logs, students, sections, teachers } = useData();
   const { user } = useAuth();
+  const pageSize = 10;
 
   const rows = useMemo(() => logs.map((log) => ({
     ...log,
@@ -138,6 +144,22 @@ export default function AuditLogs() {
       log.summary,
     ].some((value) => String(value || '').toLowerCase().includes(query)));
   }, [rows, search]);
+  useEffect(() => setCurrentPage(1), [search]);
+  const sortedRows = sortRows(filtered, sortColumn, sortDirection, (log, column) => {
+    if (column === 'createdAt') return new Date(log.createdAt || 0).getTime();
+    if (column === 'target') return log.targetLabel || '';
+    if (column === 'action') return log.actionLabel || log.action || '';
+    return log[column] || '';
+  });
+  const pageRows = sortedRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+  const changeSort = (column) => {
+    if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
+    else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
 
   return (
     <div className="animate-fade-in">
@@ -163,11 +185,16 @@ export default function AuditLogs() {
           <table className="data-table audit-table">
             <thead>
               <tr>
-                <th>Log ID</th><th>Actor</th><th>Action</th><th>Target</th><th>Details</th><th>Timestamp</th>
+                <th>Log ID</th>
+                <SortableHeader label="Actor" column="actor" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <SortableHeader label="Action" column="action" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <SortableHeader label="Target" column="target" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+                <th>Details</th>
+                <SortableHeader label="Timestamp" column="createdAt" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
               </tr>
             </thead>
             <tbody>
-              {filtered.map((log) => (
+              {pageRows.map((log) => (
                 <tr key={log.id}>
                   <td className="audit-id">{displayValue(log.id)}</td>
                   <td className="audit-actor" title={log.actorUid || ''}>{displayValue(log.actor)}</td>
@@ -188,6 +215,7 @@ export default function AuditLogs() {
             </tbody>
           </table>
         </div>
+        <Pagination totalItems={sortedRows.length} currentPage={currentPage} pageSize={pageSize} onPageChange={setCurrentPage} itemLabel="audit logs" />
       </div>
     </div>
   );

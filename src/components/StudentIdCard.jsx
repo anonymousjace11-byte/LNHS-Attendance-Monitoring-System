@@ -80,6 +80,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   const exportCard = useCallback(async (cardElement) => {
     if (!cardElement) return null;
     const clone = cardElement.cloneNode(true);
+    clone.classList.add('student-id-card--export');
     clone.style.width = `${CARD_WIDTH}px`;
     clone.style.height = `${ID_HEIGHT_PX}px`;
     clone.style.maxWidth = 'none';
@@ -208,7 +209,6 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
       <div className="student-id-toolbar no-print">
         <div className="student-id-toolbar-top">
           <div>
-            <strong>Student ID Preview</strong>
             <span>Portrait CR100 • {ID_WIDTH_MM} × {ID_HEIGHT_MM} mm</span>
           </div>
           <div className="student-id-export-buttons">

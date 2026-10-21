@@ -36,7 +36,7 @@ function formatDateInput(date) {
 }
 
 function getLastWeekdays(totalDays = 7) {
-  const results = [];
+  const results = [new Date()];
   const today = new Date();
   const cursor = new Date(today);
 
@@ -88,7 +88,7 @@ async function main() {
   const days = getLastWeekdays(7);
   let createdCount = 0;
 
-  console.log(`Found ${students.length} students. Generating seeded attendance for the last ${days.length} weekdays...`);
+  console.log(`Found ${students.length} students. Generating seeded attendance for today and the previous ${days.length - 1} weekdays...`);
 
   for (const student of students) {
     const studentId = String(student.id || student.studentId || "");

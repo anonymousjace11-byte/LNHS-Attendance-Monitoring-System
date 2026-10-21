@@ -187,7 +187,7 @@ function WeeklyBarChart({ days }) {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const [range, setRange] = useState('today');
+  const [range, setRange] = useState('week');
   const { students = [], attendance = [], sections = [], smsLogs = [], auditLogs = [], today, loading } = useData();
 
   const dashboardData = useMemo(() => {

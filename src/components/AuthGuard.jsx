@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext';
  * Optionally enforces a role: 'admin' | 'teacher' | 'staff'
  */
 export default function AuthGuard({ children, requireRole }) {
-  const { user, isAdmin, isTeacher, loading } = useAuth();
+  const { user, role, isAdmin, isTeacher, loading } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -15,6 +15,19 @@ export default function AuthGuard({ children, requireRole }) {
 
   if (!user) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (role === 'pending') {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-4" style={{ background: 'var(--bg-page)' }}>
+        <div role="status" className="card p-6 text-center" style={{ maxWidth: 420 }}>
+          <h2 className="page-title mb-2">Teacher account pending approval</h2>
+          <p style={{ color: 'var(--text-muted)', fontSize: '.875rem' }}>
+            Your account is awaiting approval from the school administrator.
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const roleDenied = requireRole === 'admin'

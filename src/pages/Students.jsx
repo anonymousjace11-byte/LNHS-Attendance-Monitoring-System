@@ -148,6 +148,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
       onClose={onClose}
       maxWidth="620px"
       className="student-form-modal"
+      portal
       footer={(
         <>
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
@@ -327,7 +328,7 @@ export default function Students() {
   return (
     <div className="animate-fade-in">
       {previewStudent && (
-        <Modal title="Student ID Preview" onClose={() => setPreviewStudent(null)} maxWidth="1200px" className="student-id-preview-modal">
+        <Modal title="Student ID Preview" onClose={() => setPreviewStudent(null)} maxWidth="1200px" className="student-id-preview-modal" portal>
           <StudentIdCard student={previewStudent} onPhotoUpload={handlePreviewPhoto}
             onPrint={() => { handleIdExport(previewStudent); window.print(); }}
             onExport={() => handleIdExport(previewStudent)} />
