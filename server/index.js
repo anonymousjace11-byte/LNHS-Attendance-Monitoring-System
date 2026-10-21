@@ -135,10 +135,13 @@ function initFirebaseAdmin() {
   if (existingApps.length) return existingApps[0];
 
   try {
+    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credentialPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-    const credential = credentialPath && fs.existsSync(credentialPath)
-      ? cert(JSON.parse(fs.readFileSync(credentialPath, "utf8")))
-      : applicationDefault();
+    const credential = serviceAccountJson
+      ? admin.credential.cert(JSON.parse(serviceAccountJson))
+      : credentialPath && fs.existsSync(credentialPath)
+        ? cert(JSON.parse(fs.readFileSync(credentialPath, "utf8")))
+        : applicationDefault();
     const projectId = process.env.FIREBASE_PROJECT_ID || "attendance-monitoring-73028";
     const storageBucket = process.env.FIREBASE_STORAGE_BUCKET || `${projectId}.firebasestorage.app`;
     return initializeApp({ credential, projectId, storageBucket });
@@ -1661,4 +1664,5 @@ if (process.env.ATTENDANCE_AUTO_FINALIZE !== "false") {
   absenceFinalizer.unref?.();
 }
 
-app.listen(5000, "0.0.0.0", () => console.log("Server running on http://0.0.0.0:5000"));
+const port = Number(process.env.PORT) || 5000;
+app.listen(port, "0.0.0.0", () => console.log(`Server running on http://0.0.0.0:${port}`));
