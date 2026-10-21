@@ -139,7 +139,7 @@ function initFirebaseAdmin() {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credentialPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
     const credential = serviceAccountJson
-      ? admin.credential.cert(JSON.parse(serviceAccountJson))
+      ? cert(JSON.parse(serviceAccountJson))
       : credentialPath && fs.existsSync(credentialPath)
         ? cert(JSON.parse(fs.readFileSync(credentialPath, "utf8")))
         : applicationDefault();
