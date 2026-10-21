@@ -23,9 +23,13 @@ export default function Loader({ exiting = false }) {
         <span />
       </div>
 
-      <div className="loader-student-animation" aria-hidden="true">
-        <Lottie animationData={walkingStudentAnimation} loop />
-      </div>
+      <Lottie
+        className="loader-student-lottie"
+        src={walkingStudentAnimation}
+        autoplay
+        loop
+        aria-hidden="true"
+      />
 
       <div className="app-loader__caption">
         <p className="app-loader__name">LNHS ATTENDSYNC</p>
