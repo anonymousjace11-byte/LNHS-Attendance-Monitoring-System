@@ -87,7 +87,7 @@
   background: repeating-linear-gradient(90deg, transparent 0 38px, rgba(255, 255, 255, .28) 38px 64px, transparent 64px 96px);
 }
 
-.loader-student-gif {
+.loader-student-animation {
   position: absolute;
   bottom: 60px;
   left: -20%;
@@ -175,7 +175,7 @@
 
 @media (max-width: 600px) {
   .app-loader__seal { top: 8%; width: 92px; height: 92px; }
-  .loader-student-gif { width: 140px; }
+  .loader-student-animation { width: 140px; }
   .app-loader__caption { bottom: 6%; }
   .app-loader__name { font-size: 11px; letter-spacing: 1.3px; }
 }

@@ -1,7 +1,8 @@
 import './Loader.css';
+import { Lottie } from 'lottie-react';
 import schoolPhoto from '../imports/lnhs-banner.png';
 import teamSeal from '../imports/TEAM SEAL.png';
-import walkingStudentGif from '../imports/walking-student.gif';
+import walkingStudentAnimation from '../imports/walking-student.json';
 
 export default function Loader({ exiting = false }) {
   return (
@@ -22,12 +23,9 @@ export default function Loader({ exiting = false }) {
         <span />
       </div>
 
-      <img
-        className="loader-student-gif"
-        src={walkingStudentGif}
-        alt=""
-        aria-hidden="true"
-      />
+      <div className="loader-student-animation" aria-hidden="true">
+        <Lottie animationData={walkingStudentAnimation} loop />
+      </div>
 
       <div className="app-loader__caption">
         <p className="app-loader__name">LNHS ATTENDSYNC</p>
