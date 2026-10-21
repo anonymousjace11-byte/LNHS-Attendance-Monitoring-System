@@ -384,7 +384,17 @@ export default function Students() {
                 const parent = parentByStudentId.get(student.id);
                 return <tr key={student.id}>
                   <td className="mono students-table__id">{displayStudentId(student)}</td>
-                  <td><span className="cell-name">{displayValue(student.name)}</span></td>
+                  <td>
+                    <span className="cell-name">{displayValue(student.name)}</span>
+                    <span className="students-table__meta">
+                      {[
+                        student.strand,
+                        student.section || sectionById.get(student.sectionId)?.name,
+                        student.adviser || sectionById.get(student.sectionId)?.adviser,
+                        parent?.parentPhone || student.parentPhone,
+                      ].filter(Boolean).map(displayValue).join(' · ')}
+                    </span>
+                  </td>
                   <td><span className="pill-strand badge-strand" data-strand={student.strand}>{displayValue(student.strand)}</span></td>
                   <td>{displayValue(student.section || sectionById.get(student.sectionId)?.name)}</td>
                   <td>{displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser)}</td>
