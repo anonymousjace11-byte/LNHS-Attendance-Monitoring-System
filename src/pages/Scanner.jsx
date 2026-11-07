@@ -1,26 +1,37 @@
-import { useState, useRef, useEffect, useCallback } from 'react';
-import { QrCode, CheckCircle, Clock, AlertTriangle, Wifi, WifiOff, ShieldCheck, Shield, UserRound, Trash2, Info, MessageSquare } from 'lucide-react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { QrCode, CheckCircle, Clock, AlertTriangle, ShieldCheck, UserRound, Trash2, Info, MessageSquare, Usb, Keyboard, List, CalendarDays } from 'lucide-react';
 import { staffApiGet, useData } from '../context/DataContext';
 import { auth } from '../firebase';
+import { OFFLINE_ATTENDANCE_SYNCED_EVENT } from '../utils/offlineAttendance';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import Modal from '../components/Modal';
-import PageCover from '../components/PageCover';
 
-const API_URL = import.meta.env.VITE_API_URL || (() => {
-  if (typeof window === 'undefined') return 'http://127.0.0.1:5000';
-  const { protocol, hostname } = window.location;
-  return `${protocol}//${hostname}:5000`;
-})();
+const resolveApiBaseUrl = () => {
+  if (typeof window !== 'undefined') {
+    const { hostname } = window.location;
+    const isLocalHost = ['localhost', '127.0.0.1', '0.0.0.0', '::1'].includes(hostname)
+      || /^(10\.|192\.168\.|172\.(1[6-9]|2\d|3[01])\.|169\.254\.)/.test(hostname);
+
+    if (isLocalHost) return 'http://127.0.0.1:5000';
+  }
+
+  return (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000').replace(/\/$/, '');
+};
+const API_URL = resolveApiBaseUrl();
 
 function formatTime(date = new Date()) {
-  return date.toLocaleTimeString('en-PH', {
-    hour: '2-digit',
+  return date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
     minute: '2-digit',
-    second: '2-digit',
-    hour12: false,
+    hour12: true,
     timeZone: 'Asia/Manila',
   });
+}
+
+function formatShortDate(dateKey) {
+  const [year, month, day] = dateKey.split('-');
+  return `${Number(month)}/${Number(day)}/${year}`;
 }
 
 function playTone(frequency, durationMs) {
@@ -55,6 +66,9 @@ function getStatusLabel(status) {
 }
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
+const SCAN_IDLE_TIMEOUT_MS = 250;
+const SCANNER_INPUT_FEEDBACK_MS = 2000;
+const MANILA_DATE_FORMATTER = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' });
 const PERIOD_WINDOWS = {
   'AM-1': '7:00 – 7:30 AM',
   'AM-2': '11:00 – 11:30 AM',
@@ -68,16 +82,34 @@ const PERIOD_RANGES = [
   { period: 'PM-2', start: '16:00', end: '16:30' },
 ];
 
-function getCurrentPeriod() {
-  const clock = new Date().toLocaleTimeString('en-PH', {
+function getCurrentPeriod(date = new Date()) {
+  const clock = date.toLocaleTimeString('en-PH', {
     hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Manila',
   });
-  return PERIOD_RANGES.find(({ start, end }) => clock >= start && clock <= end)?.period || 'AM-1';
+  for (let index = PERIOD_RANGES.length - 1; index >= 0; index -= 1) {
+    if (clock >= PERIOD_RANGES[index].start) return PERIOD_RANGES[index].period;
+  }
+  return 'AM-1';
+}
+
+function getManilaDateKey(value) {
+  if (!value) return '';
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const date = value instanceof Date
+    ? value
+    : typeof value.toDate === 'function'
+      ? value.toDate()
+      : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  return MANILA_DATE_FORMATTER.format(date);
 }
 
 export default function Scanner() {
   const [input, setInput] = useState('');
   const [period, setPeriod] = useState(getCurrentPeriod);
+  const [automaticPeriod, setAutomaticPeriod] = useState(true);
   const [scanState, setScanState] = useState('ready');
   const [excusedStudentId, setExcusedStudentId] = useState('');
   const [excuseReason, setExcuseReason] = useState('');
@@ -91,20 +123,76 @@ export default function Scanner() {
   const [smsTemplates, setSmsTemplates] = useState(null);
   const [smsSending, setSmsSending] = useState(false);
   const [smsFeedback, setSmsFeedback] = useState(null);
+  const [duplicateWarning, setDuplicateWarning] = useState('');
   const [recentScans, setRecentScans] = useState([]);
   const [time, setTime] = useState(formatTime());
-  const [online, setOnline] = useState(() => navigator.onLine);
+  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
+  const [scannerInputActive, setScannerInputActive] = useState(false);
   const [sessionCount, setSessionCount] = useState({ present: 0, late: 0, errors: 0 });
   const [soundOn, setSoundOn] = useState(true);
+  const [manualInputOpen, setManualInputOpen] = useState(false);
+  const [scannerMessage, setScannerMessage] = useState('');
   const inputRef = useRef(null);
+  const manualInputRef = useRef(null);
+  const activePreviewIdRef = useRef(null);
+  const inputActivityTimerRef = useRef(null);
   const bufferRef = useRef('');
   const bufferTimerRef = useRef(null);
-  const { students, attendance, parentContacts, recordAttendance, recordExcusedAttendance } = useData();
+  const duplicateWarningsRef = useRef(new Set());
+  const processingScansRef = useRef(new Set());
+  const {
+    students,
+    attendance,
+    parentContacts,
+    pendingAttendanceCount,
+    offlineSyncError,
+    recordAttendance,
+    recordExcusedAttendance,
+  } = useData();
+  const todayKey = MANILA_DATE_FORMATTER.format(new Date());
+  const studentByQrValue = useMemo(() => {
+    const recordsByQrValue = new Map();
+    for (const student of students) {
+      for (const value of [student.qrValue, student.qrUuid, student.studentCode, student.code, student.id]) {
+        if (value && !recordsByQrValue.has(value)) recordsByQrValue.set(value, student);
+      }
+    }
+    return recordsByQrValue;
+  }, [students]);
+  const { todayAttendanceKeys, periodScanCounts, todayScanCount } = useMemo(() => {
+    const scanKeys = new Set();
+    const scanCounts = Object.fromEntries(PERIODS.map((item) => [item, 0]));
+    let totalScans = 0;
+
+    for (const record of attendance) {
+      if (getManilaDateKey(record.date) !== todayKey) continue;
+      if (record.scans) {
+        for (const item of PERIODS) {
+          if (!record.scans[item]) continue;
+          scanKeys.add(`${todayKey}:${record.studentId}:${item}`);
+          scanCounts[item] += 1;
+          totalScans += 1;
+        }
+      } else if (record.status) {
+        scanKeys.add(`${todayKey}:${record.studentId}:AM-1`);
+        scanCounts['AM-1'] += 1;
+        totalScans += 1;
+      }
+    }
+
+    return { todayAttendanceKeys: scanKeys, periodScanCounts: scanCounts, todayScanCount: totalScans };
+  }, [attendance, todayKey]);
 
   useEffect(() => {
-    const timer = setInterval(() => setTime(formatTime()), 1000);
+    const updateClock = () => {
+      const now = new Date();
+      setTime(formatTime(now));
+      if (automaticPeriod) setPeriod(getCurrentPeriod(now));
+    };
+    updateClock();
+    const timer = setInterval(updateClock, 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [automaticPeriod]);
 
   useEffect(() => {
     let active = true;
@@ -123,8 +211,8 @@ export default function Scanner() {
   }, []);
 
   useEffect(() => {
-    const handleOnline = () => setOnline(true);
-    const handleOffline = () => setOnline(false);
+    const handleOnline = () => setNetworkOnline(true);
+    const handleOffline = () => setNetworkOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
     return () => {
@@ -133,27 +221,53 @@ export default function Scanner() {
     };
   }, []);
 
-  useEffect(() => () => window.clearTimeout(bufferTimerRef.current), []);
+  useEffect(() => () => {
+    window.clearTimeout(bufferTimerRef.current);
+    window.clearTimeout(inputActivityTimerRef.current);
+  }, []);
 
   useEffect(() => {
-    setScanState((current) => online ? (current === 'disconnected' ? 'ready' : current) : 'disconnected');
-  }, [online]);
+    setScanState((current) => networkOnline ? (current === 'disconnected' ? 'ready' : current) : 'disconnected');
+  }, [networkOnline]);
 
   useEffect(() => {
     if (smsModalOpen) return undefined;
+    if (manualInputOpen) {
+      manualInputRef.current?.focus();
+      return undefined;
+    }
     inputRef.current?.focus();
     const refocus = setInterval(() => inputRef.current?.focus(), 3000);
     return () => clearInterval(refocus);
-  }, [smsModalOpen]);
+  }, [manualInputOpen, smsModalOpen]);
+
+  const recordSessionResult = useCallback((status) => {
+    setSessionCount((current) => ({
+      ...current,
+      [status === 'present' || status === 'late' ? status : 'errors']:
+        current[status === 'present' || status === 'late' ? status : 'errors'] + 1
+    }));
+  }, []);
 
   useEffect(() => {
-    if (!preview) return undefined;
-    const timer = setTimeout(() => {
-      setPreview(null);
-      setScanState('ready');
-    }, 2500);
-    return () => clearTimeout(timer);
-  }, [preview]);
+    const handleOfflineSync = (event) => {
+      const { eventId, record, duplicate } = event.detail || {};
+      if (!eventId) return;
+      setPreview((current) => {
+        if (current?.id !== eventId || current.status !== 'pending-sync') return current;
+        if (duplicate) return { ...current, status: 'duplicate', message: 'Attendance was already recorded.' };
+        return { ...current, status: record?.status || 'present', record, message: 'Attendance synced successfully.' };
+      });
+      setRecentScans((current) => current.map((item) => item.id !== eventId
+        ? item
+        : { ...item, status: duplicate ? 'duplicate' : record?.status || 'present', record }));
+      if (record) recordSessionResult(record.status || 'present');
+      if (duplicate) setScanState('duplicate');
+      else if (record) setScanState('success');
+    };
+    window.addEventListener(OFFLINE_ATTENDANCE_SYNCED_EVENT, handleOfflineSync);
+    return () => window.removeEventListener(OFFLINE_ATTENDANCE_SYNCED_EVENT, handleOfflineSync);
+  }, [recordSessionResult]);
 
   const lastPreviewIdRef = useRef(null);
   useEffect(() => {
@@ -171,24 +285,39 @@ export default function Scanner() {
     setRecentScans((current) => [entry, ...current].slice(0, 5));
   }, []);
 
-  const recordSessionResult = useCallback((status) => {
-    setSessionCount((current) => ({
-      ...current,
-      [status === 'present' || status === 'late' ? status : 'errors']:
-        current[status === 'present' || status === 'late' ? status : 'errors'] + 1
-    }));
-  }, []);
+  const warnDuplicate = useCallback((student, scanPeriod, scannedAt) => {
+    const scanKey = `${todayKey}:${student.id}:${scanPeriod}`;
+    setScanState('duplicate');
+    if (duplicateWarningsRef.current.has(scanKey)) return;
 
-  const processQR = useCallback((raw, scanPeriod) => {
+    duplicateWarningsRef.current.add(scanKey);
+    const message = `${student.name || 'This student'} already has a ${scanPeriod} scan today. Duplicate scan rejected.`;
+    setDuplicateWarning(message);
+    pushRecent({
+      id: `${Date.now()}-${Math.random()}`,
+      status: 'warning',
+      time: scannedAt,
+      period: scanPeriod,
+      student,
+      record: null,
+      message,
+    });
+    if (soundOn) playTone(440, 120);
+  }, [pushRecent, soundOn, todayKey]);
+
+  const processQR = useCallback(async (raw, scanPeriod) => {
     const payload = raw.trim();
     if (!payload) return;
+    const entryId = globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+    activePreviewIdRef.current = entryId;
     setScanState('reading');
 
-    const scannedAt = formatTime();
-    const student = students.find((item) => [item.qrValue, item.qrUuid, item.studentCode, item.code, item.id].filter(Boolean).includes(payload));
+    const scanInstant = new Date();
+    const scannedAt = formatTime(scanInstant);
+    const student = studentByQrValue.get(payload);
     if (!student) {
       setScanState('not-found');
-      const entry = { id: `${Date.now()}-${Math.random()}`, status: 'error', time: scannedAt, period: scanPeriod, message: 'QR credential was not found in the live student records.' };
+      const entry = { id: entryId, status: 'error', time: scannedAt, period: scanPeriod, message: 'QR credential was not found in the live student records.' };
       setPreview({ ...entry, student: null, record: null });
       pushRecent(entry);
       recordSessionResult('error');
@@ -196,12 +325,43 @@ export default function Scanner() {
       return;
     }
 
+    const scanKey = `${todayKey}:${student.id}:${scanPeriod}`;
+    const alreadyScanned = todayAttendanceKeys.has(scanKey);
+    if (alreadyScanned || processingScansRef.current.has(scanKey)) {
+      warnDuplicate(student, scanPeriod, scannedAt);
+      return;
+    }
+
+    setDuplicateWarning('');
+    processingScansRef.current.add(scanKey);
     setScanState('processing');
-    recordAttendance(student, scanPeriod).then((record) => {
-      setScanState('success');
+    setPreview({ id: entryId, status: 'pending', time: scannedAt, period: scanPeriod, student, record: null });
+    try {
+      const record = await recordAttendance(student, scanPeriod, {
+        eventId: entryId,
+        scannedAt: scanInstant.toISOString(),
+      });
+      if (record.pendingSync) {
+        const entry = {
+          id: entryId,
+          status: 'pending-sync',
+          time: scannedAt,
+          period: scanPeriod,
+          student,
+          record: null,
+          message: 'Saved on this device. Waiting to sync.',
+        };
+        if (activePreviewIdRef.current === entryId) {
+          setScanState('pending-sync');
+          setPreview(entry);
+        }
+        pushRecent(entry);
+        if (soundOn) playTone(660, 130);
+        return;
+      }
       const status = record.status || 'present';
       const entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: entryId,
         status,
         time: scannedAt,
         period: scanPeriod,
@@ -209,18 +369,25 @@ export default function Scanner() {
         record,
         message: `${scanPeriod} attendance recorded as ${status}.`
       };
-      setPreview(entry);
+      if (activePreviewIdRef.current === entryId) {
+        setScanState('success');
+        setPreview(entry);
+      }
       pushRecent(entry);
       recordSessionResult(status);
       if (soundOn) playTone(status === 'late' ? 660 : 880, 130);
-    }).catch((error) => {
-      const state = error.message?.includes('already has an') ? 'duplicate'
-        : error.message?.includes('assigned section') ? 'denied'
+    } catch (error) {
+      if (error.message?.includes('already has an')) {
+        warnDuplicate(student, scanPeriod, scannedAt);
+        return;
+      }
+
+      setDuplicateWarning('');
+      const state = error.message?.includes('assigned section') ? 'denied'
           : error.name === 'TypeError' ? 'disconnected'
             : 'not-found';
-      setScanState(state);
       const entry = {
-        id: `${Date.now()}-${Math.random()}`,
+        id: entryId,
         status: 'error',
         time: scannedAt,
         period: scanPeriod,
@@ -228,32 +395,48 @@ export default function Scanner() {
         record: null,
         message: error.message || 'Attendance could not be recorded.'
       };
-      setPreview(entry);
+      if (activePreviewIdRef.current === entryId) {
+        setScanState(state);
+        setPreview(entry);
+      }
       pushRecent(entry);
       recordSessionResult('error');
       if (soundOn) playTone(220, 250);
-    });
-  }, [pushRecent, recordAttendance, recordSessionResult, soundOn, students]);
+    } finally {
+      processingScansRef.current.delete(scanKey);
+    }
+  }, [pushRecent, recordAttendance, recordSessionResult, soundOn, studentByQrValue, todayAttendanceKeys, todayKey, warnDuplicate]);
+
+  const submitScan = () => {
+    const payload = bufferRef.current || input;
+    if (!payload.trim()) return;
+    processQR(bufferRef.current || input, period);
+    bufferRef.current = '';
+    window.clearTimeout(bufferTimerRef.current);
+    if (manualInputOpen) setInput('');
+    else if (inputRef.current) inputRef.current.value = '';
+  };
 
   const handleKeyDown = (event) => {
     if (event.key !== 'Enter') return;
     event.preventDefault();
-    processQR(bufferRef.current || input, period);
-    bufferRef.current = '';
-    window.clearTimeout(bufferTimerRef.current);
-    setInput('');
+    submitScan();
   };
 
   const handleInputChange = (event) => {
     const value = event.target.value;
     bufferRef.current = value;
-    setInput(value);
+    if (manualInputOpen) setInput(value);
     window.clearTimeout(bufferTimerRef.current);
-    if (value) {
+    if (value.length >= 3 && !manualInputOpen) {
+      setScannerInputActive(true);
+      window.clearTimeout(inputActivityTimerRef.current);
+      inputActivityTimerRef.current = window.setTimeout(() => setScannerInputActive(false), SCANNER_INPUT_FEEDBACK_MS);
+    }
+    if (value && !manualInputOpen) {
       bufferTimerRef.current = window.setTimeout(() => {
-        bufferRef.current = '';
-        setInput('');
-      }, 100);
+        if (bufferRef.current === value) submitScan();
+      }, SCAN_IDLE_TIMEOUT_MS);
     }
   };
 
@@ -283,26 +466,24 @@ export default function Scanner() {
   });
   const activePeriod = PERIOD_RANGES.find(({ start, end }) => manilaTime >= start && manilaTime <= end)?.period;
   const getPeriodState = (item) => {
-    const scansRecorded = attendance
-      .filter((record) => record.date === todayKey)
-      .filter((record) => record.scans ? Boolean(record.scans[item]) : item === 'AM-1' && Boolean(record.status)).length;
     const range = PERIOD_RANGES.find((entry) => entry.period === item);
-    if (students.length > 0 && scansRecorded >= students.length) return 'Completed';
+    if (students.length > 0 && periodScanCounts[item] >= students.length) return 'Completed';
     if (activePeriod === item) return 'Active';
     if (range && manilaTime > range.end) return 'Completed';
     return 'Pending';
   };
-  const isLate = period === 'AM-1' && manilaTime > '07:30';
   const previewIsError = preview?.status === 'error';
+  const previewIsPending = preview?.status === 'pending' || preview?.status === 'pending-sync';
+  const previewIsSyncPending = preview?.status === 'pending-sync';
+  const previewIsDuplicate = preview?.status === 'duplicate';
   const statusLabel = preview?.status === 'present' && preview?.record?.period === 'AM-1'
     ? 'On-Time'
     : getStatusLabel(preview?.status);
   const studentCode = preview?.student?.studentCode || preview?.student?.code || preview?.student?.id || '';
   const sectionName = preview?.student?.section || preview?.record?.sectionId || preview?.student?.sectionId || '';
   const previewPeriod = preview?.period || preview?.record?.period || '';
-  const canSendManualSms = Boolean(preview?.student?.id && PERIODS.includes(previewPeriod) && !previewIsError);
+  const canSendManualSms = Boolean(preview?.student?.id && PERIODS.includes(previewPeriod) && !previewIsError && !previewIsPending && !previewIsDuplicate);
   const smsStatus = preview?.record?.smsStatus;
-  const todayKey = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
   const smsParentContact = smsTarget
     ? parentContacts.find((contact) => contact.studentId === smsTarget.student.id)
     : null;
@@ -313,7 +494,7 @@ export default function Scanner() {
     if (!canSendManualSms || !preview?.student) return;
     const studentName = preview.student.name || preview.student.studentCode || preview.student.id;
     const scanStatus = preview.status === 'late' ? 'Late' : 'Present';
-    const scanDate = preview.record?.date || todayKey;
+    const scanDate = getManilaDateKey(preview.record?.date) || todayKey;
     const section = preview.student.sectionName || preview.student.section || preview.student.sectionId || '';
     const fallbackMessage = `Your child ${studentName} was marked ${scanStatus} for ${previewPeriod} on ${scanDate}.`;
     let message = fallbackMessage;
@@ -375,96 +556,234 @@ export default function Scanner() {
       setSmsSending(false);
     }
   };
-  const todayScanCount = attendance
-    .filter((record) => record.date === todayKey)
-    .reduce((count, record) => count + (record.scans
-      ? PERIODS.filter((item) => record.scans[item]).length
-      : Number(Boolean(record.status))), 0);
+  const activeParentContact = preview?.student?.id
+    ? parentContacts.find((contact) => contact.studentId === preview.student.id)
+    : null;
+  const activeParentPhone = [activeParentContact?.parentPhone, preview?.student?.parentPhone, preview?.student?.contactNumber, preview?.student?.phone]
+    .find((value) => typeof value === 'string' && value.trim()) || '';
+  const scanDate = getManilaDateKey(preview?.record?.date) || todayKey;
+  const scanDateDisplay = formatShortDate(scanDate);
+  const scanOutcome = preview?.status === 'late' ? 'LATE' : preview?.status === 'present' ? 'PRESENT' : '';
+  const scanStatusMessage = preview?.status === 'late'
+    ? 'Attendance recorded successfully. Arrival was marked late.'
+    : 'Attendance recorded successfully!';
 
   return (
     <div className="scanner-page animate-fade-in">
-      <PageCover
-        eyebrow="Operations"
-        title="QR Scanner"
-        subtitle="Scan student QR credentials via USB scanner or keyboard input."
-        actions={(
-          <>
-          <div className={`status-pill ${online ? 'status-pill--ok' : 'status-pill--err'}`}>
-            {online ? <Wifi size={13} /> : <WifiOff size={13} />}
-            {online ? 'Backend Connected' : 'Offline'}
-          </div>
+      <header className="scanner-page__header">
+        <div className="scanner-page__actions">
+          {pendingAttendanceCount > 0 && (
+            <span className="scanner-pending-sync" role="status" aria-live="polite" title={offlineSyncError || 'Saved on this device; waiting for a connection to sync.'}>
+              Pending Sync · {pendingAttendanceCount}
+            </span>
+          )}
+          <span className={`scanner-connection ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}>
+            <span className="scanner-connection__dot" />
+            {!networkOnline ? 'Network offline' : scannerInputActive ? 'Input detected' : 'Ready for scan'}
+          </span>
           <Button variant="ghost" size="sm" onClick={() => setSoundOn((current) => !current)} aria-pressed={soundOn}>
             Sound {soundOn ? 'On' : 'Off'}
           </Button>
-          </>
-        )}
-      />
+        </div>
+      </header>
 
-      {!online && (
+      {!networkOnline && (
         <Alert type="error" className="mb-4">
-          Scanner is offline. Attendance cannot be recorded until the connection is restored.
+          Network is offline. Attendance cannot be recorded until the connection is restored.
         </Alert>
       )}
 
-      <section className={`card scanner-gateway ${gatewayConfigured ? 'is-configured' : ''}`} aria-live="polite">
-        <div className="scanner-gateway__icon"><AlertTriangle size={17} /></div>
-        <div>
-          <strong>{gatewayConfigured === null ? 'SMS Gateway Status Unavailable' : gatewayConfigured ? 'SMS Gateway Configured' : 'SMS Gateway Not Configured'}</strong>
-          <p>{gatewayConfigured === null
-            ? 'The server configuration could not be checked.'
-            : gatewayConfigured
-              ? 'A messaging provider is configured. Delivery status is recorded per scan.'
-              : 'No live messaging provider credentials are configured. Attendance scans will still be recorded.'}</p>
-        </div>
-      </section>
+      {duplicateWarning && (
+        <Alert type="warn" className="scanner-duplicate-warning" onClose={() => setDuplicateWarning('')}>
+          {duplicateWarning}
+        </Alert>
+      )}
 
-      <section
-        className={`card scanner-result ${preview ? `has-result is-${previewIsError ? 'error' : preview.status}` : 'is-idle'} state-${scanState}`}
-        aria-live="polite"
-        aria-label="Latest scan result"
-        data-scan-state={scanState}
-      >
-        {preview ? (
-          <>
-            <div className="scanner-result__photo">
-              {preview.student?.photoUrl
-                ? <img src={preview.student.photoUrl} alt={preview.student.name || 'Student'} />
-                : <div className="scanner-result__placeholder"><UserRound size={36} aria-hidden="true" /></div>}
+      <div className="scanner-layout">
+        <div className="scanner-primary">
+          <section className={`card scanner-active-card state-${scanState}`} aria-live="polite" aria-label="Active scan result">
+            <div className="scanner-active-card__topline">
+              <span className={`scanner-result-pill ${previewIsPending ? 'is-pending' : previewIsError ? 'is-error' : preview ? 'is-success' : 'is-ready'}`}>
+                {previewIsPending ? <Clock size={15} /> : previewIsError ? <AlertTriangle size={15} /> : <CheckCircle size={15} />}
+                {previewIsSyncPending ? 'Pending Sync' : preview?.status === 'pending' ? 'Recording…' : previewIsDuplicate ? 'Already Recorded' : previewIsError ? 'Scan Rejected' : preview ? 'Scan Successful' : 'Ready to Scan'}
+              </span>
+              <span className="scanner-active-card__time"><Clock size={14} />{preview?.time || time}</span>
             </div>
-            <div className="scanner-result__details">
-              <div className={`scanner-result__status ${previewIsError ? 'status-error' : `status-${preview.status}`}`}>
-                {previewIsError ? <AlertTriangle size={18} /> : preview.status === 'late' ? <Clock size={18} /> : <CheckCircle size={18} />}
-                <strong>{previewIsError ? 'Scan rejected' : statusLabel}</strong>
-                <time>{preview.time}</time>
+
+            {preview ? (
+              <div className="scanner-active-card__student">
+                <div className="scanner-active-card__photo">
+                  {preview.student?.photoUrl
+                    ? <img src={preview.student.photoUrl} alt={preview.student.name || 'Student'} />
+                    : <div className="scanner-result__placeholder"><UserRound size={38} aria-hidden="true" /></div>}
+                </div>
+                <div className="scanner-active-card__details">
+                  <h2>{preview.student ? (preview.student.name || '—') : 'Unknown credential'}</h2>
+                  {studentCode && <p className="scanner-active-card__code">Student Code: <strong>{studentCode}</strong></p>}
+                  <div className="scanner-active-card__tags">
+                    {preview.student?.strand && <span>{preview.student.strand}</span>}
+                    {sectionName && <span>{sectionName}</span>}
+                    <span>{previewPeriod || period}</span>
+                  </div>
+                  <div className="scanner-active-card__summary">
+                    <div>
+                      <span className="scanner-detail-label">Scan Time</span>
+                      <strong><Clock size={15} /> {preview.time}</strong>
+                    </div>
+                    <div>
+                      <span className="scanner-detail-label">Attendance</span>
+                      <span className={`scanner-attendance-pill ${previewIsPending ? 'is-pending' : preview.status === 'late' ? 'is-late' : previewIsError ? 'is-error' : 'is-present'}`}>
+                        {previewIsSyncPending ? 'PENDING SYNC' : previewIsPending ? 'PENDING' : previewIsDuplicate ? 'ALREADY RECORDED' : previewIsError ? 'REJECTED' : scanOutcome || statusLabel.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
-              <h2>{preview.student ? (preview.student.name || '—') : 'Unknown credential'}</h2>
-              {studentCode && <p className="scanner-result__id">{studentCode}</p>}
-              {sectionName && <p className="scanner-result__section">{sectionName}</p>}
-              <p className="scanner-result__message">{preview.message}</p>
-              {!previewIsError && (
-                <p className={`scanner-result__sms sms-${smsStatus || 'unknown'}`}>
-                  SMS: <strong>{getSmsLabel(smsStatus)}</strong>
-                </p>
-              )}
+            ) : (
+              <div className="scanner-active-card__empty">
+                <div className="scanner-active-card__empty-icon"><QrCode size={26} /></div>
+                <div><strong>Waiting for a student QR code</strong><span>Scan using the connected keyboard-wedge reader.</span></div>
+              </div>
+            )}
+
+            {preview && (
+              <div className={`scanner-attendance-message ${previewIsPending ? 'is-pending' : previewIsError ? 'is-error' : preview.status === 'late' ? 'is-late' : 'is-success'}`} role="status">
+                {previewIsPending ? <Clock size={17} /> : previewIsError ? <AlertTriangle size={17} /> : <CheckCircle size={17} />}
+                <div>
+                  <strong>{previewIsSyncPending ? 'Attendance saved on this device.' : previewIsPending ? 'Student found. Recording attendance…' : previewIsDuplicate ? 'This attendance was already recorded.' : previewIsError ? 'Attendance was not recorded.' : scanStatusMessage}</strong>
+                  {previewIsSyncPending && <span>It will sync automatically when the server is available.</span>}
+                  {preview?.status === 'pending' && <span>Waiting for attendance confirmation.</span>}
+                  {!previewIsError && !previewIsPending && !previewIsDuplicate && <span>SMS notification will be sent to the parent/guardian when available.</span>}
+                  {previewIsError && <span>{preview.message}</span>}
+                </div>
+              </div>
+            )}
+
+            <div className="scanner-active-card__contacts">
+              <div className="scanner-contact-box">
+                <MessageSquare size={18} />
+                <div><span>SMS Status</span><strong>{preview ? getSmsLabel(smsStatus) : 'Waiting for scan'}</strong></div>
+              </div>
+              <div className="scanner-contact-box scanner-contact-box--parent">
+                <Info size={18} />
+                <div><span>Parent / Guardian</span><strong>{activeParentPhone || 'No contact on file'}</strong></div>
+              </div>
               {canSendManualSms && (
-                <div className="flex flex-wrap items-center gap-2 mt-3">
-                  <Button variant="outline" size="sm" onClick={openManualSmsModal}>
-                    <MessageSquare size={13} aria-hidden="true" /> Send SMS to Parent
-                  </Button>
+                <Button variant="outline" size="sm" onClick={openManualSmsModal}>
+                  <MessageSquare size={13} aria-hidden="true" /> Send SMS
+                </Button>
+              )}
+            </div>
+          </section>
+
+          <div className="scanner-workbench">
+            <section className="card scanner-card scanner-controls-card">
+              <div className="scanner-card__header"><h2><Usb size={17} /> Scanner Controls</h2><span className="scanner-log__count">{todayScanCount} scans today</span></div>
+              <div className="scanner-controls-card__actions">
+                <Button variant="primary" size="lg" disabled={!networkOnline} onClick={() => {
+                  setManualInputOpen(false);
+                  inputRef.current?.focus();
+                  setScannerMessage('Keyboard input is ready. Scan a QR code to test the reader.');
+                }}>
+                  <Usb size={17} /> Test Scan Input
+                </Button>
+                <div className="scanner-device-chip">
+                  <span className={`device-dot ${!networkOnline ? 'is-off' : scannerInputActive ? 'is-on' : 'is-waiting'}`} />
+                  <div><strong>Keyboard-wedge HID</strong><span>{!networkOnline ? 'Network unavailable' : scannerInputActive ? 'Input received' : 'Ready for scan'}</span></div>
+                  <Keyboard size={17} />
+                </div>
+              </div>
+              <div className="scanner-period-heading">
+                <label className="scanner-period-label" htmlFor="scan-period">Attendance period</label>
+                <label className="scanner-period-auto">
+                  <input type="checkbox" checked={automaticPeriod} onChange={(event) => setAutomaticPeriod(event.target.checked)} />
+                  Auto schedule
+                </label>
+              </div>
+              <select id="scan-period" className="field-input scanner-period-select" value={period} disabled={automaticPeriod} onChange={(event) => setPeriod(event.target.value)}>
+                {PERIODS.map((item) => <option key={item} value={item}>{item} · {PERIOD_WINDOWS[item]}</option>)}
+              </select>
+              <div className="scanner-period-status" aria-label="Period status">
+                {PERIODS.map((item) => <span key={item} className={`scanner-period-status__item is-${getPeriodState(item).toLowerCase()}`}><strong>{item}</strong>{getPeriodState(item)}</span>)}
+              </div>
+              {scannerMessage && <p className="scanner-control-message" role="status">{scannerMessage}</p>}
+              <button type="button" className="scanner-manual-toggle" onClick={() => setManualInputOpen((open) => !open)}>
+                {manualInputOpen ? 'Hide manual input' : 'Manual Input'}
+              </button>
+              {manualInputOpen && (
+                <div className="scanner-manual-fallback">
+                  <label className="field-label" htmlFor="manual-scan-input">QR code value</label>
+                  <div className="scanner-manual-fallback__row">
+                    <input id="manual-scan-input" ref={manualInputRef} className="field-input" value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder="Enter or scan a QR value" />
+                    <Button variant="secondary" size="sm" onClick={submitScan} disabled={!input.trim()}>Submit</Button>
+                  </div>
                 </div>
               )}
-            </div>
-          </>
-        ) : (
-          <div className="scanner-result__empty">
-            <QrCode size={28} aria-hidden="true" />
-            <div>
-              <strong>Ready for next scan</strong>
-              <span>Student details and attendance result will appear here.</span>
-            </div>
+              <div className="scanner-session-counts">
+                This session: <strong>{sessionCount.present} present</strong><span>·</span><strong>{sessionCount.late} late</strong><span>·</span><strong>{sessionCount.errors} errors</strong>
+              </div>
+            </section>
+
+            <section className="card scanner-card scanner-recent-card">
+              <div className="scanner-card__header"><h2><List size={17} /> Recent Scans</h2><span className="scanner-log__count">{recentScans.length} of 5</span></div>
+              <div className="scanner-recent-table-wrap">
+                <table className="scanner-recent-table">
+                  <thead><tr><th>Time</th><th>Student Name</th><th>Code</th><th>Status</th></tr></thead>
+                  <tbody>
+                    {recentScans.map((entry) => {
+                      const status = entry.status === 'warning' || entry.status === 'duplicate' ? 'Duplicate' : entry.status === 'pending-sync' ? 'Pending Sync' : entry.status === 'error' ? 'Rejected' : entry.status === 'late' ? 'Late' : 'Present';
+                      return <tr key={entry.id}>
+                        <td>{entry.time}</td>
+                        <td>{entry.student?.name || (entry.student ? '—' : 'Unknown credential')}</td>
+                        <td>{entry.student?.studentCode || entry.student?.code || entry.student?.id || '—'}</td>
+                        <td><span className={`scanner-table-status is-${entry.status}`}>{status}</span></td>
+                      </tr>;
+                    })}
+                    {!recentScans.length && <tr><td colSpan="4" className="scanner-recent-table__empty">No scans recorded this session.</td></tr>}
+                  </tbody>
+                </table>
+              </div>
+              {recentScans.length > 0 && <Button variant="ghost" size="sm" className="scanner-clear-button" onClick={() => {
+                setRecentScans([]);
+                setSessionCount({ present: 0, late: 0, errors: 0 });
+              }}><Trash2 size={12} /> Clear recent scans</Button>}
+            </section>
           </div>
-        )}
-      </section>
+        </div>
+
+        <aside className="scanner-sidebar">
+          <section className="card scanner-card scanner-status-card">
+            <div className="scanner-card__header"><h2><QrCode size={18} /> Scanner Status</h2><span className={`scanner-status-pill ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}><span className="scanner-connection__dot" />{!networkOnline ? 'Network offline' : scannerInputActive ? 'Input detected' : 'Ready for scan'}</span></div>
+            <div className="scanner-status-rows">
+              <div><Keyboard size={16} /><span>Device</span><strong>Keyboard-wedge HID</strong></div>
+              <div><Usb size={16} /><span>Connection Type</span><strong>USB keyboard input</strong></div>
+              <div><QrCode size={16} /><span>Input Method</span><strong>Enter or 250 ms idle</strong></div>
+              <div><ShieldCheck size={16} /><span>Permission</span><strong>No browser permission required</strong></div>
+            </div>
+            <p className={`scanner-gateway-note ${gatewayConfigured ? 'is-configured' : ''}`}>
+              {gatewayConfigured === null ? 'SMS gateway status unavailable.' : gatewayConfigured ? 'SMS gateway configured.' : 'SMS gateway not configured; attendance still works.'}
+            </p>
+          </section>
+
+          <section className="card scanner-card scanner-howto-card">
+            <div className="scanner-card__header"><h2><Info size={17} /> How to Use</h2></div>
+            <ol className="scanner-howto-list">
+              <li><span>1</span><p>Connect a USB QR scanner that types as a keyboard.</p></li>
+              <li><span>2</span><p>Choose the active attendance period.</p></li>
+              <li><span>3</span><p>Scan the student's QR code.</p></li>
+              <li><span>4</span><p>Confirm the result in Active Scan.</p></li>
+            </ol>
+          </section>
+
+          <section className="card scanner-card scanner-information-card">
+            <div className="scanner-card__header"><h2><Clock size={17} /> Scan Information</h2></div>
+            <div className="scanner-information-card__grid">
+              <div><span>Last Scan</span><strong>{preview?.time || '—'}</strong><small>{scanDateDisplay}</small></div>
+              <div><span>Status</span><strong className={networkOnline ? 'is-ready' : 'is-offline'}><span className="scanner-connection__dot" />{networkOnline ? 'Ready for next scan' : 'Network offline'}</strong></div>
+            </div>
+          </section>
+        </aside>
+      </div>
 
       {smsModalOpen && smsTarget && (
         <Modal
@@ -508,144 +827,8 @@ export default function Scanner() {
         </Modal>
       )}
 
-      <div className="scanner-grid">
-        <div className="scanner-side">
-          <section className="card scanner-clock">
-            <div className="scanner-clock__face">
-              <div className="scanner-clock__time">{time}</div>
-              <div className="scanner-clock__date">
-                {new Date().toLocaleDateString('en-PH', {
-                  weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
-                  timeZone: 'Asia/Manila',
-                })}
-              </div>
-              <div className={`scanner-clock__cutoff ${isLate ? 'is-late' : 'is-present'}`}>
-                <ShieldCheck size={12} />
-                {period === 'AM-1' ? (isLate ? 'AFTER CUTOFF - LATE' : 'BEFORE CUTOFF - ON-TIME') : `${period} SCAN PERIOD`}
-              </div>
-            </div>
-            <div className="scanner-clock__foot">
-              Cutoff: <strong>07:30</strong> - Server time is authoritative
-            </div>
-          </section>
-
-          <section className="card scanner-device">
-            <div className="card-header"><span className="card-title">Device Status</span></div>
-            <div className="scanner-device__row"><span>Network</span><strong><span className={`device-dot ${online ? 'is-on' : 'is-off'}`} />{online ? 'Online' : 'Offline'}</strong></div>
-            <div className="scanner-device__row"><span>Input mode</span><strong>Keyboard-wedge (HID)</strong></div>
-            <p className="scanner-device__note"><Info size={13} /> A browser may report “Yuren HID FS Keyboard”; that does not verify the reader brand. The TEKLEAD reader operates as a keyboard-wedge device.</p>
-          </section>
-
-          <section className="card scanner-input-card" aria-label="QR scanner input">
-            <div className="card-header">
-              <span className="card-title">{online ? 'QR Input - Ready' : 'Scanner Offline'}</span>
-              <ShieldCheck size={14} aria-hidden="true" />
-            </div>
-            <div className="card-body">
-              <label className="field-label" htmlFor="scan-period">Attendance period</label>
-              <select id="scan-period" className="field-input mb-3" value={period} onChange={(event) => setPeriod(event.target.value)}>
-                {PERIODS.map((item) => <option key={item} value={item}>{item} · {PERIOD_WINDOWS[item]}</option>)}
-              </select>
-              <input
-                ref={inputRef}
-                className="scanner-input field-input"
-                placeholder={online ? 'Waiting for QR scan...' : 'Offline - scanner disabled'}
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={handleKeyDown}
-                disabled={!online}
-                autoFocus
-                aria-label="QR scan input"
-              />
-              <p className="field-hint">USB scanner auto-submits on Enter. All input is validated server-side.</p>
-            </div>
-          </section>
-
-          <section className="card">
-            <div className="card-header"><span className="card-title">Today’s Scans</span><span className="scanner-log__count">{todayScanCount} recorded</span></div>
-            <div className="scanner-period-list">
-              {PERIODS.map((item) => (
-                <div className="scanner-period-row" key={item}>
-                  <span>{item}</span><span>{PERIOD_WINDOWS[item]}</span><span className={`badge badge-${getPeriodState(item).toLowerCase()}`}>{getPeriodState(item)}</span>
-                </div>
-              ))}
-            </div>
-            <div className="scanner-rules">
-              <p><strong>Four scans per day maximum</strong> — one in each period.</p>
-              <p><strong>AM-1 cutoff: 7:30 AM</strong> — before is On-Time; after is Late.</p>
-              <p><strong>Duplicate scans</strong> in the same period are rejected.</p>
-              <p><strong>Assigned section only</strong> — enforced by the API.</p>
-            </div>
-            <div className="card-header scanner-session-header"><span className="card-title">This-session results</span></div>
-            <div className="scanner-summary">
-              <div className="scanner-summary__cell scanner-summary__cell--ok">
-                <div className="scanner-summary__value">{sessionCount.present}</div>
-                <div className="scanner-summary__label">Present</div>
-              </div>
-              <div className="scanner-summary__cell scanner-summary__cell--warn">
-                <div className="scanner-summary__value">{sessionCount.late}</div>
-                <div className="scanner-summary__label">Late</div>
-              </div>
-              <div className="scanner-summary__cell scanner-summary__cell--err">
-                <div className="scanner-summary__value">{sessionCount.errors}</div>
-                <div className="scanner-summary__label">Errors</div>
-              </div>
-            </div>
-          </section>
-        </div>
-
-        <section className="card scanner-log" aria-label="Five most recent scans">
-          <div className="card-header">
-            <span className="card-title">Scan Log</span>
-            <div className="scanner-log__actions">
-              <span className="scanner-log__count">{recentScans.length} of 5</span>
-              {recentScans.length > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => {
-                  setRecentScans([]);
-                  setSessionCount({ present: 0, late: 0, errors: 0 });
-                }} aria-label="Clear scan log">
-                  <Trash2 size={12} /> Clear
-                </Button>
-              )}
-            </div>
-          </div>
-          <div className="scanner-log__body">
-            {recentScans.length ? recentScans.map((entry) => {
-              const isError = entry.status === 'error';
-              const isScanLate = entry.status === 'late';
-              const Icon = isError ? AlertTriangle : isScanLate ? Clock : CheckCircle;
-              return (
-                <div className={`scanner-log__row is-${isError ? 'error' : entry.status}`} key={entry.id}>
-                  <div className="scanner-log__icon"><Icon size={17} aria-hidden="true" /></div>
-                  <div className="scanner-log__content">
-                    <div className="scanner-log__head">
-                      <span className="scanner-log__name">{entry.student ? (entry.student.name || '—') : (isError ? 'Rejected scan' : 'Unknown')}</span>
-                      <time className="scanner-log__time">{entry.time}</time>
-                    </div>
-                    {entry.student && (
-                      <div className="scanner-log__sub">
-                        {entry.student.studentCode || entry.student.code || entry.student.id}
-                        {entry.student.section && ` · ${entry.student.section}`}
-                        {entry.record?.period && ` · ${entry.record.period}`}
-                      </div>
-                    )}
-                    <div className="scanner-log__message">{entry.message}</div>
-                  </div>
-                </div>
-              );
-            }) : (
-              <div className="scanner-log__empty">
-                <div className="scanner-log__empty-icon"><QrCode size={27} aria-hidden="true" /></div>
-                <p className="scanner-log__empty-title">No scans yet</p>
-                <p className="scanner-log__empty-sub">Scan a student QR credential to begin</p>
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
-
       <section className="card scanner-manual-card">
-        <div className="card-header"><span className="card-title">Manual Excused Entry</span><span className="scanner-log__count">Selected period: {period}</span></div>
+        <div className="scanner-card__header"><h2><CalendarDays size={17} /> Manual Excused Entry</h2><span className="scanner-log__count">Selected period: {period}</span></div>
         <form className="scanner-manual-form" onSubmit={handleExcusedSubmit}>
           <label className="field-label" htmlFor="excused-student">Student</label>
           <select id="excused-student" className="field-input" value={excusedStudentId} onChange={(event) => setExcusedStudentId(event.target.value)}>
@@ -658,6 +841,16 @@ export default function Scanner() {
         </form>
         {excuseMessage && <p className="scanner-manual-message" role="status">{excuseMessage}</p>}
       </section>
+
+      <input
+        ref={inputRef}
+        className="scanner-capture-input"
+        onChange={handleInputChange}
+        onKeyDown={handleKeyDown}
+        disabled={!networkOnline || manualInputOpen || smsModalOpen}
+        tabIndex={-1}
+        aria-label="QR scanner keyboard input"
+      />
     </div>
   );
 }

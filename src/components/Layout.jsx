@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import schoolSeal from '../imports/LNHS LOGO.png';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen,
   QrCode, ClipboardList, BarChart2, MessageSquare,
-  ShieldCheck, Settings, LogOut, Menu, ChevronDown, UsersRound, X,
-  User as UserIcon, Info, Calendar, Clock
+  AlertTriangle, ShieldCheck, Settings, LogOut, Menu, ChevronDown, ChevronRight, UsersRound, X,
+  Info
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useData } from '../context/DataContext';
-import Alert from './Alert';
+import AccountModal from './AccountModal';
 
 const NAV_FULL = [
   { group: 'Overview', items: [
@@ -35,22 +36,38 @@ const NAV_FULL = [
   ]},
 ];
 
-function formatClock(date) {
-  const time = date.toLocaleTimeString('en-PH', {
-    hour: 'numeric', minute: '2-digit',
-    hour12: true, timeZone: 'Asia/Manila',
-  });
-  const dayDate = date.toLocaleDateString('en-PH', {
-    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-    timeZone: 'Asia/Manila',
-  });
-  return { time, dayDate };
+function AppToast({ notification, onDismiss }) {
+  useEffect(() => {
+    const timer = window.setTimeout(() => onDismiss(notification.id), 8000);
+    return () => window.clearTimeout(timer);
+  }, [notification.id, onDismiss]);
+
+  return (
+    <section className={`app-toast app-toast--${notification.type}`} role="alert" aria-live="assertive">
+      <span className="app-toast__icon"><AlertTriangle size={17} aria-hidden="true" /></span>
+      <div className="app-toast__body">
+        <strong>{notification.title}</strong>
+        <p>{notification.message}</p>
+        {notification.details && (
+          <details className="app-toast__details">
+            <summary>Technical details</summary>
+            <p>{notification.details}</p>
+          </details>
+        )}
+      </div>
+      <button type="button" className="app-toast__close" onClick={() => onDismiss(notification.id)} aria-label="Dismiss notification">
+        <X size={15} aria-hidden="true" />
+      </button>
+    </section>
+  );
 }
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
-  const [now, setNow] = useState(() => new Date());
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+    const [notifications, setNotifications] = useState([]);
+  const nextNotificationId = useRef(0);
   const { user, logout, isAdmin, isTeacher } = useAuth();
   const { error, staffDataError } = useData();
   const navigate = useNavigate();
@@ -58,12 +75,46 @@ export default function Layout({ children }) {
 
   const nav = NAV_FULL.filter((section) => !section.adminOnly || isAdmin);
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin';
-  const roleLabel = isAdmin ? 'Admin' : isTeacher ? 'Teacher' : 'Staff';
+  const roleLabel = isAdmin ? 'School administrator' : isTeacher ? 'Teacher' : 'Staff';
+  const avatarInitials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || 'U';
+  const avatarUrl = user?.photoURL || user?.photoUrl || '';
 
   useEffect(() => {
-    const clockInterval = window.setInterval(() => setNow(new Date()), 60000);
-    return () => window.clearInterval(clockInterval);
+    const handleNotification = (event) => {
+      const notification = event.detail || {};
+      setNotifications((current) => [...current, {
+        id: ++nextNotificationId.current,
+        type: notification.type === 'warning' ? 'warning' : 'error',
+        title: notification.title || 'Action could not be completed',
+        message: notification.message || 'Please try again.',
+        details: notification.details || '',
+      }].slice(-3));
+    };
+    window.addEventListener('school-app:notification', handleNotification);
+    return () => window.removeEventListener('school-app:notification', handleNotification);
   }, []);
+
+  useEffect(() => {
+    if (!staffDataError) return;
+    setNotifications((current) => [...current, {
+      id: ++nextNotificationId.current,
+      type: 'warning',
+      title: 'Some school data could not refresh',
+      message: 'You can continue, but some records may be out of date.',
+      details: staffDataError,
+    }].slice(-3));
+  }, [staffDataError]);
+
+  useEffect(() => {
+    if (!error || error.includes('fetch') || error.includes('Failed to fetch')) return;
+    setNotifications((current) => [...current, {
+      id: ++nextNotificationId.current,
+      type: 'warning',
+      title: 'Live attendance data could not refresh',
+      message: 'The displayed attendance records may be out of date.',
+      details: error,
+    }].slice(-3));
+  }, [error]);
 
   useEffect(() => {
     setSidebarOpen(false);
@@ -75,12 +126,23 @@ export default function Layout({ children }) {
     navigate('/login', { replace: true });
   };
 
-  const { time, dayDate } = formatClock(now);
-
   return (
     <div className="app-shell">
+    {accountModalOpen && <AccountModal onClose={() => setAccountModalOpen(false)} />}
+      <div className="app-toast-stack" aria-label="System notifications">
+        {notifications.map((notification) => (
+          <AppToast
+            key={notification.id}
+            notification={notification}
+            onDismiss={(id) => setNotifications((current) => current.filter((item) => item.id !== id))}
+          />
+        ))}
+      </div>
       <aside className={`app-sidebar ${sidebarOpen ? 'is-open' : ''}`}>
         <div className="app-sidebar__brand">
+          <div className="app-sidebar__logo">
+            <img src={schoolSeal} alt="Looc National High School seal" />
+          </div>
           <div className="app-sidebar__brand-copy">
             <strong>LNHS</strong>
             <span>Attendance System</span>
@@ -90,7 +152,6 @@ export default function Layout({ children }) {
         <nav className="app-sidebar__nav" aria-label="Main navigation">
           {nav.map((section) => (
             <div key={section.group} className="app-sidebar__group">
-              <div className="app-sidebar__group-label">{section.group}</div>
               {section.items.map((item) => (
                 <NavLink
                   key={item.to}
@@ -140,6 +201,7 @@ export default function Layout({ children }) {
           </button>
 
           <div className="app-header__left">
+            <img className="app-header__seal" src={schoolSeal} alt="" />
             <div className="app-header__school">
               <strong className="app-header__name">Looc National High School</strong>
               <span className="app-header__motto">Discipline Builds Tomorrow</span>
@@ -147,13 +209,6 @@ export default function Layout({ children }) {
           </div>
 
           <div className="app-topbar__right app-header__right">
-            <div className="app-header__datetime" aria-label="Current date and time in Asia/Manila">
-              <span className="app-header__time-item"><Calendar size={14} aria-hidden="true" />{dayDate}</span>
-              <span className="app-header__time-item"><Clock size={14} aria-hidden="true" />{time}</span>
-            </div>
-
-            <span className="app-header__divider app-header__right-divider" aria-hidden="true" />
-
             <div className="app-topbar__user app-header__user">
               <button
                 onClick={() => setUserMenuOpen((isOpen) => !isOpen)}
@@ -161,11 +216,13 @@ export default function Layout({ children }) {
                 aria-expanded={userMenuOpen}
                 aria-haspopup="menu"
                 aria-label={`Account menu for ${displayName}`}
+                title="Account options"
                 type="button"
               >
                 <div className="account-trigger-avatar app-header__avatar">
-                  {displayName.charAt(0).toUpperCase()}
-                  <span className="account-trigger-status" />
+                  {avatarUrl
+                    ? <img className="account-trigger-avatar__image" src={avatarUrl} alt="" />
+                    : <span>{avatarInitials}</span>}
                 </div>
                 <span className="account-trigger-copy app-header__user-info">
                   <strong className="app-header__user-name">{displayName}</strong>
@@ -176,27 +233,45 @@ export default function Layout({ children }) {
 
               {userMenuOpen && (
                 <div className="account-menu app-header__dropdown" role="menu">
-                  <div className="account-menu__header">
-                    <div className="account-menu__name">{displayName}</div>
-                    <div className="account-menu__email">{user?.email}</div>
-                    <span className="badge badge-navy">{roleLabel}</span>
+                  <div className="account-menu__header app-account-menu__header">
+                    <div className="account-menu__profile">
+                      <div className="account-menu__avatar">
+                        {avatarUrl
+                          ? <img src={avatarUrl} alt="" />
+                          : <span>{avatarInitials}</span>}
+                      </div>
+                      <div className="account-menu__identity">
+                        <span className="account-menu__greeting">Welcome back</span>
+                        <div className="account-menu__name">{displayName}</div>
+                      </div>
+                    </div>
+                    <div className="app-account-menu__details">
+                      <div className="account-menu__email">{user?.email}</div>
+                      <span className="badge badge-navy app-account-menu__role"><ShieldCheck size={13} aria-hidden="true" />{roleLabel}</span>
+                    </div>
                   </div>
                   <div className="account-menu__links">
                     <button
                       type="button"
-                      onClick={() => { setUserMenuOpen(false); navigate('/settings'); }}
-                      className="account-menu-link app-header__dropdown-item"
+                      onClick={() => { setUserMenuOpen(false); setAccountModalOpen(true); }}
+                      className="app-account-menu__action"
                       role="menuitem"
                     >
-                      <Settings size={14} /> Settings
+                      <span className="app-account-menu__action-icon"><Settings size={16} aria-hidden="true" /></span>
+                      <span className="app-account-menu__action-copy">
+                        <strong>Manage account</strong>
+                        <small>School settings and preferences</small>
+                      </span>
+                      <ChevronRight className="app-account-menu__action-chevron" size={16} aria-hidden="true" />
                     </button>
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="account-menu-link account-menu-link--danger app-header__dropdown-item"
+                      className="app-account-menu__action app-account-menu__action--signout"
                       role="menuitem"
                     >
-                      <LogOut size={14} /> Logout
+                      <span className="app-account-menu__action-icon"><LogOut size={16} aria-hidden="true" /></span>
+                      <span className="app-account-menu__action-copy"><strong>Sign out</strong></span>
                     </button>
                   </div>
                 </div>
@@ -205,18 +280,7 @@ export default function Layout({ children }) {
           </div>
         </header>
 
-        <main className="app-content" onClick={() => setUserMenuOpen(false)}>
-          {error && !error.includes('fetch') && !error.includes('Failed to fetch') && (
-            <Alert type="warn" className="mb-4">
-              <div>Live data refresh failed — showing last known state.</div>
-              <small>{error}</small>
-            </Alert>
-          )}
-          {staffDataError && (
-            <Alert type="warn" className="mb-4">
-              Admin data refresh failed: {staffDataError}
-            </Alert>
-          )}
+        <main className={`app-content${location.pathname === '/settings' ? ' app-content--settings' : ''}${location.pathname === '/students' ? ' app-content--students' : ''}`} onClick={() => setUserMenuOpen(false)}>
           {children}
         </main>
       </div>

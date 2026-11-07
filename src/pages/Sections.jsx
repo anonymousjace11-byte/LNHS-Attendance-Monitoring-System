@@ -34,7 +34,7 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
   };
 
   return (
-    <Modal title={existing ? 'Edit Section' : 'Add Section'} onClose={onClose} maxWidth="460px"
+    <Modal title={existing ? 'Edit Section' : 'Add Section'} onClose={onClose} maxWidth="460px" portal
       footer={<>
         <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
         <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
@@ -76,7 +76,7 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
 
 function SectionDeleteModal({ section, onClose, onConfirm, loading, error }) {
   return (
-    <Modal title="Delete Section" onClose={onClose} maxWidth="420px"
+    <Modal title="Delete Section" onClose={onClose} maxWidth="420px" portal
       footer={<>
         <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
         <Button variant="destructive" size="sm" loading={loading} onClick={onConfirm}>
@@ -186,7 +186,7 @@ export default function Sections() {
       ) : grades.map(grade=>(
         <div key={grade} className="mb-4">
           <div className="flex items-center gap-3 mb-3">
-            <span style={{ fontFamily:'Work Sans', fontWeight:800, fontSize:'.9rem', color:'var(--navy-900)' }}>
+            <span style={{ fontFamily:'Work Sans', fontWeight:800, fontSize:'.9rem', color:'var(--text-primary)' }}>
               Grade {grade}
             </span>
             <div style={{ flex:1, height:'1px', background:'var(--border)' }} />
@@ -196,7 +196,7 @@ export default function Sections() {
               <div key={sec.id} className="card p-3" style={{ opacity: sec.active ? 1 : .65 }}>
                 <div className="flex items-start justify-between mb-3">
                   <div>
-                    <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.95rem', color:'var(--navy-900)' }}>
+                    <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.95rem', color:'var(--text-primary)' }}>
                       {displayValue(sec.name)}
                     </div>
                     <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginTop:'1px' }}>{displayValue(sec.room)}</div>
@@ -210,7 +210,7 @@ export default function Sections() {
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color:'var(--text-muted)' }}>Students</span>
-                    <span style={{ fontFamily:'JetBrains Mono', fontWeight:500, color:'var(--navy-800)' }}>{displayValue(students.filter((student) => (student.sectionId || student.section) === sec.id || (student.sectionId || student.section) === sec.name).length)}</span>
+                    <span style={{ fontFamily:'JetBrains Mono', fontWeight:500, color:'var(--text-secondary)' }}>{displayValue(students.filter((student) => (student.sectionId || student.section) === sec.id || (student.sectionId || student.section) === sec.name).length)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span style={{ color:'var(--text-muted)' }}>Status</span>

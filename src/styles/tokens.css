@@ -37,14 +37,15 @@
   --neutral: #5a6f8a;
   --neutral-bg: #eef0f3;
 
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --fs-xs: 11px;
-  --fs-sm: 12px;
-  --fs-base: 13px;
-  --fs-md: 14px;
-  --fs-lg: 16px;
-  --fs-xl: 20px;
-  --fs-2xl: 24px;
+  --font: 'Work Sans', 'Segoe UI', sans-serif;
+  --font-display: Georgia, 'Times New Roman', serif;
+  --fs-xs: 12px;
+  --fs-sm: 13px;
+  --fs-base: 14px;
+  --fs-md: 15px;
+  --fs-lg: 17px;
+  --fs-xl: 21px;
+  --fs-2xl: 27px;
 
   --sp-xs: 4px;
   --sp-sm: 8px;
@@ -145,6 +146,12 @@ html[data-theme='dark'] {
   --info-bg: #1a2a44;
   --info-border: #243a5a;
   --neutral-bg: #1a2332;
+  --positive: #75c9aa;
+  --warning: #f0c674;
+  --danger: #ff9188;
+  --info: #a8c9ef;
+  --neutral: #b7c5d5;
+  --text-light: #9bb2cc;
 
   /* Neutral scale aliases used by some components */
   --navy-50: #182739;

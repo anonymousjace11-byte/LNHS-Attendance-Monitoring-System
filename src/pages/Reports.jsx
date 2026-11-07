@@ -174,7 +174,7 @@ export default function Reports() {
 
       {/* Date range */}
       <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
-        <span style={{ fontFamily:'Work Sans', fontWeight:600, fontSize:'.82rem', color:'var(--navy-800)' }}>Date Range</span>
+        <span style={{ fontFamily:'Work Sans', fontWeight:600, fontSize:'.82rem', color:'var(--text-primary)' }}>Date Range</span>
         <div className="flex items-center gap-1" role="group" aria-label="Date range presets">
           {[
             ['day', 'Day'],
@@ -342,13 +342,13 @@ export default function Reports() {
               <div key={e.title} className="report-export-card">
                 <div className="flex items-start justify-between mb-3">
                   <div className="w-9 h-9 rounded flex items-center justify-center" style={{ background:'var(--navy-50)' }}>
-                    <e.Icon size={17} style={{ color:'var(--navy-800)' }} />
+                    <e.Icon size={17} style={{ color:'var(--text-secondary)' }} />
                   </div>
                   <span style={{ fontFamily:'JetBrains Mono', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px', fontSize:'.72rem' }}>
                     {e.format}
                   </span>
                 </div>
-                <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.9rem', color:'var(--navy-900)', marginBottom:'4px' }}>{e.title}</div>
+                <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.9rem', color:'var(--text-primary)', marginBottom:'4px' }}>{e.title}</div>
                 <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginBottom:'1rem' }}>{e.desc}</div>
                 <Button variant="primary" size="sm" className="w-full" onClick={() => downloadReport(e.format, e.title)}>
                   <Download size={13} /> Download

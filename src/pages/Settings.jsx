@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Building2, Clock, KeyRound, MessageSquare, Moon, Save, ShieldCheck, Sun } from 'lucide-react';
+import { AlertTriangle, Building2, Calendar, Clock, KeyRound, MessageSquare, Moon, Save, ShieldCheck, Sun } from 'lucide-react';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
@@ -25,6 +25,7 @@ const TABS = [
 
 export default function Settings() {
   const [tab, setTab] = useState('general');
+  const [settingsNow, setSettingsNow] = useState(() => new Date());
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
   const [passwordError, setPasswordError] = useState('');
@@ -66,6 +67,18 @@ export default function Settings() {
   const { changePassword } = useAuth();
   const { theme, setTheme } = useTheme();
   const runtimeSectionRef = useRef(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setSettingsNow(new Date()), 60000);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  const settingsDate = settingsNow.toLocaleDateString('en-PH', {
+    weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'Asia/Manila',
+  });
+  const settingsTime = settingsNow.toLocaleTimeString('en-PH', {
+    hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'Asia/Manila',
+  });
 
   useEffect(() => {
     if (!saved) return undefined;
@@ -229,7 +242,7 @@ export default function Settings() {
   };
 
   return (
-    <div className="animate-fade-in">
+    <div className="settings-page animate-fade-in">
       {savedRuntimeMode === 'live' && !savedRuntimeDisabled && !runtimeLoading && (
         <div className="settings-live-banner" role="alert">
           <AlertTriangle size={18} aria-hidden="true" />
@@ -237,7 +250,17 @@ export default function Settings() {
           <a href="#sms-runtime-control" onClick={openRuntimeControl}>Go to Runtime Control</a>
         </div>
       )}
-      <PageCover eyebrow="Administrator Panel" title="Settings" subtitle="School configuration and system parameters." />
+      <PageCover
+        eyebrow="Administrator Panel"
+        title="Settings"
+        subtitle="School configuration and system parameters."
+        actions={(
+          <div className="settings-cover__datetime" aria-label="Current date and time in Asia/Manila">
+            <span><Calendar size={14} aria-hidden="true" />{settingsDate}</span>
+            <span><Clock size={14} aria-hidden="true" />{settingsTime}</span>
+          </div>
+        )}
+      />
       {saved && <Alert type="success" className="mb-4">Attendance settings saved successfully.</Alert>}
       {saveError && <Alert type={tab === 'attendance' ? 'error' : 'warn'} className="mb-4">{saveError}</Alert>}
 

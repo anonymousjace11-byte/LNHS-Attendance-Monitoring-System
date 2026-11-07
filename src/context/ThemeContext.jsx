@@ -6,9 +6,19 @@ const ThemeContext = createContext(null);
 const THEME_REF = doc(db, 'settings', 'theme');
 const VALID_THEMES = ['light', 'dark'];
 const DEFAULT_THEME = 'light';
+const LOCAL_THEME_KEY = 'lnhs-theme-preference';
+
+function readLocalTheme() {
+  try {
+    const savedTheme = window.localStorage.getItem(LOCAL_THEME_KEY);
+    return VALID_THEMES.includes(savedTheme) ? savedTheme : DEFAULT_THEME;
+  } catch {
+    return DEFAULT_THEME;
+  }
+}
 
 export function ThemeProvider({ children }) {
-  const [theme, setThemeState] = useState(DEFAULT_THEME);
+  const [theme, setThemeState] = useState(readLocalTheme);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -16,12 +26,12 @@ export function ThemeProvider({ children }) {
       THEME_REF,
       (snapshot) => {
         const value = snapshot.exists() ? snapshot.data()?.name : null;
-        setThemeState(VALID_THEMES.includes(value) ? value : DEFAULT_THEME);
+        setThemeState(VALID_THEMES.includes(value) ? value : readLocalTheme());
         setReady(true);
       },
       (error) => {
-        console.warn('Theme sync failed, using default:', error?.message);
-        setThemeState(DEFAULT_THEME);
+        console.warn('Theme sync failed, keeping local preference:', error?.message);
+        setThemeState(readLocalTheme());
         setReady(true);
       },
     );
@@ -38,11 +48,18 @@ export function ThemeProvider({ children }) {
 
     setThemeState(next);
     document.documentElement.dataset.theme = next;
+    try {
+      window.localStorage.setItem(LOCAL_THEME_KEY, next);
+    } catch {
+      console.warn('Unable to persist the local theme preference.');
+    }
 
     try {
       await setDoc(THEME_REF, { name: next }, { merge: true });
+      return true;
     } catch (error) {
       console.warn('Failed to persist theme:', error?.message);
+      return false;
     }
   };
 

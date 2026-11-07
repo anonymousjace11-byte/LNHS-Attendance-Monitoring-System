@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Download, Eye, IdCard, Pencil, Plus, Search, UserX, Users } from 'lucide-react';
+import { Download, Eye, IdCard, Pencil, Plus, Search, Trash2, UserX, Users } from 'lucide-react';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 import { EmptyTableRow } from '../components/EmptyState';
@@ -233,8 +233,28 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
   );
 }
 
+function StudentDeleteModal({ student, onClose, onConfirm, loading, error }) {
+  return (
+    <Modal title="Delete Student" onClose={onClose} maxWidth="440px" portal
+      footer={(
+        <>
+          <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
+          <Button variant="destructive" size="sm" loading={loading} onClick={onConfirm}>
+            <Trash2 size={13} /> Delete Student
+          </Button>
+        </>
+      )}>
+      <div className="student-delete-confirmation">
+        <p>Delete <strong>{student.name}</strong> ({student.studentCode || student.code || student.id})?</p>
+        <p>Parent contact and active QR credentials will be removed. Attendance and SMS history will be kept.</p>
+        {error && <Alert type="error">{error}</Alert>}
+      </div>
+    </Modal>
+  );
+}
+
 export default function Students() {
-  const { students: liveStudents, sections, teachers, parentContacts, saveStudent } = useData();
+  const { students: liveStudents, sections, teachers, parentContacts, saveStudent, deleteStudent } = useData();
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [strand, setStrand] = useState('All Strands');
@@ -245,6 +265,10 @@ export default function Students() {
   const [editing, setEditing] = useState(null);
   const [success, setSuccess] = useState('');
   const [previewStudent, setPreviewStudent] = useState(null);
+  const [exportIdWhenReady, setExportIdWhenReady] = useState(false);
+  const [deleting, setDeleting] = useState(null);
+  const [deleteError, setDeleteError] = useState('');
+  const [deleteLoading, setDeleteLoading] = useState(false);
 
   useEffect(() => setStudents(liveStudents), [liveStudents]);
 
@@ -308,13 +332,19 @@ export default function Students() {
   };
 
   const handleIdExport = async (student) => {
-    await saveStudent({
+    const exportStudent = {
       ...student,
-      idCardGeneratedAt: new Date().toISOString(),
+      idCardGeneratedAt: student.idCardGeneratedAt || new Date().toISOString(),
       idCardQrValue: student.qrValue || student.qrUuid || student.studentCode || student.code || student.id,
-    });
-    setSuccess('Student ID export recorded. The same QR credential will be reused.');
+    };
+    try {
+      await saveStudent(exportStudent);
+      setSuccess('Student ID export recorded. The same QR credential will be reused.');
+    } catch {
+      setSuccess('Student ID is ready to export, but its export record could not be saved.');
+    }
     window.setTimeout(() => setSuccess(''), 4000);
+    return exportStudent;
   };
 
   const toggleActive = async (id) => {
@@ -325,13 +355,41 @@ export default function Students() {
     window.setTimeout(() => setSuccess(''), 4000);
   };
 
+  const confirmDelete = async () => {
+    if (!deleting?.id) return;
+    setDeleteLoading(true);
+    setDeleteError('');
+    try {
+      await deleteStudent(deleting.id);
+      setCurrentPage((current) => Math.min(current, Math.max(1, Math.ceil((filtered.length - 1) / PAGE_SIZE))));
+      setSuccess(`${deleting.name} deleted. Attendance and SMS history were retained.`);
+      setDeleting(null);
+      window.setTimeout(() => setSuccess(''), 5000);
+    } catch (error) {
+      setDeleteError(error.message || 'Unable to delete student.');
+    } finally {
+      setDeleteLoading(false);
+    }
+  };
+
   return (
     <div className="animate-fade-in">
+      {deleting && (
+        <StudentDeleteModal
+          student={deleting}
+          onClose={() => { if (!deleteLoading) { setDeleting(null); setDeleteError(''); } }}
+          onConfirm={confirmDelete}
+          loading={deleteLoading}
+          error={deleteError}
+        />
+      )}
       {previewStudent && (
-        <Modal title="Student ID Preview" onClose={() => setPreviewStudent(null)} maxWidth="1200px" className="student-id-preview-modal" portal>
+        <Modal title="Student ID Preview" onClose={() => { setPreviewStudent(null); setExportIdWhenReady(false); }} maxWidth="1200px" className="student-id-preview-modal" portal>
           <StudentIdCard student={previewStudent} onPhotoUpload={handlePreviewPhoto}
-            onPrint={() => { handleIdExport(previewStudent); window.print(); }}
-            onExport={() => handleIdExport(previewStudent)} />
+            onPrint={() => { void handleIdExport(previewStudent); }}
+            onExport={() => handleIdExport(previewStudent)}
+            autoExportPdf={exportIdWhenReady}
+            onAutoExportComplete={setExportIdWhenReady} />
         </Modal>
       )}
 
@@ -408,13 +466,18 @@ export default function Students() {
                     })} title="Edit student" aria-label={`Edit ${student.name || 'student'}`}><Pencil size={12} /> Edit</Button>
                     <Button variant="outline" className="table-action--preview" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
                     <Button variant="outline" className="table-action--export" size="sm" onClick={() => {
-                      handleIdExport(student);
-                      setPreviewStudent(student);
-                      window.setTimeout(() => window.print(), 150);
+                      const exportStudent = { ...student, idCardGeneratedAt: new Date().toISOString() };
+                      setPreviewStudent(exportStudent);
+                      setExportIdWhenReady(true);
                     }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
                     <Button variant="outline" className={student.active ? 'table-action--delete' : 'table-action--approve'} size="sm" onClick={() => toggleActive(student.id)}
                       title={student.active ? 'Deactivate' : 'Activate'} aria-label={`${student.active ? 'Deactivate' : 'Activate'} ${student.name || 'student'}`}>
                       <UserX size={12} /> {student.active ? 'Deactivate' : 'Activate'}
+                    </Button>
+                    <Button variant="outline" className="table-action--delete students-table__delete" size="sm"
+                      onClick={() => { setDeleteError(''); setDeleting(student); }}
+                      title="Permanently delete student" aria-label={`Delete ${student.name || 'student'}`}>
+                      <Trash2 size={12} />
                     </Button>
                   </div></td>
                 </tr>;

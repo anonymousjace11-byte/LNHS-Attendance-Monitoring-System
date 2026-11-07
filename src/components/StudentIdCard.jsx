@@ -22,8 +22,11 @@ function formatIssuedDate(value) {
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
-export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExport }) {
+export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExport, autoExportPdf = false, onAutoExportComplete }) {
   const [qrImage, setQrImage] = useState('');
+  const [qrReady, setQrReady] = useState(false);
+  const [printRequested, setPrintRequested] = useState(false);
+  const [exportStatus, setExportStatus] = useState('');
   const [scale, setScale] = useState(0.5);
   const [stacked, setStacked] = useState(false);
   const [photoDraft, setPhotoDraft] = useState(null);
@@ -34,21 +37,78 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   const viewportRef = useRef(null);
   const frontRef = useRef(null);
   const backRef = useRef(null);
+  const printStartedRef = useRef(false);
+  const exportStartedRef = useRef(false);
   const qrValue = student.qrValue || student.qrUuid || student.studentCode || student.code || student.id;
 
   useEffect(() => {
     let active = true;
-    if (!qrValue) return undefined;
+    setQrReady(false);
+    if (!qrValue) {
+      setQrImage('');
+      setQrReady(true);
+      return () => { active = false; };
+    }
     QRCode.toDataURL(String(qrValue), {
       width: QR_EXPORT_SIZE,
       margin: 4,
       errorCorrectionLevel: 'M',
       color: { dark: '#000000', light: '#ffffff' },
     }).then((url) => {
-      if (active) setQrImage(url);
-    }).catch(() => setQrImage(''));
+      if (active) {
+        setQrImage(url);
+        setQrReady(true);
+      }
+    }).catch(() => {
+      if (active) {
+        setQrImage('');
+        setQrReady(true);
+      }
+    });
     return () => { active = false; };
   }, [qrValue]);
+
+  const waitForCardAssets = useCallback(async () => {
+    const images = [frontRef.current, backRef.current]
+      .flatMap((card) => Array.from(card?.querySelectorAll('img') || []));
+    await Promise.all(images.map((image) => {
+      if (typeof image.decode === 'function') return image.decode().catch(() => {});
+      if (image.complete) return Promise.resolve();
+      return new Promise((resolve) => {
+        image.addEventListener('load', resolve, { once: true });
+        image.addEventListener('error', resolve, { once: true });
+      });
+    }));
+    await document.fonts?.ready;
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+  }, []);
+
+  useEffect(() => {
+    if (!printRequested) {
+      printStartedRef.current = false;
+      return undefined;
+    }
+    if (!qrReady || printStartedRef.current) return undefined;
+
+    printStartedRef.current = true;
+    let active = true;
+    const printWhenReady = async () => {
+      await waitForCardAssets();
+      if (!active) return;
+      setPrintRequested(false);
+      window.print();
+    };
+    printWhenReady();
+    return () => {
+      active = false;
+      printStartedRef.current = false;
+    };
+  }, [printRequested, qrReady, waitForCardAssets]);
+
+  function requestPrint() {
+    onPrint?.();
+    setPrintRequested(true);
+  }
 
   useEffect(() => {
     const viewport = viewportRef.current;
@@ -86,17 +146,32 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
     clone.style.maxWidth = 'none';
     clone.style.transform = 'none';
     clone.style.position = 'fixed';
-    clone.style.left = '-10000px';
+    clone.style.left = '0';
     clone.style.top = '0';
+    clone.style.zIndex = '-1';
+    clone.style.visibility = 'hidden';
     clone.style.boxShadow = 'none';
     document.body.appendChild(clone);
     try {
       return await html2canvas(clone, {
         width: CARD_WIDTH,
         height: ID_HEIGHT_PX,
-        scale: 3,
+        scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
+        windowWidth: CARD_WIDTH,
+        windowHeight: ID_HEIGHT_PX,
+        scrollX: 0,
+        scrollY: 0,
+        onclone: (clonedDocument) => {
+          const captureCard = clonedDocument.querySelector('.student-id-card--export');
+          if (!captureCard) return;
+          captureCard.style.left = '0';
+          captureCard.style.top = '0';
+          captureCard.style.position = 'fixed';
+          captureCard.style.zIndex = 'auto';
+          captureCard.style.visibility = 'visible';
+        },
       });
     } finally {
       clone.remove();
@@ -126,9 +201,14 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   }
 
   async function downloadPDF() {
+    setExportStatus('Rendering front of ID…');
     const frontCanvas = await exportCard(frontRef.current);
+    setExportStatus('Rendering back of ID…');
     const backCanvas = await exportCard(backRef.current);
-    if (!frontCanvas && !backCanvas) return;
+    if (!frontCanvas && !backCanvas) {
+      setExportStatus('Unable to render the ID cards.');
+      return;
+    }
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: [ID_WIDTH_MM, ID_HEIGHT_MM] });
     if (frontCanvas) {
       pdf.addImage(frontCanvas.toDataURL('image/png'), 'PNG', 0, 0, ID_WIDTH_MM, ID_HEIGHT_MM);
@@ -140,9 +220,38 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
     const safeId = (student.studentCode || student.code || student.id || 'student')
       .toString()
       .replace(/[^A-Za-z0-9-]/g, '');
+    setExportStatus('Preparing PDF download…');
     pdf.save(`${safeId}-ID.pdf`);
     onExport?.('pdf');
+    setExportStatus('PDF export started.');
   }
+
+  useEffect(() => {
+    if (!autoExportPdf) {
+      exportStartedRef.current = false;
+      return undefined;
+    }
+    if (!qrReady || exportStartedRef.current) return undefined;
+
+    exportStartedRef.current = true;
+    let active = true;
+    const exportWhenReady = async () => {
+      await waitForCardAssets();
+      if (!active) return;
+      await downloadPDF();
+      if (active) onAutoExportComplete?.();
+    };
+    exportWhenReady().catch(() => {
+      if (active) setExportStatus('Unable to export the PDF. Use Export PDF to retry.');
+      if (active) onAutoExportComplete?.();
+    }).finally(() => {
+      if (active) exportStartedRef.current = false;
+    });
+    return () => {
+      active = false;
+      exportStartedRef.current = false;
+    };
+  }, [autoExportPdf, onAutoExportComplete, qrReady, waitForCardAssets]);
 
   function handlePhotoSelect(event) {
     const file = event.target.files?.[0];
@@ -210,6 +319,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
         <div className="student-id-toolbar-top">
           <div>
             <span>Portrait CR100 • {ID_WIDTH_MM} × {ID_HEIGHT_MM} mm</span>
+            {exportStatus && <span className="student-id-export-status" role="status">{exportStatus}</span>}
           </div>
           <div className="student-id-export-buttons">
             <button type="button" onClick={downloadPNG}>Export PNG</button>
@@ -405,7 +515,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
           </label>
         )}
         {onPrint && (
-          <button className="student-id-print" type="button" onClick={onPrint}>Print Student ID</button>
+          <button className="student-id-print" type="button" onClick={requestPrint}>Print Student ID</button>
         )}
       </div>
 

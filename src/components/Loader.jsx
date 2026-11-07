@@ -1,8 +1,7 @@
 import './Loader.css';
-import { Lottie } from 'lottie-react';
 import schoolPhoto from '../imports/lnhs-banner.png';
 import teamSeal from '../imports/TEAM SEAL.png';
-import walkingStudentAnimation from '../imports/walking-student.json';
+import walkingStudentAnimation from '../imports/walking-student.gif';
 
 export default function Loader({ exiting = false }) {
   return (
@@ -23,12 +22,12 @@ export default function Loader({ exiting = false }) {
         <span />
       </div>
 
-      <Lottie
-        className="loader-student-lottie"
+      <img
+        className="loader-student-gif"
         src={walkingStudentAnimation}
-        autoplay
-        loop
+        alt=""
         aria-hidden="true"
+        decoding="async"
       />
 
       <div className="app-loader__caption">

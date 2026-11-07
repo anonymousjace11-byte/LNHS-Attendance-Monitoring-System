@@ -46,7 +46,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
   };
 
   return (
-    <Modal title={existing ? 'Edit Teacher Account' : 'Add Teacher Account'} onClose={onClose} maxWidth="480px"
+    <Modal title={existing ? 'Edit Teacher Account' : 'Add Teacher Account'} onClose={onClose} maxWidth="480px" portal
       footer={<>
         <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
         <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
@@ -86,7 +86,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
         <div className="flex items-center gap-3">
           <input type="checkbox" id="approved" checked={form.approved}
             onChange={(e)=>set('approved',e.target.checked)} style={{ accentColor: 'var(--navy-800)', width:16, height:16 }} />
-          <label htmlFor="approved" style={{ fontFamily:'Work Sans', fontWeight:600, fontSize:'.875rem', color:'var(--navy-800)', cursor:'pointer' }}>
+          <label htmlFor="approved" style={{ fontFamily:'Work Sans', fontWeight:600, fontSize:'.875rem', color:'var(--text-primary)', cursor:'pointer' }}>
             Mark as approved immediately
           </label>
         </div>
@@ -102,7 +102,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
 
 function TeacherDeleteModal({ teacher, onClose, onConfirm, loading, error }) {
   return (
-    <Modal title="Delete Teacher" onClose={onClose} maxWidth="420px"
+    <Modal title="Delete Teacher" onClose={onClose} maxWidth="420px" portal
       footer={<>
         <Button variant="ghost" size="sm" onClick={onClose} disabled={loading}>Cancel</Button>
         <Button variant="destructive" size="sm" loading={loading} onClick={onConfirm}>
@@ -247,7 +247,7 @@ export default function Teachers() {
 
       <div className="card overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="data-table w-full">
+          <table className="data-table w-full teachers-table">
             <thead>
               <tr>
                 <SortableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
@@ -285,7 +285,7 @@ export default function Teachers() {
                   </td>
                   <td>
                     <div className="row-actions">
-                      <Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing(t)}>
+                      <Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing(t)} title="Edit teacher" aria-label={`Edit ${t.name || 'teacher'}`}>
                         <Pencil size={12} /> Edit
                       </Button>
                       <Button
@@ -293,11 +293,13 @@ export default function Teachers() {
                         size="sm"
                         className="table-action--delete"
                         onClick={() => requestDelete(t)}
+                        title="Delete teacher"
+                        aria-label={`Delete ${t.name || 'teacher'}`}
                       >
                         <Trash2 size={12} /> Delete
                       </Button>
                       {!t.approved && (
-                        <Button variant="outline" className="table-action--approve" size="sm" onClick={() => approve(t.uid || t.id)}>
+                        <Button variant="outline" className="table-action--approve" size="sm" onClick={() => approve(t.uid || t.id)} title="Approve teacher" aria-label={`Approve ${t.name || 'teacher'}`}>
                           <CheckCircle size={12} /> Approve
                         </Button>
                       )}

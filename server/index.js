@@ -104,12 +104,15 @@ const isAllowedOrigin = origin => {
 
 app.use(cors({
   origin(origin, callback) {
-    if (isAllowedOrigin(origin)) return callback(null, true);
-    const error = new Error("Origin not allowed by CORS");
-    error.status = 403;
-    return callback(error);
-  }
+    if (!origin || isAllowedOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+    callback(new Error('Origin not allowed by CORS'));
+  },
+  credentials: true,
 }));
+
 app.use(express.json({ limit: "10mb" }));
 
 const rateLimitHandler = (req, res) => res.status(429).json({ error: "Too many requests. Please wait and try again." });
@@ -472,6 +475,47 @@ app.post("/admin/upload-student-photo", async (req, res) => {
   }
 });
 
+app.post("/admin/upload-profile-photo", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ error: authResult.error });
+  if (!cloudinaryConfigured) return res.status(503).json({ error: "Profile photo storage is not configured." });
+
+  const { imageBase64, contentType = "image/jpeg" } = req.body || {};
+  const allowedTypes = new Set(["image/jpeg", "image/png", "image/webp"]);
+  if (typeof imageBase64 !== "string" || !imageBase64 || !allowedTypes.has(contentType)) {
+    return res.status(400).json({ error: "Choose a JPG, PNG, or WebP profile photo." });
+  }
+
+  try {
+    const imageBuffer = Buffer.from(imageBase64, "base64");
+    if (!imageBuffer.length || imageBuffer.length > 7 * 1024 * 1024) {
+      return res.status(413).json({ error: "Profile photos must be smaller than 7 MB." });
+    }
+
+    const uploadResult = await new Promise((resolve, reject) => {
+      const uploadStream = cloudinary.uploader.upload_stream({
+        folder: "attendance-system/profiles",
+        public_id: authResult.token.uid,
+        resource_type: "image",
+        overwrite: true,
+        invalidate: true,
+      }, (error, result) => error ? reject(error) : resolve(result));
+      uploadStream.end(imageBuffer);
+    });
+
+    await writeAuditLog(getFirestore(authResult.adminSdk), {
+      action: "account.profile_photo_updated",
+      actorUid: authResult.token.uid,
+      targetType: "user",
+      targetId: authResult.token.uid,
+    });
+    return res.json({ success: true, photoUrl: uploadResult.secure_url });
+  } catch (error) {
+    console.error("Admin profile photo upload error:", error);
+    return res.status(502).json({ error: "Profile photo upload failed." });
+  }
+});
+
 async function sendViaProvider({ to, message, provider = smsProvider, settings = {}, smsGuard }) {
   const guard = smsGuard || await checkSmsAllowed(settings.db, { studentId: settings.studentId });
   if (!guard.allowed) {
@@ -764,36 +808,53 @@ app.post("/admin/sms-logs/:logId/retry", async (req, res) => {
 });
 
 app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, res) => {
-  const { qrValue = "", period = "" } = req.body || {};
-  if (!qrValue) return res.status(400).json({ error: "A signed QR credential is required." });
+  const { qrValue = "", period = "", studentId: offlineStudentId = "", scannedAt = "", offlineEventId = "" } = req.body || {};
+  const offlineSync = Boolean(offlineEventId);
+  const offlineScanTime = offlineSync ? new Date(scannedAt) : null;
+  if (!qrValue && !offlineSync) return res.status(400).json({ error: "A signed QR credential is required." });
   if (!attendancePeriods.includes(period)) return res.status(400).json({ error: "A valid attendance period is required." });
+  if (offlineSync && (!isValidStudentId(offlineStudentId)
+    || !/^[A-Za-z0-9-]{16,100}$/.test(offlineEventId)
+    || Number.isNaN(offlineScanTime.getTime())
+    || offlineScanTime.getTime() > Date.now() + 5 * 60 * 1000)) {
+    return res.status(400).json({ error: "Invalid offline attendance event." });
+  }
 
   try {
     const db = getFirestore(req.adminSdk);
-    let credential;
-    try {
-      credential = verifyQrCredential(qrValue);
-    } catch (error) {
-      return res.status(error.message.includes("configured") ? 503 : 403).json({ error: "Invalid or expired QR credential." });
+    let credential = null;
+    let qrData = {};
+    let studentId = offlineStudentId;
+    let studentData;
+    if (qrValue) {
+      try {
+        credential = verifyQrCredential(qrValue);
+      } catch (error) {
+        return res.status(error.message.includes("configured") ? 503 : 403).json({ error: "Invalid or expired QR credential." });
+      }
+      const qrSnapshot = await db.collection("qr_codes").doc(credential.jti).get();
+      if (!qrSnapshot.exists || qrSnapshot.data()?.active !== true || qrSnapshot.data()?.revokedAt) return res.status(403).json({ error: "This QR credential is inactive or revoked." });
+      qrData = qrSnapshot.data();
+      if (!isValidStudentId(qrData.studentId)) return res.status(404).json({ error: "Student record not found." });
+      studentId = qrData.studentId;
+      const studentSnapshot = await db.collection("students").doc(studentId).get();
+      if (!studentSnapshot.exists) return res.status(404).json({ error: "Student record not found." });
+      studentData = studentSnapshot.data() || {};
+    } else {
+      const studentSnapshot = await db.collection("students").doc(studentId).get();
+      if (!studentSnapshot.exists) return res.status(404).json({ error: "Student record not found." });
+      studentData = studentSnapshot.data() || {};
     }
     const attendanceCutoff = await getAttendanceCutoff(db);
-    const qrSnapshot = await db.collection("qr_codes").doc(credential.jti).get();
-    if (!qrSnapshot.exists || qrSnapshot.data()?.active !== true || qrSnapshot.data()?.revokedAt) return res.status(403).json({ error: "This QR credential is inactive or revoked." });
-    const qrData = qrSnapshot.data();
-    if (!isValidStudentId(qrData.studentId)) return res.status(404).json({ error: "Student record not found." });
-    const studentSnapshot = await db.collection("students").doc(qrData.studentId).get();
-    if (!studentSnapshot.exists) return res.status(404).json({ error: "Student record not found." });
-    const studentData = studentSnapshot.data() || {};
-    const studentId = qrData.studentId;
     const studentCode = studentData.studentCode || studentData.code || qrData.studentCode || "";
     const sectionId = studentData.sectionId || studentData.section || "";
     if (!sectionId) return res.status(400).json({ error: "Student record has no section assigned. Attendance cannot be recorded." });
     const teacherId = studentData.teacherId || studentData.teacher || "";
     if (!requireTeacherSection(req, res, sectionId)) return;
     const name = studentData.name || studentCode;
-    const serverNow = new Date();
-    const { date, time: localClock } = getAttendanceDateParts(serverNow);
-    const time = new Intl.DateTimeFormat("en-US", { timeZone: process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila", hour: "2-digit", minute: "2-digit" }).format(serverNow);
+    const scanDateTime = offlineSync ? offlineScanTime : new Date();
+    const { date, time: localClock } = getAttendanceDateParts(scanDateTime);
+    const time = new Intl.DateTimeFormat("en-US", { timeZone: process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila", hour: "2-digit", minute: "2-digit" }).format(scanDateTime);
     const status = period === "AM-1" && localClock > attendanceCutoff ? "late" : "present";
     const id = createAttendanceId(studentId, studentCode, date);
     const attendanceRef = db.collection("attendance").doc(id);
@@ -815,7 +876,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
         studentCode,
         sectionId,
         teacherId,
-        qrId: credential.jti,
+        qrId: credential?.jti || "",
         date,
         time: arrivalScan?.time || time,
         status: arrivalScan?.status || status,
@@ -833,6 +894,9 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
       return res.status(409).json({
         error: scanResult.duplicate ? `This student already has an ${period} scan today.` : "The daily scan limit has been reached.",
         code: "duplicate_scan",
+        duplicate: scanResult.duplicate,
+        limitReached: scanResult.limitReached,
+        ...(offlineSync ? { offlineEventId } : {}),
         period,
         scanCount: attendancePeriods.filter(item => scanResult.scans[item]).length
       });
@@ -896,6 +960,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
     return res.json({
       success: true,
       recorded: true,
+      ...(offlineSync ? { offlineEventId } : {}),
       id,
       date,
       time,
@@ -1338,6 +1403,79 @@ app.get("/students", requireStaffAuth, async (req, res) => {
   } catch (error) {
     console.error("Students list error:", error);
     return res.status(500).json({ error: "Failed to load students" });
+  }
+});
+
+app.delete("/admin/students/:studentId", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ error: authResult.error });
+
+  const { studentId } = req.params;
+  if (!isValidStudentId(studentId)) return res.status(400).json({ error: "Invalid studentId." });
+
+  try {
+    const db = getFirestore(authResult.adminSdk);
+    const studentRef = db.collection("students").doc(studentId);
+    const studentSnapshot = await studentRef.get();
+    if (!studentSnapshot.exists) return res.status(404).json({ error: "Student record not found." });
+
+    const student = studentSnapshot.data() || {};
+    const [parentSnapshot, qrSnapshot] = await Promise.all([
+      db.collection("parentcontacts").where("studentId", "==", studentId).get(),
+      db.collection("qr_codes").where("studentId", "==", studentId).get(),
+    ]);
+    const activeQrCodes = qrSnapshot.docs.filter(record => record.data()?.active !== false);
+
+    for (let index = 0; index < activeQrCodes.length; index += 450) {
+      const batch = db.batch();
+      activeQrCodes.slice(index, index + 450).forEach(record => {
+        batch.set(record.ref, { active: false, revokedAt: new Date(), revokedBy: authResult.token.uid }, { merge: true });
+      });
+      await batch.commit();
+    }
+
+    const deleteBatch = db.batch();
+    deleteBatch.delete(studentRef);
+    parentSnapshot.docs.forEach(record => deleteBatch.delete(record.ref));
+    await deleteBatch.commit();
+
+    let photoCleanup = "not-needed";
+    if (cloudinaryConfigured && /^https:\/\/res\.cloudinary\.com\//i.test(String(student.photoUrl || ""))) {
+      try {
+        const result = await cloudinary.uploader.destroy(`attendance-system/students/${studentId}`, {
+          invalidate: true,
+          resource_type: "image",
+        });
+        photoCleanup = result.result || "unknown";
+      } catch (photoError) {
+        photoCleanup = "failed";
+        console.error("Student photo cleanup error:", photoError.message);
+      }
+    }
+
+    await writeAuditLog(db, {
+      action: "student.deleted",
+      actorUid: authResult.token.uid,
+      targetType: "student",
+      targetId: studentId,
+      details: {
+        name: String(student.name || "").slice(0, 120),
+        parentContactsDeleted: parentSnapshot.size,
+        qrCredentialsRevoked: activeQrCodes.length,
+        photoCleanup,
+      },
+    });
+
+    return res.json({
+      success: true,
+      studentId,
+      parentContactsDeleted: parentSnapshot.size,
+      qrCredentialsRevoked: activeQrCodes.length,
+      photoCleanup,
+    });
+  } catch (error) {
+    console.error("Admin student delete error:", error);
+    return res.status(500).json({ error: "Failed to delete student" });
   }
 });
 

@@ -2,7 +2,6 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
-  AlertTriangle,
   BarChart3,
   Calendar,
   CheckCircle,
@@ -72,19 +71,6 @@ function formatTimestamp(value) {
 
 function getStatusClass(status) {
   return VALID_STATUSES.includes(status) ? status : 'unknown';
-}
-
-function MetricCard({ icon: Icon, label, value, detail, tone }) {
-  return (
-    <article className="dashboard-kpi">
-      <div className="dashboard-kpi__top">
-        <p>{label}</p>
-        <span className={`dashboard-kpi__icon dashboard-kpi__icon--${tone}`}><Icon size={20} aria-hidden="true" /></span>
-      </div>
-      <strong className="dashboard-kpi__value">{value}</strong>
-      <span className="dashboard-kpi__detail">{detail}</span>
-    </article>
-  );
 }
 
 function PanelHeading({ icon: Icon, title, subtitle, action }) {
@@ -320,10 +306,8 @@ export default function Dashboard() {
     ].sort((first, second) => second.sortValue - first.sortValue).slice(0, 5);
 
     return {
-      todayAttendanceCount: todayAttendance.length,
-      todayScans, todaySms, present, late, absent, arrivalTotal, attendanceRate,
+      todayScans, present, late, absent, arrivalTotal, attendanceRate,
       hourlyScans, averageArrival, peakHour, weeklyTrend, recentActivity, notifications,
-      studentsTotal: students.length,
     };
   }, [attendance, auditLogs, range, sections, smsLogs, students, today]);
 
@@ -348,15 +332,6 @@ export default function Dashboard() {
         title="Dashboard"
         subtitle="Monitor attendance, manage records, and keep LNHS connected."
       />
-
-      <section className="dashboard-kpi-strip" aria-label="Today's key metrics">
-        <MetricCard icon={Users} label="Total Students Enrolled" value={loading && !dashboardData.studentsTotal ? '—' : dashboardData.studentsTotal} detail="students in roster" tone="navy" />
-        <MetricCard icon={QrCode} label="Attendance Scans Today" value={loading && !dashboardData.todayAttendanceCount ? '—' : dashboardData.todayAttendanceCount} detail="attendance records today" tone="blue" />
-        <MetricCard icon={CheckCircle} label="On-time Arrivals" value={loading && !dashboardData.arrivalTotal ? '—' : dashboardData.present} detail="AM-1, present status" tone="positive" />
-        <MetricCard icon={AlertTriangle} label="Late Arrivals" value={loading && !dashboardData.arrivalTotal ? '—' : dashboardData.late} detail="AM-1, late status" tone="warning" />
-        <MetricCard icon={Percent} label="Today's Attendance Rate" value={loading && !dashboardData.arrivalTotal ? '—' : attendanceRateLabel} detail={`${dashboardData.arrivalTotal} recorded AM-1 arrivals`} tone="teal" />
-        <MetricCard icon={MessageSquare} label="SMS Alerts Sent Today" value={loading && !dashboardData.todaySms.length ? '—' : dashboardData.todaySms.length} detail="SMS log records today" tone="slate" />
-      </section>
 
       <div className="dashboard-main-grid">
         <section className="dashboard-panel">

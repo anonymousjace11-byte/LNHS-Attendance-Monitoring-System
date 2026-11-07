@@ -30,7 +30,7 @@ function ParentModal({ onClose, onSave, existing, students }) {
     onClose();
   }
 
-  return <Modal title={existing ? 'Edit Parent Contact' : 'Register Parent Contact'} onClose={onClose} maxWidth="480px" footer={<>
+  return <Modal title={existing ? 'Edit Parent Contact' : 'Register Parent Contact'} onClose={onClose} maxWidth="480px" portal footer={<>
     <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
     <Button variant="primary" size="sm" loading={saving} onClick={submit}>{existing ? 'Save Changes' : 'Register Parent'}</Button>
   </>}>
@@ -107,11 +107,11 @@ export default function Parents() {
       actions={<Button variant="primary" size="sm" onClick={() => setEditing({ studentId: '', parentName: '', parentPhone: '' })}><Plus size={13} /> Register Parent</Button>}
     />
     {success && <Alert type="success" className="mb-4" onClose={() => setSuccess('')}>{success}</Alert>}
-    <div className="relative mb-4" style={{ maxWidth: '340px' }}>
+    <div className="parent-search relative mb-4" style={{ maxWidth: '340px' }}>
       <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: 'var(--text-muted)', pointerEvents: 'none' }} />
-      <input className="field-input pl-9" placeholder="Search parent or student…" value={search} onChange={(event) => setSearch(event.target.value)} />
+      <input className="field-input" placeholder="Search parent or student…" value={search} onChange={(event) => setSearch(event.target.value)} />
     </div>
-    <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="data-table w-full">
+    <div className="card overflow-hidden"><div className="overflow-x-auto"><table className="data-table w-full parents-table">
       <thead><tr>
         <SortableHeader label="Student" column="student" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
         <SortableHeader label="Parent / Guardian" column="parent" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />

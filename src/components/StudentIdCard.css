@@ -58,6 +58,7 @@
 .student-id-toolbar span { display: block; }
 .student-id-toolbar strong { font-size: 15px; font-weight: 600; }
 .student-id-toolbar span { margin-top: 2px; color: var(--text-muted); font-size: 11px; }
+.student-id-toolbar .student-id-export-status { margin-top: 4px; color: var(--text-secondary); font-size: 11px; }
 .student-id-toolbar-top { display: flex; align-items: flex-start; justify-content: space-between; width: 100%; gap: 12px; }
 
 .student-id-viewport {
@@ -600,27 +601,6 @@
   .student-id-crop-editor { grid-template-columns: 1fr; }
   .student-id-crop-preview { width: min(220px, 100%); justify-self: center; }
   .student-id-crop-actions { grid-column: auto; }
-}
-
-/* ── Print ── */
-@media print {
-  @page { size: 53.98mm 85.60mm; margin: 0; }
-  body * { visibility: hidden !important; }
-  .student-id-sheet, .student-id-sheet * { visibility: visible !important; }
-  .student-id-sheet { position: absolute; top: 0; left: 0; width: 66mm; align-items: flex-start; }
-  .student-id-toolbar,
-  .student-id-card__controls,
-  .student-id-crop-editor { display: none !important; }
-  .student-id-card {
-    position: static;
-    width: 53.98mm;
-    height: 85.60mm;
-    transform: none !important;
-    border: .2mm solid #1f2328;
-    border-radius: 1mm;
-    box-shadow: none;
-  }
-  .no-print { display: none !important; }
 }
 
 /* CR100 upscale: 66 × 100 mm university ID size */
@@ -1441,6 +1421,13 @@
     overflow: visible !important;
     display: block !important;
   }
+  .student-id-preview-modal .student-id-viewport {
+    width: 66mm !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
 
   .student-id-pair {
     display: block !important;
@@ -1472,7 +1459,7 @@
 }
 
 /* Force side-by-side cards when the browser viewport is desktop-width. */
-@media (min-width: 901px) {
+@media screen and (min-width: 901px) {
   .student-id-pair {
     flex-direction: row !important;
     gap: 24px !important;

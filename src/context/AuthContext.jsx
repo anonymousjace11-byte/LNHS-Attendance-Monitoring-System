@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { EmailAuthProvider, onAuthStateChanged, reauthenticateWithCredential, signInWithEmailAndPassword, signOut, updatePassword } from 'firebase/auth';
+import { EmailAuthProvider, onAuthStateChanged, reauthenticateWithCredential, signInWithEmailAndPassword, signOut, updatePassword, updateProfile } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
@@ -7,6 +7,7 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(undefined);
+  const [, setProfileRevision] = useState(0);
   const [role, setRole] = useState('');
   const [roleLoading, setRoleLoading] = useState(true);
 
@@ -82,11 +83,20 @@ export function AuthProvider({ children }) {
     await updatePassword(auth.currentUser, newPassword);
   }, []);
 
+  const updateAccountProfile = useCallback(async (displayName, photoURL) => {
+    const currentUser = auth.currentUser;
+    const name = String(displayName || '').trim();
+    if (!currentUser) throw new Error('No authenticated account is available.');
+    if (!name) throw new Error('Display name is required.');
+    await updateProfile(currentUser, { displayName: name, ...(photoURL ? { photoURL } : {}) });
+    setProfileRevision((revision) => revision + 1);
+  }, []);
+
   const isAdmin = role === 'admin';
   const isTeacher = role === 'teacher';
 
   return (
-    <AuthContext.Provider value={{ user, login, logout, changePassword, isAdmin, isTeacher, role, loading: user === undefined || roleLoading }}>
+    <AuthContext.Provider value={{ user, login, logout, changePassword, updateAccountProfile, isAdmin, isTeacher, role, loading: user === undefined || roleLoading }}>
       {children}
     </AuthContext.Provider>
   );
