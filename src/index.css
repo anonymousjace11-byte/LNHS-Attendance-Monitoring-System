@@ -3440,6 +3440,16 @@ html[data-theme='dark'] .scanner-clock__face { padding: 1rem; background: var(--
   border-bottom: 0;
   box-shadow: 0 2px 12px rgba(10, 22, 40, .07);
 }
+.app-topbar.app-header .app-topbar__menu {
+  width: 40px;
+  height: 40px;
+  flex: 0 0 40px;
+  border: 1px solid var(--border-strong);
+  background: var(--surface-alt);
+  color: var(--text-primary);
+}
+.app-topbar.app-header .app-topbar__menu:hover { background: var(--bg-hover); }
+.app-topbar.app-header .app-topbar__menu:focus-visible { outline: 2px solid var(--navy-500); outline-offset: 2px; }
 html[data-theme='dark'] .app-topbar.app-header { background: var(--surface); color: var(--text-primary); }
 .app-header__left { display: flex; align-items: center; min-width: 0; gap: 10px; }
 .app-header__seal { width: 34px; height: 34px; flex: 0 0 34px; border-radius: 50%; object-fit: cover; background: #fff; }
