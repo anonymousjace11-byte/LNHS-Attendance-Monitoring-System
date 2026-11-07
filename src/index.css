@@ -2867,7 +2867,7 @@ html[data-theme='dark'] .dash-rate__fill {
 .scanner-gateway strong { color: var(--text-primary); font-size: .82rem; }
 .scanner-gateway p { margin: .15rem 0 0; color: var(--text-secondary); font-size: .75rem; }
 .about-page { --about-gold: #b99557; --about-green: #1a6b66; --about-blue: #42688f; --about-coral: #a95e50; }
-.about-page .page-cover { margin-bottom: 0; }
+.about-page .page-cover { margin: 0; }
 .about-page__body { padding-bottom: 1rem; }
 .about-intro { display: grid; grid-template-columns: 84px minmax(0, 1fr) minmax(215px, .7fr); align-items: center; gap: 1.5rem; padding: 2rem 0 2.25rem; border-bottom: 1px solid var(--border); }
 .about-intro__identity { display: grid; place-items: center; width: 76px; height: 76px; border: 1px solid rgba(185, 149, 87, .48); border-radius: 6px; background: var(--navy-900); color: #e2c78f; }
