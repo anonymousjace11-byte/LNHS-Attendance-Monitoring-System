@@ -1396,29 +1396,34 @@ html[data-theme='dark'] .login-shell .login-card__title h2 { color: var(--text-p
     white-space: nowrap;
     border: 0;
   }
-  .mobile-card-table tbody { display: grid; gap: .65rem; }
-  .mobile-card-table tbody > tr:not(.mobile-card-row) { display: block; grid-column: 1 / -1; }
+  .mobile-card-table tbody { display: block; }
+  .mobile-card-table tbody > tr:not(.mobile-card-row) { display: block; width: 100%; margin-bottom: .65rem; }
   .mobile-card-table tbody > tr:not(.mobile-card-row) > td { display: block; width: 100%; }
   .mobile-card-table .mobile-card-row {
-    display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: .7rem .85rem;
+    display: block;
+    width: 100%;
     padding: .8rem;
     border: 1px solid var(--border);
     border-radius: 8px;
     background: var(--bg-card);
   }
   .mobile-card-table .mobile-card-row > td {
-    display: flex;
+    display: block;
+    width: 100%;
     min-width: 0;
-    flex-direction: column;
-    gap: .2rem;
-    padding: 0;
+    padding: .45rem 0;
+    margin: 0;
     border: 0;
-    overflow-wrap: anywhere;
+    background: transparent !important;
+    overflow-wrap: break-word;
+    word-break: normal;
     text-align: left;
   }
+  .mobile-card-table .mobile-card-row > td:last-child { padding-bottom: 0; }
   .mobile-card-table .mobile-card-row > td::before {
+    display: block;
+    width: 100%;
+    margin-bottom: .15rem;
     color: var(--text-muted);
     content: attr(data-label);
     font-family: inherit;
@@ -1426,13 +1431,26 @@ html[data-theme='dark'] .login-shell .login-card__title h2 { color: var(--text-p
     font-weight: 700;
     line-height: 1.3;
     text-transform: uppercase;
+    white-space: nowrap;
+    word-break: normal;
+    overflow-wrap: normal;
   }
   .mobile-card-table .mobile-card-row > td[data-mobile-hidden='true'] { display: none; }
-  .mobile-card-table .mobile-card-row > td[data-label='Message preview'],
-  .mobile-card-table .mobile-card-row > td[data-label='Details'],
-  .mobile-card-table .mobile-card-row > td[data-label='Actions'] { grid-column: 1 / -1; }
   .mobile-card-table .mobile-card-row > td[data-label='Actions'] .row-actions { justify-content: flex-start; flex-wrap: wrap; }
   .teachers-table .teacher-row-id { display: none; }
+  .sms-logs-table .sms-log-student-code { display: none; }
+  .audit-table .audit-action {
+    display: inline-flex;
+    align-items: center;
+    width: fit-content;
+    max-width: 100%;
+    padding: .3rem .6rem;
+    border-color: var(--border);
+    border-radius: 999px;
+    background: var(--surface-alt);
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
 }
 
 @media (max-width: 767px) and (max-height: 700px) {
@@ -1531,11 +1549,16 @@ html[data-theme='dark'] .login-shell .login-card__title h2 { color: var(--text-p
   .home-footer { justify-content: center; flex-wrap: wrap; text-align: center; }
 }
 @media (max-width: 599px) {
+  .home-page { width: 100%; min-width: 0; overflow-x: hidden; }
   .home-header { gap: 12px; padding: 0 14px; }
   .home-header__badge { width: 40px; height: 40px; flex-basis: 40px; }
   .home-header__system { font-size: 10px; }
   .home-header__accent { display: none; }
-  .home-hero__content { padding: 28px 20px 36px; }
+  .home-hero { min-height: clamp(420px, 62svh, 560px); }
+  .home-hero__overlay { background: linear-gradient(180deg, rgba(10, 22, 40, .46) 0%, rgba(10, 22, 40, .82) 100%); }
+  .home-hero__content { width: 100%; min-width: 0; padding: clamp(20px, 5vh, 32px) 16px 24px; }
+  .home-hero h1 { font-size: clamp(22px, 6vw, 28px); }
+  .home-hero__description { font-size: 13px; }
   .home-actions { display: grid; grid-template-columns: minmax(0, 1fr); }
   .home-actions > .btn { width: 100%; }
   .home-features { padding: 40px 16px; }

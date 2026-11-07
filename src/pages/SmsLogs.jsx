@@ -176,7 +176,7 @@ export default function SmsLogs() {
                     <td data-label="Log ID" data-mobile-hidden="true"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.id)}</span></td>
                     <td data-label="Student">
                       <div style={{ fontWeight:600, fontSize:'.875rem' }}>{displayValue(student?.name)}</div>
-                      <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(student?.studentCode || student?.code || l.studentId)}</div>
+                      <div className="sms-log-student-code" style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(student?.studentCode || student?.code || l.studentId)}</div>
                     </td>
                     <td data-label="Period">{displayValue(l.period)}</td>
                     <td data-label="Recipient"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.82rem', color:'var(--text-sub)' }}>{maskPhone(l.phone)}</span></td>
