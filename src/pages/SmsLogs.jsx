@@ -152,8 +152,8 @@ export default function SmsLogs() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="data-table w-full sms-logs-table">
+        <div className="overflow-x-auto mobile-card-table-wrap">
+          <table className="data-table w-full sms-logs-table mobile-card-table">
             <thead>
               <tr>
                 <th>Log ID</th>
@@ -172,27 +172,27 @@ export default function SmsLogs() {
                 const message = displayValue(l.message);
                 const status = displayValue(l.status);
                 return <Fragment key={l.id}>
-                  <tr>
-                    <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.id)}</span></td>
-                    <td>
+                  <tr className="mobile-card-row">
+                    <td data-label="Log ID" data-mobile-hidden="true"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.id)}</span></td>
+                    <td data-label="Student">
                       <div style={{ fontWeight:600, fontSize:'.875rem' }}>{displayValue(student?.name)}</div>
                       <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(student?.studentCode || student?.code || l.studentId)}</div>
                     </td>
-                    <td>{displayValue(l.period)}</td>
-                    <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.82rem', color:'var(--text-sub)' }}>{maskPhone(l.phone)}</span></td>
-                    <td style={{ maxWidth:'220px' }}>
+                    <td data-label="Period">{displayValue(l.period)}</td>
+                    <td data-label="Recipient"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.82rem', color:'var(--text-sub)' }}>{maskPhone(l.phone)}</span></td>
+                    <td data-label="Message preview" style={{ maxWidth:'220px' }}>
                       <span style={{ fontSize:'.82rem', color:'var(--text-sub)' }} title={l.message || ''}>
                         {message.length > 60 ? `${message.slice(0, 60)}…` : message}
                       </span>
                     </td>
-                    <td>
+                    <td data-label="Status">
                       {status === '—'
                         ? <span className="text-muted">—</span>
                         : <span className={`badge badge-${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>}
                     </td>
-                    <td style={{ fontSize:'.82rem', color:'var(--text-sub)' }}>{displayValue(l.provider)}</td>
-                    <td><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.createdAt)}</span></td>
-                    <td>
+                    <td data-label="Provider" data-mobile-hidden="true" style={{ fontSize:'.82rem', color:'var(--text-sub)' }}>{displayValue(l.provider)}</td>
+                    <td data-label="Date/time"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.createdAt)}</span></td>
+                    <td data-label="Actions">
                       {l.status === 'failed' && (
                         <Button variant="outline" className="table-action--retry" size="sm" loading={retryingId === l.id} onClick={() => handleRetry(l)}>
                           <RotateCw size={12} /> Retry

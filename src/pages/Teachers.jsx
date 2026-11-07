@@ -246,8 +246,8 @@ export default function Teachers() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="data-table w-full teachers-table">
+        <div className="overflow-x-auto mobile-card-table-wrap">
+          <table className="data-table w-full teachers-table mobile-card-table">
             <thead>
               <tr>
                 <SortableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
@@ -262,14 +262,14 @@ export default function Teachers() {
               {pageTeachers.map((t) => {
                 const assignedSections = (t.sections || (t.sectionId ? [t.sectionId] : []))
                   .map((section) => displayValue(sectionNameById.get(section) || section));
-                return <tr key={t.uid || t.id}>
-                  <td>
+                return <tr key={t.uid || t.id} className="mobile-card-row">
+                  <td data-label="Name">
                     <div style={{ fontWeight:600, color:'var(--text-main)' }}>{displayValue(t.name)}</div>
-                    <div style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid || t.id)}</div>
+                    <div className="teacher-row-id" style={{ fontFamily:'JetBrains Mono', fontSize:'.7rem', color:'var(--text-muted)' }}>{displayValue(t.uid || t.id)}</div>
                   </td>
-                  <td style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{displayValue(String(t.email || '').toLowerCase())}</td>
-                  <td><span className="pill-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
-                  <td>
+                  <td data-label="Email" style={{ fontFamily:'JetBrains Mono', fontSize:'.8rem', color:'var(--text-sub)' }}>{displayValue(String(t.email || '').toLowerCase())}</td>
+                  <td data-label="Strand"><span className="pill-strand" data-strand={t.strand}>{displayValue(t.strand)}</span></td>
+                  <td data-label="Assigned sections">
                     <div className="flex flex-wrap gap-1">
                       {assignedSections.length ? assignedSections.map((section) => (
                         <span key={section} style={{ fontSize:'.74rem', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px' }}>
@@ -278,12 +278,12 @@ export default function Teachers() {
                       )) : <span className="text-muted">—</span>}
                     </div>
                   </td>
-                  <td>
+                  <td data-label="Approval">
                     <span className={`pill-status ${t.approved ? 'pill-status--approved' : 'pill-status--pending'}`}>
                       {t.approved ? 'Approved' : 'Pending'}
                     </span>
                   </td>
-                  <td>
+                  <td data-label="Actions">
                     <div className="row-actions">
                       <Button variant="outline" className="table-action--edit" size="sm" onClick={() => setEditing(t)} title="Edit teacher" aria-label={`Edit ${t.name || 'teacher'}`}>
                         <Pencil size={12} /> Edit

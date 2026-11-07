@@ -68,6 +68,7 @@ export function AuthProvider({ children }) {
       const result = await signInWithEmailAndPassword(auth, email, password);
       return { ok: true, user: result.user, durationMs: performance.now() - startedAt };
     } catch (error) {
+      console.error('Firebase sign-in failed:', error.code || 'unknown');
       return { ok: false, code: error.code, message: 'Unable to sign in with those credentials.', durationMs: performance.now() - startedAt };
     }
   }, []);

@@ -181,8 +181,8 @@ export default function AuditLogs() {
       </div>
 
       <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="data-table audit-table">
+        <div className="overflow-x-auto mobile-card-table-wrap">
+          <table className="data-table audit-table mobile-card-table">
             <thead>
               <tr>
                 <th>Log ID</th>
@@ -195,13 +195,13 @@ export default function AuditLogs() {
             </thead>
             <tbody>
               {pageRows.map((log) => (
-                <tr key={log.id}>
-                  <td className="audit-id">{displayValue(log.id)}</td>
-                  <td className="audit-actor" title={log.actorUid || ''}>{displayValue(log.actor)}</td>
-                  <td><span className="audit-action">{log.actionLabel}</span></td>
-                  <td className="audit-target" title={log.targetId || ''}>{displayValue(log.targetLabel)}</td>
-                  <td className="audit-details">{displayValue(log.summary)}</td>
-                  <td className="audit-time">{formatTimestamp(log.createdAt)}</td>
+                <tr key={log.id} className="mobile-card-row">
+                  <td className="audit-id" data-label="Log ID" data-mobile-hidden="true">{displayValue(log.id)}</td>
+                  <td className="audit-actor" data-label="Actor" title={log.actorUid || ''}>{displayValue(log.actor)}</td>
+                  <td data-label="Action"><span className="audit-action">{log.actionLabel}</span></td>
+                  <td className="audit-target" data-label="Target" title={log.targetId || ''}>{displayValue(log.targetLabel)}</td>
+                  <td className="audit-details" data-label="Details">{displayValue(log.summary)}</td>
+                  <td className="audit-time" data-label="Timestamp">{formatTimestamp(log.createdAt)}</td>
                 </tr>
               ))}
               {!filtered.length && (
