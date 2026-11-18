@@ -620,7 +620,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

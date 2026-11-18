@@ -141,6 +141,10 @@ function initFirebaseAdmin() {
   try {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
     const credentialPath = process.env.FIREBASE_SERVICE_ACCOUNT_PATH || process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (credentialPath && !fs.existsSync(credentialPath)) {
+      console.error("Firebase Admin credential file not found:", credentialPath);
+      return null;
+    }
     const credential = serviceAccountJson
       ? cert(JSON.parse(serviceAccountJson))
       : credentialPath && fs.existsSync(credentialPath)

@@ -145,22 +145,41 @@ export default function Reports() {
       );
   const exportRows = exportScope === 'selected-student' && selectedStudentId ? studentAttendance : filteredAttendance;
 
-  function downloadReport(format, title) {
-    if (format === 'PDF') { window.print(); return; }
+  async function downloadReport(format, title) {
+    if (format === 'PDF') {
+      window.print();
+      setNotice('Use the browser print dialog to save this report as PDF.');
+      return;
+    }
     const attendanceRows = [['Student ID', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...exportRows.map((record) => [record.studentCode || record.studentId, record.date, record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''])];
     const smsRows = [['Recipient', 'Message', 'Status', 'Sent At'], ...smsLogs.map((record) => [record.recipient || record.phone, record.message, record.status, record.createdAt || record.sentAt])];
     const rows = title === 'SMS Logs CSV' ? smsRows : attendanceRows;
     const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')}`;
     const extension = format === 'XLS' ? 'xls.csv' : 'csv';
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+    const filename = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.${extension}`;
+
+    if (typeof File !== 'undefined' && navigator.canShare) {
+      try {
+        const file = new File([blob], filename, { type: blob.type });
+        if (navigator.canShare({ files: [file] })) {
+          await navigator.share({ files: [file], title });
+          setNotice(`${title} shared successfully.`);
+          return;
+        }
+      } catch (error) {
+        if (error?.name === 'AbortError') return;
+      }
+    }
+
     const url = URL.createObjectURL(blob);
     const anchor = document.createElement('a');
     anchor.href = url;
-    anchor.download = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.${extension}`;
+    anchor.download = filename;
     document.body.appendChild(anchor);
     anchor.click();
     anchor.remove();
-    URL.revokeObjectURL(url);
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     setNotice(`${title} downloaded successfully.`);
   }
 

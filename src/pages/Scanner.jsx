@@ -144,6 +144,7 @@ export default function Scanner() {
     students,
     attendance,
     parentContacts,
+    offlineAttendance,
     pendingAttendanceCount,
     offlineSyncError,
     recordAttendance,
@@ -164,6 +165,13 @@ export default function Scanner() {
     const scanCounts = Object.fromEntries(PERIODS.map((item) => [item, 0]));
     let totalScans = 0;
 
+    for (const event of offlineAttendance) {
+      if (getManilaDateKey(event.date) !== todayKey) continue;
+      scanKeys.add(`${todayKey}:${event.studentId}:${event.period}`);
+      scanCounts[event.period] = (scanCounts[event.period] || 0) + 1;
+      totalScans += 1;
+    }
+
     for (const record of attendance) {
       if (getManilaDateKey(record.date) !== todayKey) continue;
       if (record.scans) {
@@ -181,7 +189,7 @@ export default function Scanner() {
     }
 
     return { todayAttendanceKeys: scanKeys, periodScanCounts: scanCounts, todayScanCount: totalScans };
-  }, [attendance, todayKey]);
+  }, [attendance, offlineAttendance, todayKey]);
 
   useEffect(() => {
     const updateClock = () => {
@@ -588,8 +596,8 @@ export default function Scanner() {
       </header>
 
       {!networkOnline && (
-        <Alert type="error" className="mb-4">
-          Network is offline. Attendance cannot be recorded until the connection is restored.
+        <Alert type="warn" className="mb-4">
+          Network is offline. QR scans will be saved on this device and synced when the connection returns.
         </Alert>
       )}
 
@@ -680,10 +688,12 @@ export default function Scanner() {
             <section className="card scanner-card scanner-controls-card">
               <div className="scanner-card__header"><h2><Usb size={17} /> Scanner Controls</h2><span className="scanner-log__count">{todayScanCount} scans today</span></div>
               <div className="scanner-controls-card__actions">
-                <Button variant="primary" size="lg" disabled={!networkOnline} onClick={() => {
+                <Button variant="primary" size="lg" onClick={() => {
                   setManualInputOpen(false);
                   inputRef.current?.focus();
-                  setScannerMessage('Keyboard input is ready. Scan a QR code to test the reader.');
+                  setScannerMessage(networkOnline
+                    ? 'Keyboard input is ready. Scan a QR code to test the reader.'
+                    : 'Offline mode is ready. Scans will be saved for later sync.');
                 }}>
                   <Usb size={17} /> Test Scan Input
                 </Button>
@@ -847,7 +857,7 @@ export default function Scanner() {
         className="scanner-capture-input"
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        disabled={!networkOnline || manualInputOpen || smsModalOpen}
+        disabled={manualInputOpen || smsModalOpen}
         tabIndex={-1}
         aria-label="QR scanner keyboard input"
       />
