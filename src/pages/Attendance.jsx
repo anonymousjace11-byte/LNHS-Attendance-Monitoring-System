@@ -6,6 +6,7 @@ import Pagination from '../components/Pagination';
 import PageCover from '../components/PageCover';
 import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
+import { downloadCsv } from '../utils/csvExport';
 
 const STATUS_OPTS = ['All Status','Present','Late','Absent','Excused'];
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
@@ -85,11 +86,25 @@ export default function Attendance() {
   const [sortColumn, setSortColumn] = useState('date');
   const [sortDirection, setSortDirection] = useState('desc');
   const [currentPage, setCurrentPage] = useState(1);
-  const { students, attendance, sections } = useData();
-  const records = attendance.map((record) => {
+  const { students, attendance, sections, offlineAttendance } = useData();
+  const savedRecords = attendance.map((record) => {
     const student = students.find((item) => item.id === record.studentId);
     return { ...record, date: getAttendanceDateKey(record.date), studentId: student?.studentCode || student?.code || record.studentId, name: student?.name || record.studentId, section: student?.section || record.sectionId || 'Unassigned', sms: record.smsStatus || 'skipped' };
   });
+  const queuedRecords = offlineAttendance.map((event) => {
+    const student = students.find((item) => item.id === event.studentId);
+    return {
+      id: `offline-${event.eventId}`,
+      date: event.date,
+      studentId: student?.studentCode || student?.code || event.studentId,
+      name: student?.name || event.studentId,
+      section: student?.sectionName || student?.section || student?.sectionId || 'Unassigned',
+      scans: { [event.period]: { time: event.time, status: 'pending-sync' } },
+      sms: 'pending',
+      pendingSync: true,
+    };
+  });
+  const records = [...savedRecords, ...queuedRecords];
   const sectionOptions = ['All Sections', ...sections.map((item) => item.name)];
   const filtered = useMemo(() => records.filter((r) => {
     const q = search.toLowerCase();
@@ -118,6 +133,21 @@ export default function Attendance() {
     }
     setCurrentPage(1);
   };
+  const exportFilteredCsv = () => {
+    const headers = ['Date', 'Student ID', 'Student Name', 'Section', ...PERIODS.flatMap((item) => [`${item} Time`, `${item} Status`]), 'SMS Status'];
+    const rows = sortedRecords.map((record) => [
+      record.date,
+      record.studentId,
+      record.name,
+      record.section,
+      ...PERIODS.flatMap((item) => {
+        const scan = getPeriodScan(record, item);
+        return [formatAttendanceTime(scan?.time), scan?.status || ''];
+      }),
+      record.sms,
+    ]);
+    downloadCsv([headers, ...rows], `attendance-${dateFrom || 'all'}-to-${dateTo || 'all'}.csv`);
+  };
 
   return (
     <div className="animate-fade-in">
@@ -125,7 +155,7 @@ export default function Attendance() {
         eyebrow="Administrator Panel"
         title="Attendance Records"
         subtitle="Daily attendance register · four scan periods · server time is authoritative."
-        actions={<Button variant="ghost" size="sm"><Download size={13} /> Export CSV</Button>}
+        actions={<Button variant="ghost" size="sm" onClick={exportFilteredCsv}><Download size={13} /> Export CSV</Button>}
       />
 
       {/* Filters */}

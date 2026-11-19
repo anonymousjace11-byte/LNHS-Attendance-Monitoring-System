@@ -168,19 +168,17 @@ export default function Teachers() {
   };
 
   const requestDelete = (teacher) => {
-    const teacherIds = new Set([teacher.id, teacher.uid, teacher.name].filter(Boolean).map(String));
+    const teacherIds = new Set([teacher.id, teacher.uid].filter(Boolean).map(String));
     const assignedSections = new Set([
       teacher.sectionId,
       ...(Array.isArray(teacher.sections) ? teacher.sections : []),
     ].filter(Boolean).map(String));
     const advisedSections = sections.filter((section) => {
-      const adviserReferences = [section.teacherId, section.adviser, section.adviserName, section.teacherName, section.teacher];
-      return adviserReferences.some((reference) => teacherIds.has(String(reference || '')))
-        || assignedSections.has(section.id)
+      return assignedSections.has(section.id)
         || assignedSections.has(section.name);
     });
     if (advisedSections.length) {
-      setDeleteError(`Cannot delete: teacher advises ${advisedSections.map((section) => section.name).join(', ')}.`);
+      setDeleteError(`Cannot delete: teacher is still assigned to ${advisedSections.map((section) => section.name).join(', ')}. Set the section to “No section assigned” and save first.`);
       return;
     }
     if (!teacher.id && !teacher.uid) {

@@ -25,7 +25,7 @@ const resolveApiBaseUrl = () => {
 };
 const API_URL = resolveApiBaseUrl();
 const STAFF_DATA_REFRESH_MS = 15 * 60 * 1000;
-const OFFLINE_SYNC_RETRY_MS = 60 * 1000;
+const OFFLINE_SYNC_RETRY_MS = 10 * 1000;
 
 async function readApiResponse(response) {
   const contentType = response.headers.get('content-type') || '';
@@ -118,7 +118,9 @@ export function DataProvider({ children }) {
   const [staffDataError, setStaffDataError] = useState('');
   const [offlineAttendance, setOfflineAttendance] = useState([]);
   const [offlineSyncError, setOfflineSyncError] = useState('');
+  const [networkOnline, setNetworkOnline] = useState(false);
   const offlineSyncInProgress = useRef(false);
+  const networkCheckInProgress = useRef(false);
 
   const refreshOfflineAttendance = useCallback((uid = auth.currentUser?.uid) => {
     const queued = uid ? readOfflineAttendance(uid) : [];
@@ -135,10 +137,39 @@ export function DataProvider({ children }) {
     return queued;
   }, []);
 
-  const syncOfflineAttendance = useCallback(async () => {
+  const checkApiConnection = useCallback(async () => {
+    if (!navigator.onLine) {
+      setNetworkOnline(false);
+      return false;
+    }
+    if (networkCheckInProgress.current) return false;
+
+    networkCheckInProgress.current = true;
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(`${API_URL}/health/ready`, {
+        cache: 'no-store',
+        signal: controller.signal,
+      });
+      const reachable = response.ok;
+      setNetworkOnline(reachable);
+      return reachable;
+    } catch {
+      setNetworkOnline(false);
+      return false;
+    } finally {
+      window.clearTimeout(timeout);
+      networkCheckInProgress.current = false;
+    }
+  }, []);
+
+  const syncOfflineAttendance = useCallback(async (apiReachable = false) => {
     const currentUser = auth.currentUser;
     if (!currentUser || !navigator.onLine || offlineSyncInProgress.current) return;
+    if (!apiReachable && !(await checkApiConnection())) return;
     const uid = currentUser.uid;
+    if (auth.currentUser?.uid !== uid) return;
     const queued = readOfflineAttendance(uid);
     setOfflineAttendance(queued);
     if (!queued.length) {
@@ -196,11 +227,12 @@ export function DataProvider({ children }) {
         }));
       }
     } catch (syncError) {
+      if (syncError?.name === 'TypeError' || /network|fetch failed|load failed/i.test(syncError?.message || '')) setNetworkOnline(false);
       setOfflineSyncError(syncError.message || 'Attendance sync is waiting to retry.');
     } finally {
       offlineSyncInProgress.current = false;
     }
-  }, []);
+  }, [checkApiConnection]);
 
   useEffect(() => {
     const handleQueueChange = (event) => {
@@ -216,14 +248,27 @@ export function DataProvider({ children }) {
   }, [refreshOfflineAttendance]);
 
   useEffect(() => {
-    const handleOnline = () => syncOfflineAttendance();
-    window.addEventListener('online', handleOnline);
-    const retryTimer = window.setInterval(syncOfflineAttendance, OFFLINE_SYNC_RETRY_MS);
+    let active = true;
+    const checkAndSync = async () => {
+      if (!navigator.onLine) {
+        setNetworkOnline(false);
+        return;
+      }
+      const reachable = await checkApiConnection();
+      if (active && reachable) await syncOfflineAttendance(true);
+    };
+    const handleOffline = () => setNetworkOnline(false);
+    window.addEventListener('online', checkAndSync);
+    window.addEventListener('offline', handleOffline);
+    checkAndSync();
+    const retryTimer = window.setInterval(checkAndSync, OFFLINE_SYNC_RETRY_MS);
     return () => {
-      window.removeEventListener('online', handleOnline);
+      active = false;
+      window.removeEventListener('online', checkAndSync);
+      window.removeEventListener('offline', handleOffline);
       window.clearInterval(retryTimer);
     };
-  }, [syncOfflineAttendance]);
+  }, [checkApiConnection, syncOfflineAttendance]);
 
   useEffect(() => {
     let disposeUserData = () => {};
@@ -384,6 +429,7 @@ export function DataProvider({ children }) {
     const offlineEvent = makeOfflineAttendanceEvent(student, period, scanInfo);
     const queueForSync = () => {
       queueOfflineAttendance(offlineEvent);
+      if (navigator.onLine) window.setTimeout(() => syncOfflineAttendance(), 0);
       return { pendingSync: true, offlineEventId: offlineEvent.eventId, studentId: student.id, period };
     };
     if (!navigator.onLine) return queueForSync();
@@ -620,7 +666,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, networkOnline, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

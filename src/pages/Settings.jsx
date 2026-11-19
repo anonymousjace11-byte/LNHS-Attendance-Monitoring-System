@@ -35,6 +35,9 @@ export default function Settings() {
   const [qrValidity, setQrValidity] = useState('365');
   const [allowRescan, setAllowRescan] = useState(true);
   const [smsSender, setSmsSender] = useState('LNHS');
+  const [gatewayConfigured, setGatewayConfigured] = useState(false);
+  const [gatewayLoading, setGatewayLoading] = useState(true);
+  const [gatewayLoadFailed, setGatewayLoadFailed] = useState(false);
   const [notifyPresent, setNotifyPresent] = useState(true);
   const [notifyLate, setNotifyLate] = useState(true);
   const [simulateSms, setSimulateSms] = useState(false);
@@ -97,6 +100,22 @@ export default function Settings() {
       })
       .catch(() => {
         if (active) setTemplatesLoadFailed(true);
+      });
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    staffApiGet('/admin/settings/sms-gateway')
+      .then(({ configured = false }) => {
+        if (!active) return;
+        setGatewayConfigured(configured);
+      })
+      .catch(() => {
+        if (active) setGatewayLoadFailed(true);
+      })
+      .finally(() => {
+        if (active) setGatewayLoading(false);
       });
     return () => { active = false; };
   }, []);
@@ -338,6 +357,14 @@ export default function Settings() {
               <div className="settings-section">
                 <h2 className="settings-section__title">SMS Provider Configuration</h2>
                 <Alert type="warn">SMS credentials are stored in server environment variables only. Never paste API keys here; this form configures non-secret settings only.</Alert>
+                {gatewayLoadFailed && <Alert type="error">SMS provider settings could not be loaded.</Alert>}
+                <fieldset className="settings-runtime__mode" disabled={gatewayLoading}>
+                  <legend className="field-label">Active SMS provider</legend>
+                  <div className="checkbox-row">
+                    <span>Semaphore</span>
+                    <span className="settings-section__hint">{gatewayLoading ? 'Checking configuration…' : gatewayConfigured ? 'Configured on server' : 'SEMAPHORE_API_KEY is missing'}</span>
+                  </div>
+                </fieldset>
                 <FormField label="Sender Name / Short Code" id="sms-sender">
                   <input id="sms-sender" className="field-input" value={smsSender} onChange={(event) => setSmsSender(event.target.value)} />
                 </FormField>

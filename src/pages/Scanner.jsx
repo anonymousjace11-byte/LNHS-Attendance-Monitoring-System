@@ -126,7 +126,6 @@ export default function Scanner() {
   const [duplicateWarning, setDuplicateWarning] = useState('');
   const [recentScans, setRecentScans] = useState([]);
   const [time, setTime] = useState(formatTime());
-  const [networkOnline, setNetworkOnline] = useState(() => navigator.onLine);
   const [scannerInputActive, setScannerInputActive] = useState(false);
   const [sessionCount, setSessionCount] = useState({ present: 0, late: 0, errors: 0 });
   const [soundOn, setSoundOn] = useState(true);
@@ -147,6 +146,7 @@ export default function Scanner() {
     offlineAttendance,
     pendingAttendanceCount,
     offlineSyncError,
+    networkOnline,
     recordAttendance,
     recordExcusedAttendance,
   } = useData();
@@ -216,17 +216,6 @@ export default function Scanner() {
       .then(({ templates }) => { if (active) setSmsTemplates(templates); })
       .catch(() => { if (active) setSmsTemplates(null); });
     return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    const handleOnline = () => setNetworkOnline(true);
-    const handleOffline = () => setNetworkOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
   }, []);
 
   useEffect(() => () => {
@@ -587,7 +576,7 @@ export default function Scanner() {
           )}
           <span className={`scanner-connection ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}>
             <span className="scanner-connection__dot" />
-            {!networkOnline ? 'Network offline' : scannerInputActive ? 'Input detected' : 'Ready for scan'}
+            {!networkOnline ? 'Service unavailable' : scannerInputActive ? 'Input detected' : 'Ready for scan'}
           </span>
           <Button variant="ghost" size="sm" onClick={() => setSoundOn((current) => !current)} aria-pressed={soundOn}>
             Sound {soundOn ? 'On' : 'Off'}
@@ -597,7 +586,7 @@ export default function Scanner() {
 
       {!networkOnline && (
         <Alert type="warn" className="mb-4">
-          Network is offline. QR scans will be saved on this device and synced when the connection returns.
+          The attendance service is unavailable. QR scans will be saved on this device and synced when the service is ready.
         </Alert>
       )}
 
@@ -699,7 +688,7 @@ export default function Scanner() {
                 </Button>
                 <div className="scanner-device-chip">
                   <span className={`device-dot ${!networkOnline ? 'is-off' : scannerInputActive ? 'is-on' : 'is-waiting'}`} />
-                  <div><strong>Keyboard-wedge HID</strong><span>{!networkOnline ? 'Network unavailable' : scannerInputActive ? 'Input received' : 'Ready for scan'}</span></div>
+                  <div><strong>Keyboard-wedge HID</strong><span>{!networkOnline ? 'Attendance service unavailable' : scannerInputActive ? 'Input received' : 'Ready for scan'}</span></div>
                   <Keyboard size={17} />
                 </div>
               </div>
@@ -763,7 +752,7 @@ export default function Scanner() {
 
         <aside className="scanner-sidebar">
           <section className="card scanner-card scanner-status-card">
-            <div className="scanner-card__header"><h2><QrCode size={18} /> Scanner Status</h2><span className={`scanner-status-pill ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}><span className="scanner-connection__dot" />{!networkOnline ? 'Network offline' : scannerInputActive ? 'Input detected' : 'Ready for scan'}</span></div>
+            <div className="scanner-card__header"><h2><QrCode size={18} /> Scanner Status</h2><span className={`scanner-status-pill ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}><span className="scanner-connection__dot" />{!networkOnline ? 'Service unavailable' : scannerInputActive ? 'Input detected' : 'Ready for scan'}</span></div>
             <div className="scanner-status-rows">
               <div><Keyboard size={16} /><span>Device</span><strong>Keyboard-wedge HID</strong></div>
               <div><Usb size={16} /><span>Connection Type</span><strong>USB keyboard input</strong></div>
@@ -789,7 +778,7 @@ export default function Scanner() {
             <div className="scanner-card__header"><h2><Clock size={17} /> Scan Information</h2></div>
             <div className="scanner-information-card__grid">
               <div><span>Last Scan</span><strong>{preview?.time || '—'}</strong><small>{scanDateDisplay}</small></div>
-              <div><span>Status</span><strong className={networkOnline ? 'is-ready' : 'is-offline'}><span className="scanner-connection__dot" />{networkOnline ? 'Ready for next scan' : 'Network offline'}</strong></div>
+              <div><span>Status</span><strong className={networkOnline ? 'is-ready' : 'is-offline'}><span className="scanner-connection__dot" />{networkOnline ? 'Ready for next scan' : 'Service unavailable'}</strong></div>
             </div>
           </section>
         </aside>

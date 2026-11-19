@@ -10,7 +10,6 @@ const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
-const twilio = require("twilio");
 const helmet = require("helmet");
 
 const app = express();
@@ -127,6 +126,18 @@ const attendanceLimiter = rateLimit({
   handler: rateLimitHandler
 });
 app.use(apiLimiter);
+app.get("/health/live", (req, res) => res.json({ success: true }));
+app.get("/health/ready", async (req, res) => {
+  const adminSdk = initFirebaseAdmin();
+  if (!adminSdk) return res.status(503).json({ success: false });
+  try {
+    await getFirestore(adminSdk).collection("settings").doc("attendance").get();
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("API readiness check failed:", error.message);
+    return res.status(503).json({ success: false });
+  }
+});
 app.use((error, req, res, next) => {
   if (error.message === "Origin not allowed by CORS") {
     return res.status(403).json({ error: error.message });
@@ -200,20 +211,11 @@ async function setRoleClaims(adminSdk, uid, role, email, name, password = "") {
   });
 }
 
-const twilioAccountSid = process.env.TWILIO_ACCOUNT_SID || process.env.ACCOUNT_SID;
-const twilioAuthToken = process.env.TWILIO_AUTH_TOKEN || process.env.AUTH_TOKEN;
-const twilioNumber = process.env.TWILIO_PHONE_NUMBER || process.env.TWILIO_NUMBER;
-const twilioMessagingServiceSid = process.env.TWILIO_MESSAGING_SERVICE_SID;
 const smsMode = String(process.env.SMS_MODE || "simulated").toLowerCase();
-const smsProvider = String(process.env.SMS_PROVIDER || "twilio").toLowerCase();
+const smsProvider = "semaphore";
 const semaphoreApiKey = process.env.SEMAPHORE_API_KEY;
 const semaphoreSenderName = process.env.SEMAPHORE_SENDER_NAME;
-const client = twilioAccountSid && twilioAuthToken
-  ? twilio(twilioAccountSid, twilioAuthToken)
-  : null;
-const twilioConfigured = Boolean(client && (twilioNumber || twilioMessagingServiceSid));
 const semaphoreConfigured = Boolean(semaphoreApiKey);
-const smsGatewayConfigured = smsProvider === "semaphore" ? semaphoreConfigured : twilioConfigured;
 
 function normalizePhoneNumber(value) {
   const rawPhone = String(value || "").trim().replace(/[\s().-]/g, "");
@@ -429,7 +431,7 @@ async function writeAuditLog(db, { action, actorUid = "system", targetType = "",
 }
 
 app.get("/staff/system-status", requireStaffAuth, (req, res) => {
-  return res.json({ success: true, smsGatewayConfigured, smsProvider });
+  return res.json({ success: true, smsGatewayConfigured: semaphoreConfigured, smsProvider });
 });
 
 app.get("/admin/health", async (req, res) => {
@@ -440,7 +442,7 @@ app.get("/admin/health", async (req, res) => {
     success: true,
     firebaseAdminConfigured: !!adminSdk,
     cloudinaryConfigured,
-    twilioConfigured,
+    semaphoreConfigured,
     timestamp: new Date().toISOString()
   });
 });
@@ -520,7 +522,7 @@ app.post("/admin/upload-profile-photo", async (req, res) => {
   }
 });
 
-async function sendViaProvider({ to, message, provider = smsProvider, settings = {}, smsGuard }) {
+async function sendViaProvider({ to, message, settings = {}, smsGuard }) {
   const guard = smsGuard || await checkSmsAllowed(settings.db, { studentId: settings.studentId });
   if (!guard.allowed) {
     return {
@@ -534,31 +536,17 @@ async function sendViaProvider({ to, message, provider = smsProvider, settings =
   }
 
   const configuredSemaphore = settings.semaphoreConfigured ?? semaphoreConfigured;
-  const configuredTwilio = settings.twilioConfigured ?? twilioConfigured;
   const mode = guard.mode || settings.smsMode || smsMode;
 
-  if (provider === "semaphore" && !configuredSemaphore) {
+  if (!configuredSemaphore) {
     return { status: "unconfigured", mode, reason: "Semaphore API key is not configured", error: "Semaphore API key is not configured" };
-  }
-  if (mode === "simulated" || (provider === "twilio" && !configuredTwilio)) {
-    return { status: "simulated", mode: "simulated", reason: "" };
   }
 
   try {
-    if (provider === "semaphore") {
-      await sendSemaphoreSms(message, to, {
-        apiKey: settings.semaphoreApiKey,
-        senderName: settings.semaphoreSenderName,
-      });
-    } else {
-      const smsRequest = { body: message, to };
-      const messagingServiceSid = settings.twilioMessagingServiceSid ?? twilioMessagingServiceSid;
-      const number = settings.twilioNumber ?? twilioNumber;
-      const smsClient = settings.client ?? client;
-      if (messagingServiceSid) smsRequest.messagingServiceSid = messagingServiceSid;
-      else smsRequest.from = number;
-      await smsClient.messages.create(smsRequest);
-    }
+    await sendSemaphoreSms(message, to, {
+      apiKey: settings.semaphoreApiKey,
+      senderName: settings.semaphoreSenderName,
+    });
     return { status: "sent", mode, reason: "" };
   } catch (error) {
     return { status: "failed", mode, reason: error.message, error: error.message };
@@ -601,7 +589,6 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   const delivery = await sendViaProvider({
     to: normalizedPhone,
     message,
-    provider: smsProvider,
     smsGuard: guard,
     settings: {
       db,
@@ -609,10 +596,6 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
       semaphoreConfigured,
       semaphoreApiKey,
       semaphoreSenderName,
-      twilioConfigured,
-      twilioMessagingServiceSid,
-      twilioNumber,
-      client,
     },
   });
 
@@ -692,7 +675,6 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
     const delivery = await sendViaProvider({
       to: normalizedPhone,
       message: trimmedMessage,
-      provider: smsProvider,
       smsGuard: guard,
       settings: {
         db,
@@ -700,10 +682,6 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
         semaphoreConfigured,
         semaphoreApiKey,
         semaphoreSenderName,
-        twilioConfigured,
-        twilioMessagingServiceSid,
-        twilioNumber,
-        client,
       },
     });
 
@@ -779,17 +757,12 @@ app.post("/admin/sms-logs/:logId/retry", async (req, res) => {
       smsGuard: guard,
       to: recipientPhone,
       message: original.message || "",
-      provider: smsProvider,
       settings: {
         db,
         studentId,
         semaphoreConfigured,
         semaphoreApiKey,
         semaphoreSenderName,
-        twilioConfigured,
-        twilioMessagingServiceSid,
-        twilioNumber,
-        client
       }
     });
     const status = delivery.status === "unconfigured" ? "failed" : delivery.status;
@@ -934,17 +907,12 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
         smsGuard: guard,
         to: recipientPhone,
         message,
-        provider: smsProvider,
         settings: {
           db,
           studentId,
           semaphoreConfigured,
           semaphoreApiKey,
           semaphoreSenderName,
-          twilioConfigured,
-          twilioMessagingServiceSid,
-          twilioNumber,
-          client
         }
       });
       smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
@@ -1180,7 +1148,17 @@ app.post("/admin/teachers", async (req, res) => {
     await teacherRef.set(teacher, { merge: true });
     if (uid) await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: approved ? "teacher" : "pending" }, { merge: true });
     if (previousSectionId && previousSectionId !== sectionId) {
-      await db.collection("sections").doc(previousSectionId).set({ teacherId: "", updatedAt: new Date() }, { merge: true });
+      const previousSectionRef = db.collection("sections").doc(previousSectionId);
+      const previousSectionSnapshot = await previousSectionRef.get();
+      if (previousSectionSnapshot.exists) {
+        const previousSectionData = previousSectionSnapshot.data() || {};
+        const previousTeacherName = String(previousTeacher.data()?.name || "").trim();
+        const updates = { teacherId: "", updatedAt: new Date() };
+        for (const field of ["adviser", "adviserName", "teacherName", "teacher"]) {
+          if (previousTeacherName && String(previousSectionData[field] || "").trim() === previousTeacherName) updates[field] = "";
+        }
+        await previousSectionRef.set(updates, { merge: true });
+      }
     }
     if (sectionId) {
       await db.collection("sections").doc(sectionId).set({ teacherId: uid || teacherId, updatedAt: new Date() }, { merge: true });
@@ -1211,6 +1189,21 @@ app.delete("/admin/teachers/:uid", async (req, res) => {
 
   try {
     const db = getFirestore(authResult.adminSdk);
+    const teacherRef = db.collection("teachers").doc(req.params.uid);
+    const teacherSnapshot = await teacherRef.get();
+    const assignedSectionIds = new Set();
+    const savedSectionId = String(teacherSnapshot.data()?.sectionId || "").trim();
+    if (savedSectionId) assignedSectionIds.add(savedSectionId);
+    const linkedSections = await db.collection("sections").where("teacherId", "==", req.params.uid).get();
+    linkedSections.docs.forEach(section => assignedSectionIds.add(section.id));
+    const assignedSections = await Promise.all([...assignedSectionIds].map(async sectionId => {
+      const section = await db.collection("sections").doc(sectionId).get();
+      return section.exists ? String(section.data()?.name || sectionId) : "";
+    }));
+    const blockingSections = assignedSections.filter(Boolean);
+    if (blockingSections.length) {
+      return res.status(409).json({ error: `Cannot delete: teacher is still assigned to ${blockingSections.join(", ")}.` });
+    }
     await db.collection("teachers").doc(req.params.uid).delete();
     await db.collection("users").doc(req.params.uid).delete();
     try { await getAuth(authResult.adminSdk).deleteUser(req.params.uid); } catch (error) {
@@ -1565,17 +1558,12 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
         smsGuard: guard,
         to: recipientPhone,
         message,
-        provider: smsProvider,
         settings: {
           db,
           studentId,
           semaphoreConfigured,
           semaphoreApiKey,
           semaphoreSenderName,
-          twilioConfigured,
-          twilioMessagingServiceSid,
-          twilioNumber,
-          client
         }
       });
       smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
@@ -1682,6 +1670,12 @@ app.get("/admin/settings/sms-runtime", async (req, res) => {
     console.error("SMS runtime settings load error:", error);
     return res.status(500).json({ success: false, error: "Unable to load SMS runtime settings" });
   }
+});
+
+app.get("/admin/settings/sms-gateway", async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  return res.json({ success: true, provider: smsProvider, configured: semaphoreConfigured });
 });
 
 app.post("/admin/settings/sms-runtime", async (req, res) => {

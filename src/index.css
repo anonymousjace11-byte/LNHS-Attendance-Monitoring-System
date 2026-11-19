@@ -469,6 +469,62 @@ textarea.field-input { resize: vertical; min-height: 4rem; }
 /* Print */
 @media print { .no-print { display: none !important; } }
 
+.sf2-controls { display: grid; gap: 1rem; margin-bottom: 1.25rem; padding: 1rem 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+.sf2-controls__heading, .sf2-controls__footer, .sf2-preview-actions { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+.sf2-controls__heading h2 { margin: .15rem 0 0; color: var(--text-primary); font-size: 1.15rem; }
+.sf2-eyebrow { margin: 0; color: var(--text-muted); font-size: .72rem; font-weight: 700; text-transform: uppercase; }
+.sf2-control-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; }
+.sf2-control-field { display: grid; gap: .35rem; min-width: 0; color: var(--text-secondary); font-size: .78rem; font-weight: 600; }
+.sf2-controls__footer { flex-wrap: wrap; }
+.sf2-preview { margin-top: 1.25rem; }
+.sf2-preview-actions { margin-bottom: .5rem; }
+.sf2-preview-actions__buttons { display: flex; flex-wrap: wrap; gap: .5rem; }
+.sf2-internal-note { margin: 0 0 .75rem; color: var(--text-muted); font-size: .75rem; }
+.sf2-scroll { overflow-x: auto; }
+.sf2-print-root { min-width: 1120px; padding: 1rem; border: 1px solid var(--border); background: #fff; color: #17212b; font-family: Arial, sans-serif; }
+.sf2-report-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; padding-bottom: .7rem; border-bottom: 2px solid #283845; }
+.sf2-report-heading p { margin: 0 0 .2rem; font-size: .68rem; }
+.sf2-report-heading h2 { margin: .2rem 0; font-size: 1.15rem; }
+.sf2-report-heading strong { font-size: .72rem; }
+.sf2-report-heading__month { font-weight: 700; text-align: right; }
+.sf2-meta { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .35rem .7rem; padding: .7rem 0; }
+.sf2-meta > div { display: flex; gap: .35rem; min-width: 0; font-size: .68rem; }
+.sf2-meta span { flex: 0 0 auto; color: #586574; }
+.sf2-meta strong { overflow-wrap: anywhere; }
+.sf2-table-scroll { overflow: visible; }
+.sf2-table { width: 100%; min-width: 1080px; border-collapse: collapse; table-layout: auto; }
+.sf2-table th, .sf2-table td { min-width: 22px; padding: 3px 2px; border: 1px solid #59636d; color: #17212b; font-size: .62rem; line-height: 1.2; text-align: center; }
+.sf2-table th { background: #edf1f4; font-weight: 700; }
+.sf2-table th:first-child, .sf2-table td:first-child { min-width: 26px; }
+.sf2-table th:nth-child(2), .sf2-table td:nth-child(2) { min-width: 70px; }
+.sf2-table .sf2-learner-name { min-width: 180px; text-align: left; }
+.sf2-total-row { background: #e8edf1; font-weight: 700; }
+.sf2-legend { padding-top: .6rem; font-size: .67rem; }
+.sf2-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 3rem; padding-top: 2rem; }
+.sf2-signatures > div { display: grid; gap: 1.5rem; text-align: center; }
+.sf2-signatures strong { min-height: 1rem; border-bottom: 1px solid #59636d; }
+.sf2-signatures span { font-size: .68rem; }
+
+@page sf2-landscape { size: landscape; margin: 8mm; }
+@media print {
+  body.print-sf2 { page: sf2-landscape; }
+  body.print-sf2 #root * { visibility: hidden !important; }
+  body.print-sf2 #root .sf2-print-root,
+  body.print-sf2 #root .sf2-print-root * { visibility: visible !important; }
+  body.print-sf2 #root .sf2-print-root { position: absolute !important; top: 0; left: 0; width: 100% !important; min-width: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; box-shadow: none !important; }
+  body.print-sf2 .sf2-scroll, body.print-sf2 .sf2-table-scroll { overflow: visible !important; }
+  body.print-sf2 .sf2-table { min-width: 0 !important; width: 100% !important; }
+  body.print-sf2 .sf2-table th, body.print-sf2 .sf2-table td { min-width: 0 !important; padding: 2px 1px; font-size: 6pt; }
+  body.print-sf2 .sf2-table .sf2-learner-name { min-width: 105px !important; }
+  body.print-sf2 .sf2-meta > div { font-size: 7pt; }
+  body.print-sf2 .sf2-report-heading h2 { font-size: 13pt; }
+}
+
+@media (max-width: 800px) {
+  .sf2-control-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .sf2-controls__heading, .sf2-preview-actions { align-items: flex-start; flex-direction: column; }
+}
+
 /* Responsive */
 @media (max-width: 640px) {
   .layout-page { padding: 12px; }

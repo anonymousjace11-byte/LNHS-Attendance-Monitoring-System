@@ -1,10 +1,11 @@
 import { useMemo, useState } from 'react';
-import { Download, FileText } from 'lucide-react';
+import { Download, FileText, Printer } from 'lucide-react';
 import Button from '../components/Button';
 import Alert from '../components/Alert';
 import EmptyState, { EmptyTableRow } from '../components/EmptyState';
 import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
+import { downloadCsv } from '../utils/csvExport';
 
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
 
@@ -20,6 +21,10 @@ function getPeriodScan(record, period) {
   return null;
 }
 
+function getSf2Mark(status) {
+  return ({ present: 'P', late: 'L', absent: 'A', excused: 'E', 'pending-sync': 'Q' })[String(status || '').toLowerCase()] || '';
+}
+
 export default function Reports() {
   const now = new Date();
   const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(now);
@@ -30,9 +35,33 @@ export default function Reports() {
   const [tab, setTab]           = useState('summary');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [exportScope, setExportScope] = useState('full');
+  const [monthlyMonth, setMonthlyMonth] = useState(today.slice(0, 7));
+  const [monthlySectionId, setMonthlySectionId] = useState('');
+  const [monthlySchoolName, setMonthlySchoolName] = useState('Looc National High School');
+  const [monthlySchoolId, setMonthlySchoolId] = useState('');
+  const [monthlyDistrict, setMonthlyDistrict] = useState('Looc');
+  const [monthlyDivision, setMonthlyDivision] = useState('Romblon');
+  const [monthlyRegion, setMonthlyRegion] = useState('MIMAROPA');
+  const [monthlyGenerated, setMonthlyGenerated] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [notice, setNotice] = useState('');
-  const { students, attendance, sections, smsLogs } = useData();
+  const { students, attendance, sections, smsLogs, offlineAttendance } = useData();
+  const attendanceWithQueued = useMemo(() => {
+    const queued = offlineAttendance.map((event) => ({
+      id: `offline-${event.eventId}`,
+      studentId: event.studentId,
+      studentCode: students.find((student) => student.id === event.studentId)?.studentCode || '',
+      sectionId: students.find((student) => student.id === event.studentId)?.sectionId || students.find((student) => student.id === event.studentId)?.section || '',
+      date: event.date,
+      time: event.time,
+      period: event.period,
+      status: 'pending-sync',
+      smsStatus: 'pending',
+      pendingSync: true,
+      scans: { [event.period]: { time: event.time, status: 'pending-sync' } },
+    }));
+    return [...attendance, ...queued];
+  }, [attendance, offlineAttendance, students]);
 
   const [year, month, day] = today.split('-').map(Number);
   const todayDate = new Date(Date.UTC(year, month - 1, day));
@@ -51,8 +80,8 @@ export default function Reports() {
   const activeStudents = students.filter((student) => student.active !== false);
   const roster = activeStudents.length ? activeStudents : students;
   const filteredAttendance = useMemo(
-    () => attendance.filter((record) => record.date >= dateFrom && record.date <= dateTo),
-    [attendance, dateFrom, dateTo],
+    () => attendanceWithQueued.filter((record) => record.date >= dateFrom && record.date <= dateTo),
+    [attendanceWithQueued, dateFrom, dateTo],
   );
   const totals = {
     enrolled: roster.length,
@@ -81,6 +110,53 @@ export default function Reports() {
     const secondName = String(second.name || second.studentCode || second.code || second.id || '');
     return firstName.localeCompare(secondName);
   }), [students]);
+  const monthlySection = sections.find((section) => section.id === monthlySectionId) || sections[0] || null;
+  const monthlyStudents = useMemo(() => {
+    if (!monthlySection) return [];
+    return roster
+      .filter((student) => {
+        const studentSection = student.sectionId || student.section;
+        return studentSection === monthlySection.id || studentSection === monthlySection.name;
+      })
+      .sort((first, second) => String(first.name || first.studentCode || first.id || '').localeCompare(String(second.name || second.studentCode || second.id || '')));
+  }, [roster, monthlySection]);
+  const monthlyParts = monthlyMonth.split('-').map(Number);
+  const monthlyYear = monthlyParts[0] || year;
+  const monthlyMonthNumber = monthlyParts[1] || month;
+  const monthlyDayCount = new Date(Date.UTC(monthlyYear, monthlyMonthNumber, 0)).getUTCDate();
+  const monthlyDateKeys = useMemo(() => Array.from({ length: monthlyDayCount }, (_, index) => `${monthlyMonth}-${String(index + 1).padStart(2, '0')}`), [monthlyMonth, monthlyDayCount]);
+  const monthlyDayStatuses = useMemo(() => {
+    const studentIds = new Set(monthlyStudents.map((student) => student.id));
+    const statuses = new Map();
+    attendanceWithQueued.forEach((record) => {
+      const date = String(record.date || '').slice(0, 10);
+      if (!date.startsWith(`${monthlyMonth}-`) || !studentIds.has(record.studentId)) return;
+      statuses.set(`${record.studentId}:${date}`, record.pendingSync ? 'pending-sync' : arrivalStatus(record));
+    });
+    return statuses;
+  }, [attendanceWithQueued, monthlyMonth, monthlyStudents]);
+  const monthlyRows = useMemo(() => monthlyStudents.map((student, index) => {
+    const marks = monthlyDateKeys.map((date) => getSf2Mark(monthlyDayStatuses.get(`${student.id}:${date}`)));
+    return {
+      student,
+      number: index + 1,
+      marks,
+      absent: marks.filter((mark) => mark === 'A').length,
+      present: marks.filter((mark) => mark === 'P' || mark === 'L').length,
+      late: marks.filter((mark) => mark === 'L').length,
+      excused: marks.filter((mark) => mark === 'E').length,
+      pending: marks.filter((mark) => mark === 'Q').length,
+    };
+  }), [monthlyStudents, monthlyDateKeys, monthlyDayStatuses]);
+  const monthlyTotals = monthlyRows.reduce((totals, row) => ({
+    absent: totals.absent + row.absent,
+    present: totals.present + row.present,
+    late: totals.late + row.late,
+    excused: totals.excused + row.excused,
+    pending: totals.pending + row.pending,
+  }), { absent: 0, present: 0, late: 0, excused: 0, pending: 0 });
+  const monthlySchoolYearStart = monthlyMonthNumber >= 6 ? monthlyYear : monthlyYear - 1;
+  const monthlySchoolYear = `${monthlySchoolYearStart}-${monthlySchoolYearStart + 1}`;
   const selectedStudent = students.find((student) => student.id === selectedStudentId);
   const selectedStudentName = selectedStudent?.name || '—';
   const selectedStudentSection = selectedStudent?.sectionName || selectedStudent?.section || selectedStudent?.sectionId || 'Unassigned';
@@ -151,36 +227,54 @@ export default function Reports() {
       setNotice('Use the browser print dialog to save this report as PDF.');
       return;
     }
-    const attendanceRows = [['Student ID', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...exportRows.map((record) => [record.studentCode || record.studentId, record.date, record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''])];
+    const attendanceRows = [['Student ID', 'Student Name', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...exportRows.map((record) => {
+      const student = students.find((item) => item.id === record.studentId);
+      return [student?.studentCode || student?.code || record.studentCode || record.studentId, student?.name || '', record.date, student?.sectionName || student?.section || record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''];
+    })];
     const smsRows = [['Recipient', 'Message', 'Status', 'Sent At'], ...smsLogs.map((record) => [record.recipient || record.phone, record.message, record.status, record.createdAt || record.sentAt])];
     const rows = title === 'SMS Logs CSV' ? smsRows : attendanceRows;
-    const csv = `\uFEFF${rows.map((row) => row.map((value) => `"${String(value ?? '').replaceAll('"', '""')}"`).join(',')).join('\n')}`;
-    const extension = format === 'XLS' ? 'xls.csv' : 'csv';
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
-    const filename = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.${extension}`;
-
-    if (typeof File !== 'undefined' && navigator.canShare) {
-      try {
-        const file = new File([blob], filename, { type: blob.type });
-        if (navigator.canShare({ files: [file] })) {
-          await navigator.share({ files: [file], title });
-          setNotice(`${title} shared successfully.`);
-          return;
-        }
-      } catch (error) {
-        if (error?.name === 'AbortError') return;
-      }
-    }
-
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement('a');
-    anchor.href = url;
-    anchor.download = filename;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const filename = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.csv`;
+    downloadCsv(rows, filename);
     setNotice(`${title} downloaded successfully.`);
+  }
+
+  function generateMonthlyReport() {
+    if (!monthlySection) {
+      setNotice('Create or select a section before generating the monthly report.');
+      return;
+    }
+    setMonthlyGenerated(true);
+    setNotice(`Monthly register generated for ${monthlySection.name}.`);
+  }
+
+  function getMonthlyCsvRows() {
+    const weekdayRow = monthlyDateKeys.map((date) => {
+      const [dateYear, dateMonth, dateDay] = date.split('-').map(Number);
+      return new Intl.DateTimeFormat('en', { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(dateYear, dateMonth - 1, dateDay)));
+    });
+    return [
+      ['School', monthlySchoolName, 'School ID', monthlySchoolId],
+      ['District', monthlyDistrict, 'Division', monthlyDivision, 'Region', monthlyRegion],
+      ['School Year', monthlySchoolYear, 'Month', monthlyMonth, 'Grade', monthlySection?.grade || '', 'Section', monthlySection?.name || ''],
+      ['Strand', monthlySection?.strand || '', 'Adviser', monthlySection?.adviser || monthlySection?.teacherName || monthlySection?.teacher || ''],
+      [],
+      ['No.', 'Learner ID', 'Learner Name', ...monthlyDateKeys.map((date) => Number(date.slice(-2))), 'Absent', 'Present', 'Late', 'Excused', 'Pending Sync'],
+      ['', '', '', ...weekdayRow, '', '', '', '', ''],
+      ...monthlyRows.map((row) => [row.number, row.student.studentCode || row.student.code || row.student.id, row.student.name || '', ...row.marks, row.absent, row.present, row.late, row.excused, row.pending]),
+      ['', '', 'Class Total', ...Array(monthlyDateKeys.length).fill(''), monthlyTotals.absent, monthlyTotals.present, monthlyTotals.late, monthlyTotals.excused, monthlyTotals.pending],
+    ];
+  }
+
+  function exportMonthlyCsv() {
+    const sectionSlug = String(monthlySection?.name || 'section').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    downloadCsv(getMonthlyCsvRows(), `sf2-${sectionSlug}-${monthlyMonth}.csv`);
+    setNotice('Monthly class attendance CSV downloaded successfully.');
+  }
+
+  function printMonthlyReport() {
+    document.body.classList.add('print-sf2');
+    window.addEventListener('afterprint', () => document.body.classList.remove('print-sf2'), { once: true });
+    window.print();
   }
 
   const TABS = [['summary','Summary'],['section','By Section'],['student','By Student'],['export','Export']];
@@ -341,6 +435,138 @@ export default function Reports() {
 
       {tab==='export' && (
         <>
+          <section className="sf2-controls no-print">
+            <div className="sf2-controls__heading">
+              <div>
+                <p className="sf2-eyebrow">Monthly register · SF2-style</p>
+                <h2>Class attendance export</h2>
+              </div>
+              <span className="badge badge-navy">Internal report</span>
+            </div>
+            <div className="sf2-control-grid">
+              <label className="sf2-control-field">Month
+                <input type="month" className="field-input" value={monthlyMonth} onChange={(event) => { setMonthlyMonth(event.target.value); setMonthlyGenerated(false); }} />
+              </label>
+              <label className="sf2-control-field">Section
+                <select className="field-input" value={monthlySection?.id || ''} onChange={(event) => { setMonthlySectionId(event.target.value); setMonthlyGenerated(false); }}>
+                  {!sections.length && <option value="">No sections available</option>}
+                  {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+                </select>
+              </label>
+              <label className="sf2-control-field">School name
+                <input className="field-input" value={monthlySchoolName} onChange={(event) => setMonthlySchoolName(event.target.value)} />
+              </label>
+              <label className="sf2-control-field">School ID
+                <input className="field-input" value={monthlySchoolId} onChange={(event) => setMonthlySchoolId(event.target.value)} />
+              </label>
+              <label className="sf2-control-field">District
+                <input className="field-input" value={monthlyDistrict} onChange={(event) => setMonthlyDistrict(event.target.value)} />
+              </label>
+              <label className="sf2-control-field">Division
+                <input className="field-input" value={monthlyDivision} onChange={(event) => setMonthlyDivision(event.target.value)} />
+              </label>
+              <label className="sf2-control-field">Region
+                <input className="field-input" value={monthlyRegion} onChange={(event) => setMonthlyRegion(event.target.value)} />
+              </label>
+            </div>
+            <div className="sf2-controls__footer">
+                <span className="settings-section__hint">Marks: P present, L late, A absent, E excused, Q pending sync; blank means no record.</span>
+              <Button variant="primary" size="sm" onClick={generateMonthlyReport} disabled={!monthlySection}>Generate Monthly Register</Button>
+            </div>
+          </section>
+
+          {monthlyGenerated && monthlySection && (
+            <section className="sf2-preview">
+              <div className="sf2-preview-actions no-print">
+                <span className="field-hint">{monthlyMonth} · {monthlySection.name} · {monthlyRows.length} learners</span>
+                <div className="sf2-preview-actions__buttons">
+                  <Button variant="outline" size="sm" onClick={exportMonthlyCsv}><Download size={13} /> Export Register CSV</Button>
+                  <Button variant="primary" size="sm" onClick={printMonthlyReport}><Printer size={13} /> Print / Save PDF</Button>
+                </div>
+              </div>
+              <p className="sf2-internal-note no-print">SF2-style working report. Confirm against the current DepEd form before official filing.</p>
+              <div className="sf2-scroll">
+                <article className="sf2-print-root">
+                  <header className="sf2-report-heading">
+                    <div>
+                      <p>Department of Education · Learner Attendance</p>
+                      <h2>Monthly Learner Attendance Report</h2>
+                      <strong>Senior High School · SF2-style</strong>
+                    </div>
+                    <p className="sf2-report-heading__month">{new Date(Date.UTC(monthlyYear, monthlyMonthNumber - 1, 1)).toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
+                  </header>
+                  <div className="sf2-meta">
+                    <div><span>School</span><strong>{monthlySchoolName || '—'}</strong></div>
+                    <div><span>School ID</span><strong>{monthlySchoolId || '—'}</strong></div>
+                    <div><span>District</span><strong>{monthlyDistrict || '—'}</strong></div>
+                    <div><span>Division</span><strong>{monthlyDivision || '—'}</strong></div>
+                    <div><span>Region</span><strong>{monthlyRegion || '—'}</strong></div>
+                    <div><span>School Year</span><strong>{monthlySchoolYear}</strong></div>
+                    <div><span>Grade / Strand</span><strong>{monthlySection.grade || '—'} / {monthlySection.strand || '—'}</strong></div>
+                    <div><span>Section / Adviser</span><strong>{monthlySection.name} / {monthlySection.adviser || monthlySection.teacherName || monthlySection.teacher || '—'}</strong></div>
+                  </div>
+                  <div className="sf2-table-scroll">
+                    <table className="sf2-table">
+                      <thead>
+                        <tr>
+                          <th rowSpan={3}>No.</th>
+                          <th rowSpan={3}>Learner ID</th>
+                          <th rowSpan={3} className="sf2-learner-name">Learner name</th>
+                          <th colSpan={monthlyDateKeys.length}>Day of month</th>
+                          <th colSpan={5}>Total for month</th>
+                        </tr>
+                        <tr>
+                          {monthlyDateKeys.map((date) => <th key={`day-${date}`}>{Number(date.slice(-2))}</th>)}
+                          <th rowSpan={2}>Absent</th>
+                          <th rowSpan={2}>Present</th>
+                          <th rowSpan={2}>Late</th>
+                          <th rowSpan={2}>Excused</th>
+                          <th rowSpan={2}>Pending</th>
+                        </tr>
+                        <tr>
+                          {monthlyDateKeys.map((date) => {
+                            const [dateYear, dateMonth, dateDay] = date.split('-').map(Number);
+                            const weekday = new Intl.DateTimeFormat('en', { weekday: 'short', timeZone: 'UTC' }).format(new Date(Date.UTC(dateYear, dateMonth - 1, dateDay)));
+                            return <th key={`weekday-${date}`}>{weekday}</th>;
+                          })}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {monthlyRows.map((row) => (
+                          <tr key={row.student.id}>
+                            <td>{row.number}</td>
+                            <td>{row.student.studentCode || row.student.code || row.student.id}</td>
+                            <td className="sf2-learner-name">{row.student.name || '—'}</td>
+                            {row.marks.map((mark, index) => <td key={monthlyDateKeys[index]}>{mark}</td>)}
+                            <td>{row.absent}</td>
+                            <td>{row.present}</td>
+                            <td>{row.late}</td>
+                            <td>{row.excused}</td>
+                          </tr>
+                        ))}
+                        {!monthlyRows.length && <tr><td colSpan={3 + monthlyDateKeys.length + 5}>No active learners are assigned to this section.</td></tr>}
+                        <tr className="sf2-total-row">
+                          <td colSpan={3}>Class total</td>
+                          {monthlyDateKeys.map((date) => <td key={`total-${date}`}></td>)}
+                          <td>{monthlyTotals.absent}</td>
+                          <td>{monthlyTotals.present}</td>
+                          <td>{monthlyTotals.late}</td>
+                          <td>{monthlyTotals.excused}</td>
+                          <td>{monthlyTotals.pending}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div className="sf2-legend"><strong>Legend:</strong> P Present · L Late · A Absent · E Excused · Q Pending sync · blank No record</div>
+                  <footer className="sf2-signatures">
+                    <div><span>Prepared by / Class Adviser</span><strong>{monthlySection.adviser || monthlySection.teacherName || monthlySection.teacher || ''}</strong></div>
+                    <div><span>Checked by / School Head</span><strong></strong></div>
+                  </footer>
+                </article>
+              </div>
+            </section>
+          )}
+
           {selectedStudentId && (
             <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
               <label className="field-label mb-0" htmlFor="report-export-scope">Export scope</label>

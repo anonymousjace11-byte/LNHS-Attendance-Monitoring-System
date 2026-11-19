@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: lnhs-attendance-api
+    runtime: node
+    rootDir: server
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /health/ready
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: FIREBASE_PROJECT_ID
+        value: attendance-monitoring-73028
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
+      - key: QR_SIGNING_SECRET
+        sync: false
+      - key: SEMAPHORE_API_KEY
+        sync: false
+      - key: SEMAPHORE_SENDER_NAME
+        value: LNHS
+      - key: SMS_MODE
+        value: simulated
+      - key: ATTENDANCE_TIME_ZONE
+        value: Asia/Manila
+      - key: CLOUDINARY_CLOUD_NAME
+        sync: false
+      - key: CLOUDINARY_API_KEY
+        sync: false
+      - key: CLOUDINARY_API_SECRET
+        sync: false

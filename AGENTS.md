@@ -29,7 +29,7 @@ A school attendance application with QR scanning, SMS notifications, and Firebas
 - Frontend: React 19, Vite, and React Router.
 - Backend: Node.js and Express.
 - Data and authentication: Firebase Firestore and Firebase Authentication; the server uses Firebase Admin.
-- SMS providers: Semaphore or Twilio, configured server-side.
+- SMS provider: Semaphore, configured server-side.
 - Styling: Custom CSS and design tokens are used throughout. Tailwind CSS v4 is also imported and configured through `@tailwindcss/vite`; do not assume the UI is implemented exclusively with utility classes.
 - Icons: `lucide-react`.
 
