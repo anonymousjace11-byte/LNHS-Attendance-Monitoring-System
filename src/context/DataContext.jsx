@@ -382,17 +382,21 @@ export function DataProvider({ children }) {
     };
     const handleError = (snapshotError) => {
       if (cancelled) return;
+      const transientCodes = new Set(['unavailable', 'cancelled', 'deadline-exceeded', 'resource-exhausted']);
+      if (transientCodes.has(snapshotError?.code)) return;
       setError(snapshotError.message || 'Unable to load live attendance data.');
       setLoading(false);
     };
     const unsubscribeStudents = onSnapshot(collection(db, 'students'), (snapshot) => {
       students = snapshot.docs.map(normalizeRecord);
       update();
+      setError('');
       setLoading(false);
     }, handleError);
     const unsubscribeAttendance = onSnapshot(collection(db, 'attendance'), (snapshot) => {
       attendance = snapshot.docs.map(normalizeRecord);
       update();
+      setError('');
     }, handleError);
 
     let staffRefresh;
@@ -431,8 +435,12 @@ export function DataProvider({ children }) {
         }
 
         const failedResults = results.filter((result) => result.error);
-        setStaffDataError(failedResults.length
-          ? failedResults.map(({ key, error: reason }) => `${key}: ${reason}`).join('; ')
+        const meaningfulFailures = failedResults.filter(({ error: reason }) =>
+          reason !== 'network/CORS failure'
+          && !/network|failed to fetch|fetch failed|typeerror|timeout/i.test(reason)
+        );
+        setStaffDataError(meaningfulFailures.length
+          ? meaningfulFailures.map(({ key, error: reason }) => `${key}: ${reason}`).join('; ')
           : '');
       } catch (requestError) {
         if (!cancelled) {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import schoolSeal from '../imports/LNHS LOGO.png';
 import {
@@ -81,16 +81,22 @@ export default function Layout({ children }) {
   const avatarInitials = displayName.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0].toUpperCase()).join('') || 'U';
   const avatarUrl = user?.photoURL || user?.photoUrl || '';
 
-  useEffect(() => {
-    const handleNotification = (event) => {
-      const notification = event.detail || {};
-      setNotifications((current) => [...current, {
+  const pushNotification = useCallback((notification) => {
+    setNotifications((current) => {
+      if (current.some((item) => item.title === notification.title && item.details === notification.details)) return current;
+      return [...current, {
         id: ++nextNotificationId.current,
         type: notification.type === 'warning' ? 'warning' : 'error',
         title: notification.title || 'Action could not be completed',
         message: notification.message || 'Please try again.',
         details: notification.details || '',
-      }].slice(-3));
+      }].slice(-3);
+    });
+  }, []);
+
+  useEffect(() => {
+    const handleNotification = (event) => {
+      pushNotification(event.detail || {});
     };
     window.addEventListener('school-app:notification', handleNotification);
     return () => window.removeEventListener('school-app:notification', handleNotification);
@@ -98,25 +104,23 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     if (!staffDataError) return;
-    setNotifications((current) => [...current, {
-      id: ++nextNotificationId.current,
+    pushNotification({
       type: 'warning',
       title: 'Some school data could not refresh',
       message: 'You can continue, but some records may be out of date.',
       details: staffDataError,
-    }].slice(-3));
-  }, [staffDataError]);
+    });
+  }, [staffDataError, pushNotification]);
 
   useEffect(() => {
     if (!error || error.includes('fetch') || error.includes('Failed to fetch')) return;
-    setNotifications((current) => [...current, {
-      id: ++nextNotificationId.current,
+    pushNotification({
       type: 'warning',
       title: 'Live attendance data could not refresh',
       message: 'The displayed attendance records may be out of date.',
       details: error,
-    }].slice(-3));
-  }, [error]);
+    });
+  }, [error, pushNotification]);
 
   useEffect(() => {
     setSidebarOpen(false);
