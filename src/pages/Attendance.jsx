@@ -185,13 +185,17 @@ export default function Attendance() {
             || recordsByStudentDate.get(`${student.id}:${date}`);
           const isFuture = date > today;
 
-          if (!isFuture && status !== 'All Status') {
-            const periodStatus = period === 'All Periods'
-              ? getArrivalStatus(record || {})
-              : getPeriodScan(record || {}, period)?.status;
-            if (periodStatus !== status.toLowerCase()) return;
+          if (isFuture) {
+            // Future dates list every enrolled student without inventing attendance statuses.
+          } else {
+            if (status !== 'All Status') {
+              const periodStatus = period === 'All Periods'
+                ? getArrivalStatus(record || {})
+                : getPeriodScan(record || {}, period)?.status;
+              if (periodStatus !== status.toLowerCase()) return;
+            }
+            if (period !== 'All Periods' && !getPeriodScan(record || {}, period)) return;
           }
-          if (period !== 'All Periods' && !isFuture && !getPeriodScan(record || {}, period)) return;
 
           rows.push([
             date,
