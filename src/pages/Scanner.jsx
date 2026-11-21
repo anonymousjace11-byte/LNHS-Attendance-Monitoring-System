@@ -111,10 +111,13 @@ export default function Scanner() {
   const [period, setPeriod] = useState(getCurrentPeriod);
   const [automaticPeriod, setAutomaticPeriod] = useState(true);
   const [scanState, setScanState] = useState('ready');
-  const [excusedStudentId, setExcusedStudentId] = useState('');
-  const [excuseReason, setExcuseReason] = useState('');
-  const [excuseMessage, setExcuseMessage] = useState('');
-  const [excuseSaving, setExcuseSaving] = useState(false);
+  const [manualTrack, setManualTrack] = useState('');
+  const [manualSectionId, setManualSectionId] = useState('');
+  const [manualStudentId, setManualStudentId] = useState('');
+  const [manualStatus, setManualStatus] = useState('present');
+  const [manualReason, setManualReason] = useState('');
+  const [manualMessage, setManualMessage] = useState('');
+  const [manualSaving, setManualSaving] = useState(false);
   const [gatewayConfigured, setGatewayConfigured] = useState(null);
   const [preview, setPreview] = useState(null);
   const [smsModalOpen, setSmsModalOpen] = useState(false);
@@ -129,10 +132,7 @@ export default function Scanner() {
   const [scannerInputActive, setScannerInputActive] = useState(false);
   const [sessionCount, setSessionCount] = useState({ present: 0, late: 0, errors: 0 });
   const [soundOn, setSoundOn] = useState(true);
-  const [manualInputOpen, setManualInputOpen] = useState(false);
-  const [scannerMessage, setScannerMessage] = useState('');
   const inputRef = useRef(null);
-  const manualInputRef = useRef(null);
   const activePreviewIdRef = useRef(null);
   const inputActivityTimerRef = useRef(null);
   const bufferRef = useRef('');
@@ -141,6 +141,7 @@ export default function Scanner() {
   const processingScansRef = useRef(new Set());
   const {
     students,
+    sections,
     attendance,
     parentContacts,
     offlineAttendance,
@@ -148,7 +149,7 @@ export default function Scanner() {
     offlineSyncError,
     networkOnline,
     recordAttendance,
-    recordExcusedAttendance,
+    recordManualAttendance,
   } = useData();
   const todayKey = MANILA_DATE_FORMATTER.format(new Date());
   const studentByQrValue = useMemo(() => {
@@ -229,14 +230,10 @@ export default function Scanner() {
 
   useEffect(() => {
     if (smsModalOpen) return undefined;
-    if (manualInputOpen) {
-      manualInputRef.current?.focus();
-      return undefined;
-    }
     inputRef.current?.focus();
     const refocus = setInterval(() => inputRef.current?.focus(), 3000);
     return () => clearInterval(refocus);
-  }, [manualInputOpen, smsModalOpen]);
+  }, [smsModalOpen]);
 
   const recordSessionResult = useCallback((status) => {
     setSessionCount((current) => ({
@@ -410,8 +407,7 @@ export default function Scanner() {
     processQR(bufferRef.current || input, period);
     bufferRef.current = '';
     window.clearTimeout(bufferTimerRef.current);
-    if (manualInputOpen) setInput('');
-    else if (inputRef.current) inputRef.current.value = '';
+    if (inputRef.current) inputRef.current.value = '';
   };
 
   const handleKeyDown = (event) => {
@@ -423,38 +419,55 @@ export default function Scanner() {
   const handleInputChange = (event) => {
     const value = event.target.value;
     bufferRef.current = value;
-    if (manualInputOpen) setInput(value);
     window.clearTimeout(bufferTimerRef.current);
-    if (value.length >= 3 && !manualInputOpen) {
+    if (value.length >= 3) {
       setScannerInputActive(true);
       window.clearTimeout(inputActivityTimerRef.current);
       inputActivityTimerRef.current = window.setTimeout(() => setScannerInputActive(false), SCANNER_INPUT_FEEDBACK_MS);
     }
-    if (value && !manualInputOpen) {
+    if (value) {
       bufferTimerRef.current = window.setTimeout(() => {
         if (bufferRef.current === value) submitScan();
       }, SCAN_IDLE_TIMEOUT_MS);
     }
   };
 
-  const handleExcusedSubmit = async (event) => {
+  const manualTracks = useMemo(() => [...new Set(students
+    .map((student) => String(student.track || student.strand || '').trim())
+    .filter(Boolean))].sort((first, second) => first.localeCompare(second)), [students]);
+
+  const manualSections = useMemo(() => sections.map((section) => ({
+    id: section.id,
+    name: section.name || section.sectionName || section.id,
+  })).filter((section, index, items) => section.name && items.findIndex((item) => item.id === section.id) === index), [sections]);
+
+  const manualStudents = useMemo(() => students.filter((student) => {
+    const studentTrack = String(student.track || student.strand || '').trim();
+    const studentSection = String(student.sectionId || student.section || student.sectionName || '');
+    const matchesTrack = !manualTrack || studentTrack === manualTrack;
+    const matchesSection = !manualSectionId
+      || studentSection === manualSectionId
+      || studentSection === manualSections.find((section) => section.id === manualSectionId)?.name;
+    return matchesTrack && matchesSection;
+  }), [students, manualTrack, manualSectionId, manualSections]);
+
+  const handleManualAttendance = async (event) => {
     event.preventDefault();
-    setExcuseMessage('');
-    if (!excusedStudentId) {
-      setExcuseMessage('Select a student before marking the period excused.');
+    setManualMessage('');
+    if (!manualStudentId) {
+      setManualMessage('Select a student before recording attendance.');
       return;
     }
-    setExcuseSaving(true);
+    setManualSaving(true);
     try {
-      await recordExcusedAttendance(excusedStudentId, period, excuseReason);
-      const student = students.find((item) => item.id === excusedStudentId);
-      setExcuseMessage(`${student?.name || '—'} marked excused for ${period}.`);
-      setExcusedStudentId('');
-      setExcuseReason('');
+      await recordManualAttendance(manualStudentId, period, manualStatus, manualReason);
+      const student = students.find((item) => item.id === manualStudentId);
+      setManualMessage(`${student?.name || 'Student'} marked ${manualStatus} for ${period}.`);
+      setManualReason('');
     } catch (error) {
-      setExcuseMessage(error.message || 'Unable to mark this period excused.');
+      setManualMessage(error.message || 'Unable to record manual attendance.');
     } finally {
-      setExcuseSaving(false);
+      setManualSaving(false);
     }
   };
 
@@ -574,13 +587,6 @@ export default function Scanner() {
               Pending Sync · {pendingAttendanceCount}
             </span>
           )}
-          <span className={`scanner-connection ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}>
-            <span className="scanner-connection__dot" />
-            {!networkOnline ? 'Service unavailable' : scannerInputActive ? 'Input detected' : 'Ready for scan'}
-          </span>
-          <Button variant="ghost" size="sm" onClick={() => setSoundOn((current) => !current)} aria-pressed={soundOn}>
-            Sound {soundOn ? 'On' : 'Off'}
-          </Button>
         </div>
       </header>
 
@@ -677,15 +683,6 @@ export default function Scanner() {
             <section className="card scanner-card scanner-controls-card">
               <div className="scanner-card__header"><h2><Usb size={17} /> Scanner Controls</h2><span className="scanner-log__count">{todayScanCount} scans today</span></div>
               <div className="scanner-controls-card__actions">
-                <Button variant="primary" size="lg" onClick={() => {
-                  setManualInputOpen(false);
-                  inputRef.current?.focus();
-                  setScannerMessage(networkOnline
-                    ? 'Keyboard input is ready. Scan a QR code to test the reader.'
-                    : 'Offline mode is ready. Scans will be saved for later sync.');
-                }}>
-                  <Usb size={17} /> Test Scan Input
-                </Button>
                 <div className="scanner-device-chip">
                   <span className={`device-dot ${!networkOnline ? 'is-off' : scannerInputActive ? 'is-on' : 'is-waiting'}`} />
                   <div><strong>Keyboard-wedge HID</strong><span>{!networkOnline ? 'Attendance service unavailable' : scannerInputActive ? 'Input received' : 'Ready for scan'}</span></div>
@@ -705,19 +702,6 @@ export default function Scanner() {
               <div className="scanner-period-status" aria-label="Period status">
                 {PERIODS.map((item) => <span key={item} className={`scanner-period-status__item is-${getPeriodState(item).toLowerCase()}`}><strong>{item}</strong>{getPeriodState(item)}</span>)}
               </div>
-              {scannerMessage && <p className="scanner-control-message" role="status">{scannerMessage}</p>}
-              <button type="button" className="scanner-manual-toggle" onClick={() => setManualInputOpen((open) => !open)}>
-                {manualInputOpen ? 'Hide manual input' : 'Manual Input'}
-              </button>
-              {manualInputOpen && (
-                <div className="scanner-manual-fallback">
-                  <label className="field-label" htmlFor="manual-scan-input">QR code value</label>
-                  <div className="scanner-manual-fallback__row">
-                    <input id="manual-scan-input" ref={manualInputRef} className="field-input" value={input} onChange={handleInputChange} onKeyDown={handleKeyDown} placeholder="Enter or scan a QR value" />
-                    <Button variant="secondary" size="sm" onClick={submitScan} disabled={!input.trim()}>Submit</Button>
-                  </div>
-                </div>
-              )}
               <div className="scanner-session-counts">
                 This session: <strong>{sessionCount.present} present</strong><span>·</span><strong>{sessionCount.late} late</strong><span>·</span><strong>{sessionCount.errors} errors</strong>
               </div>
@@ -751,16 +735,6 @@ export default function Scanner() {
         </div>
 
         <aside className="scanner-sidebar">
-          <section className="card scanner-card scanner-howto-card">
-            <div className="scanner-card__header"><h2><Info size={17} /> How to Use</h2></div>
-            <ol className="scanner-howto-list">
-              <li><span>1</span><p>Connect a USB QR scanner that types as a keyboard.</p></li>
-              <li><span>2</span><p>Choose the active attendance period.</p></li>
-              <li><span>3</span><p>Scan the student's QR code.</p></li>
-              <li><span>4</span><p>Confirm the result in Active Scan.</p></li>
-            </ol>
-          </section>
-
           <section className="card scanner-card scanner-information-card">
             <div className="scanner-card__header"><h2><Clock size={17} /> Scan Information</h2></div>
             <div className="scanner-information-card__grid">
@@ -770,6 +744,53 @@ export default function Scanner() {
           </section>
         </aside>
       </div>
+
+      <section className="card scanner-manual-card">
+        <div className="scanner-card__header">
+          <h2><CalendarDays size={17} /> Manual Attendance</h2>
+          <span className="scanner-log__count">Selected period: {period}</span>
+        </div>
+        <form className="scanner-manual-form" onSubmit={handleManualAttendance}>
+          <div className="scanner-manual-form__filters">
+            <label className="field-label" htmlFor="manual-track">Track / Strand</label>
+            <select id="manual-track" className="field-input" value={manualTrack} onChange={(event) => { setManualTrack(event.target.value); setManualStudentId(''); }}>
+              <option value="">All tracks / strands</option>
+              {manualTracks.map((track) => <option key={track} value={track}>{track}</option>)}
+            </select>
+
+            <label className="field-label" htmlFor="manual-section">Section</label>
+            <select id="manual-section" className="field-input" value={manualSectionId} onChange={(event) => { setManualSectionId(event.target.value); setManualStudentId(''); }}>
+              <option value="">All sections</option>
+              {manualSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+            </select>
+          </div>
+
+          <label className="field-label" htmlFor="manual-student">Student</label>
+          <select id="manual-student" className="field-input" value={manualStudentId} onChange={(event) => setManualStudentId(event.target.value)}>
+            <option value="">Select a student</option>
+            {manualStudents.map((student) => <option key={student.id} value={student.id}>{student.name || '—'} · {student.studentCode || student.code || student.id}</option>)}
+          </select>
+
+          <div className="scanner-manual-form__status">
+            <div>
+              <label className="field-label" htmlFor="manual-status">Status</label>
+              <select id="manual-status" className="field-input" value={manualStatus} onChange={(event) => setManualStatus(event.target.value)}>
+                <option value="present">Present</option>
+                <option value="late">Late</option>
+                <option value="absent">Absent</option>
+                <option value="excused">Excused</option>
+              </select>
+            </div>
+            <div>
+              <label className="field-label" htmlFor="manual-reason">Reason <span className="text-muted">(optional)</span></label>
+              <input id="manual-reason" className="field-input" value={manualReason} onChange={(event) => setManualReason(event.target.value)} maxLength={240} />
+            </div>
+          </div>
+
+          <Button type="submit" variant="primary" loading={manualSaving} disabled={manualSaving || !manualStudentId}>Mark Attendance</Button>
+        </form>
+        {manualMessage && <p className="scanner-manual-message" role="status">{manualMessage}</p>}
+      </section>
 
       {smsModalOpen && smsTarget && (
         <Modal
@@ -813,27 +834,13 @@ export default function Scanner() {
         </Modal>
       )}
 
-      <section className="card scanner-manual-card">
-        <div className="scanner-card__header"><h2><CalendarDays size={17} /> Manual Excused Entry</h2><span className="scanner-log__count">Selected period: {period}</span></div>
-        <form className="scanner-manual-form" onSubmit={handleExcusedSubmit}>
-          <label className="field-label" htmlFor="excused-student">Student</label>
-          <select id="excused-student" className="field-input" value={excusedStudentId} onChange={(event) => setExcusedStudentId(event.target.value)}>
-            <option value="">Select a student</option>
-            {students.map((student) => <option key={student.id} value={student.id}>{student.name || '—'} · {student.studentCode || student.code || student.id} · {student.section || student.sectionId || 'Unassigned'}</option>)}
-          </select>
-          <label className="field-label" htmlFor="excuse-reason">Reason <span className="text-muted">(optional)</span></label>
-          <input id="excuse-reason" className="field-input" value={excuseReason} onChange={(event) => setExcuseReason(event.target.value)} maxLength={240} />
-          <Button type="submit" variant="secondary" loading={excuseSaving} disabled={excuseSaving}>Mark Excused</Button>
-        </form>
-        {excuseMessage && <p className="scanner-manual-message" role="status">{excuseMessage}</p>}
-      </section>
 
       <input
         ref={inputRef}
         className="scanner-capture-input"
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
-        disabled={manualInputOpen || smsModalOpen}
+        disabled={smsModalOpen}
         tabIndex={-1}
         aria-label="QR scanner keyboard input"
       />

@@ -500,6 +500,28 @@ export function DataProvider({ children }) {
     return result;
   }
 
+  async function recordManualAttendance(studentId, period, status = 'present', reason = '') {
+    const currentUser = auth.currentUser;
+    if (!currentUser) throw new Error('Firebase authentication required.');
+    const token = await currentUser.getIdToken();
+    const response = await fetch(`${API_URL}/attendance/manual`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ studentId, period, status, reason }),
+    });
+    const result = await readApiResponse(response);
+    if (result.recorded) {
+      setData((current) => ({
+        ...current,
+        attendance: [
+          ...current.attendance.filter((record) => record.id !== result.id),
+          result,
+        ],
+      }));
+    }
+    return result;
+  }
+
   async function recordExcusedAttendance(studentId, period, reason = '') {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('Firebase authentication required.');
@@ -701,7 +723,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, networkOnline, today: todayKey(), recordAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, networkOnline, today: todayKey(), recordAttendance, recordManualAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {

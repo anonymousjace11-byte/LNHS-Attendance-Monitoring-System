@@ -3463,6 +3463,20 @@ html[data-theme='dark'] .scanner-clock__face { padding: 1rem; background: var(--
 .chart-bar { background: var(--navy-700); }
 .about-panel, .report-export-card { background: var(--surface); border-color: var(--border); }
 
+.report-export-card {
+  position: relative;
+  min-height: 174px;
+  padding-bottom: 1.95rem;
+}
+
+.report-export-card > button {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  left: 1rem;
+  width: auto;
+}
+
 @media (max-width: 900px) {
   .app-topbar .account-trigger { border-radius: var(--r-md); }
 }
@@ -3754,6 +3768,11 @@ html[data-theme='dark'] .app-account-menu__role { background: #203954; color: #c
 .scanner-information-card__grid small { color: var(--text-muted); font-size: .62rem; }
 .scanner-manual-card { padding: 14px; }
 .scanner-manual-card .scanner-card__header { margin-bottom: 10px; }
+.scanner-manual-form { display: grid; gap: 10px; }
+.scanner-manual-form__filters,
+.scanner-manual-form__status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.scanner-manual-form__filters .field-label,
+.scanner-manual-form__status .field-label { margin-bottom: 0; }
 #excused-student,
 #excused-student option { background-color: #fff; color: var(--text-primary); }
 .scanner-capture-input { position: fixed; top: 0; left: -1000px; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
@@ -3777,6 +3796,8 @@ html[data-theme='dark'] .app-account-menu__role { background: #203954; color: #c
   .scanner-layout { gap: 12px; }
   .scanner-workbench,
   .scanner-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .scanner-manual-form__filters,
+  .scanner-manual-form__status { grid-template-columns: minmax(0, 1fr); }
   .scanner-active-card { gap: 12px; padding: 12px; }
   .scanner-active-card__student { grid-template-columns: minmax(74px, 104px) minmax(0, 1fr); gap: 12px; }
   .scanner-active-card__details h2 { font-size: 1.05rem; }

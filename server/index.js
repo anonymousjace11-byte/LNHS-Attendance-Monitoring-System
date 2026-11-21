@@ -954,6 +954,79 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
   }
 });
 
+app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, res) => {
+  const { studentId = "", period = "", status = "present", reason = "" } = req.body || {};
+  const allowedStatuses = new Set(["present", "late", "absent", "excused"]);
+  if (!isValidStudentId(studentId)) return res.status(400).json({ error: "A valid studentId is required." });
+  if (!attendancePeriods.includes(period)) return res.status(400).json({ error: "A valid attendance period is required." });
+  if (!allowedStatuses.has(status)) return res.status(400).json({ error: "A valid manual attendance status is required." });
+
+  try {
+    const db = getFirestore(req.adminSdk);
+    const studentSnapshot = await db.collection("students").doc(studentId).get();
+    if (!studentSnapshot.exists) return res.status(404).json({ error: "Student record not found." });
+    const student = studentSnapshot.data() || {};
+    const sectionId = student.sectionId || student.section || "";
+    if (!sectionId) return res.status(400).json({ error: "Student record has no section assigned." });
+    if (!requireTeacherSection(req, res, sectionId)) return;
+
+    const { date, time } = getAttendanceDateParts();
+    const studentCode = student.studentCode || student.code || studentId;
+    const attendanceId = createAttendanceId(studentId, studentCode, date);
+    const attendanceRef = db.collection("attendance").doc(attendanceId);
+    const result = await db.runTransaction(async transaction => {
+      const snapshot = await transaction.get(attendanceRef);
+      const current = snapshot.exists ? snapshot.data() || {} : {};
+      const scans = getAttendanceScans(current);
+      if (scans[period]) return { duplicate: true, scans };
+
+      const sanitizedReason = String(reason).trim().slice(0, 240);
+      scans[period] = {
+        time,
+        status,
+        smsStatus: "skipped",
+        ...(sanitizedReason ? { reason: sanitizedReason } : {}),
+      };
+      const arrivalScan = scans["AM-1"];
+      const attendance = {
+        id: attendanceId,
+        studentId,
+        studentCode,
+        sectionId,
+        teacherId: student.teacherId || student.teacher || "",
+        date,
+        time: arrivalScan?.time || current.time || (period === "AM-1" ? time : ""),
+        status: arrivalScan?.status || status,
+        arrivalStatus: arrivalScan?.status || "",
+        period,
+        scanCount: attendancePeriods.filter(item => scans[item]).length,
+        scans,
+        smsStatus: "skipped",
+        manualEntry: true,
+        updatedAt: new Date(),
+        ...(!snapshot.exists ? { createdAt: new Date() } : {}),
+      };
+      transaction.set(attendanceRef, attendance, { merge: true });
+      return { attendance, scans };
+    });
+    if (result.duplicate) {
+      return res.status(409).json({ error: `This student already has an ${period} record today.`, code: "duplicate_scan", period });
+    }
+
+    await writeAuditLog(db, {
+      action: "attendance.manual_entry",
+      actorUid: req.auth.uid,
+      targetType: "attendance",
+      targetId: attendanceId,
+      details: { studentId, sectionId, period, status, reason: String(reason).trim().slice(0, 240) },
+    });
+    return res.json({ recorded: true, id: attendanceId, ...result.attendance });
+  } catch (error) {
+    console.error("Manual attendance record error:", error);
+    return res.status(500).json({ error: "Unable to record manual attendance" });
+  }
+});
+
 app.post("/attendance/excuse", requireStaffAuth, attendanceLimiter, async (req, res) => {
   const { studentId = "", period = "", reason = "" } = req.body || {};
   if (!isValidStudentId(studentId)) return res.status(400).json({ error: "A valid studentId is required." });
