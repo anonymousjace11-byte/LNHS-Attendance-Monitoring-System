@@ -15,7 +15,7 @@ const NAV_FULL = [
   { group: 'Overview', items: [
     { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   ]},
-  { group: 'School Records', adminOnly: true, items: [
+  { group: 'Manage Records', adminOnly: true, collapsible: true, items: [
     { to: '/students', label: 'Students', icon: GraduationCap },
     { to: '/teachers', label: 'Teachers', icon: Users },
     { to: '/sections', label: 'Sections', icon: BookOpen },
@@ -72,6 +72,8 @@ export default function Layout({ children }) {
   const { error, staffDataError } = useData();
   const navigate = useNavigate();
   const location = useLocation();
+  const recordPaths = ['/students', '/teachers', '/sections', '/parents'];
+  const [manageRecordsOpen, setManageRecordsOpen] = useState(() => recordPaths.includes(location.pathname));
 
   const nav = NAV_FULL.filter((section) => !section.adminOnly || isAdmin);
   const displayName = user?.displayName || user?.email?.split('@')[0] || 'Admin';
@@ -152,17 +154,33 @@ export default function Layout({ children }) {
         <nav className="app-sidebar__nav" aria-label="Main navigation">
           {nav.map((section) => (
             <div key={section.group} className="app-sidebar__group">
-              {section.items.map((item) => (
-                <NavLink
-                  key={item.to}
-                  to={item.to}
-                  className={({ isActive }) => `app-sidebar__link ${isActive ? 'active' : ''}`}
-                  onClick={() => setSidebarOpen(false)}
+              {section.collapsible && (
+                <button
+                  type="button"
+                  className="app-sidebar__group-toggle"
+                  aria-expanded={manageRecordsOpen}
+                  aria-controls="manage-records-links"
+                  onClick={() => setManageRecordsOpen((open) => !open)}
                 >
-                  <item.icon size={15} />
-                  <span>{item.to === '/dashboard' && isTeacher ? 'My Classes' : item.label}</span>
-                </NavLink>
-              ))}
+                  <span>{section.group}</span>
+                  <ChevronDown size={15} aria-hidden="true" />
+                </button>
+              )}
+              {(!section.collapsible || manageRecordsOpen) && (
+                <div id={section.collapsible ? 'manage-records-links' : undefined}>
+                  {section.items.map((item) => (
+                    <NavLink
+                      key={item.to}
+                      to={item.to}
+                      className={({ isActive }) => `app-sidebar__link ${isActive ? 'active' : ''}`}
+                      onClick={() => setSidebarOpen(false)}
+                    >
+                      <item.icon size={15} />
+                      <span>{item.to === '/dashboard' && isTeacher ? 'My Classes' : item.label}</span>
+                    </NavLink>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </nav>

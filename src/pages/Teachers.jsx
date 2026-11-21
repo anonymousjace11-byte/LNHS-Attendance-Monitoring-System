@@ -55,20 +55,20 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
       </>}>
       <div className="space-y-4">
         <FormField label="Full Name" required id="name" error={errs.name}>
-          <input id="name" className={`field-input${errs.name?' error':''}`} placeholder="Juan dela Cruz"
+          <input id="name" className={`field-input${errs.name?' error':''}`} placeholder="e.g. Juan Dela Cruz"
             value={form.name} onChange={(e)=>set('name',e.target.value)} onBlur={()=>setErrs(p=>({...p,name:validate().name}))} />
         </FormField>
         <FormField label="School Email" required id="email" error={errs.email} hint="Must end in @lnhs.edu.ph">
-          <input id="email" type="email" className={`field-input${errs.email?' error':''}`} placeholder="j.delacruz@lnhs.edu.ph"
+          <input id="email" type="email" className={`field-input${errs.email?' error':''}`} placeholder="e.g. juan@lnhs.edu.ph"
             value={form.email} onChange={(e)=>set('email',e.target.value)} onBlur={()=>setErrs(p=>({...p,email:validate().email}))} disabled={!!existing} />
         </FormField>
         {(!existing || existing.uid) && (
           <div className="grid grid-cols-2 gap-3">
             <FormField label={existing ? 'New Password (optional)' : 'Password'} required={!existing} id="teacher-password" error={errs.password} hint="At least 6 characters. Stored securely in Firebase Authentication.">
-              <input id="teacher-password" type="password" className={`field-input${errs.password?' error':''}`} value={form.password} onChange={(e)=>set('password',e.target.value)} autoComplete="new-password" />
+              <input id="teacher-password" type="password" className={`field-input${errs.password?' error':''}`} value={form.password} onChange={(e)=>set('password',e.target.value)} placeholder="At least 6 characters" autoComplete="new-password" />
             </FormField>
             <FormField label="Confirm Password" required={!existing} id="teacher-confirm-password" error={errs.confirmPassword}>
-              <input id="teacher-confirm-password" type="password" className={`field-input${errs.confirmPassword?' error':''}`} value={form.confirmPassword} onChange={(e)=>set('confirmPassword',e.target.value)} autoComplete="new-password" />
+              <input id="teacher-confirm-password" type="password" className={`field-input${errs.confirmPassword?' error':''}`} value={form.confirmPassword} onChange={(e)=>set('confirmPassword',e.target.value)} placeholder="Re-enter password" autoComplete="new-password" />
             </FormField>
           </div>
         )}

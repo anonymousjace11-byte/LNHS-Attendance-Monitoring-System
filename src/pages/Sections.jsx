@@ -43,7 +43,7 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
       </>}>
       <div className="space-y-3">
         <FormField label="Section Name" required id="sec-name" error={errs.name}>
-          <input id="sec-name" className={`field-input${errs.name?' error':''}`} placeholder="Grade 12 — STEM C"
+          <input id="sec-name" className={`field-input${errs.name?' error':''}`} placeholder="e.g. Grade 12 - STEM C"
             value={form.name} onChange={(e)=>set('name',e.target.value)} />
         </FormField>
         <div className="grid grid-cols-2 gap-3">
@@ -53,7 +53,7 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
             </select>
           </FormField>
           <FormField label="Room" required id="sec-room" error={errs.room}>
-            <input id="sec-room" className={`field-input${errs.room?' error':''}`} placeholder="Room 305"
+            <input id="sec-room" className={`field-input${errs.room?' error':''}`} placeholder="e.g. Room 305"
               value={form.room} onChange={(e)=>set('room',e.target.value)} />
           </FormField>
         </div>

@@ -631,6 +631,29 @@ textarea.field-input { resize: vertical; min-height: 4rem; }
   text-transform: uppercase;
 }
 
+.app-sidebar__group-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: .5rem 1rem;
+  border: 0;
+  border-left: 3px solid transparent;
+  background: transparent;
+  color: #c8ddf5;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.app-sidebar__group-toggle:hover,
+.app-sidebar__group-toggle:focus-visible {
+  background: rgba(255, 255, 255, .05);
+  color: #fff;
+}
+
 .app-sidebar__link {
   display: flex;
   align-items: center;

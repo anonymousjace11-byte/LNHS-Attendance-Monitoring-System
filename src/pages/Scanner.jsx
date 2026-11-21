@@ -751,19 +751,6 @@ export default function Scanner() {
         </div>
 
         <aside className="scanner-sidebar">
-          <section className="card scanner-card scanner-status-card">
-            <div className="scanner-card__header"><h2><QrCode size={18} /> Scanner Status</h2><span className={`scanner-status-pill ${!networkOnline ? 'is-disconnected' : scannerInputActive ? 'is-detected' : 'is-waiting'}`}><span className="scanner-connection__dot" />{!networkOnline ? 'Service unavailable' : scannerInputActive ? 'Input detected' : 'Ready for scan'}</span></div>
-            <div className="scanner-status-rows">
-              <div><Keyboard size={16} /><span>Device</span><strong>Keyboard-wedge HID</strong></div>
-              <div><Usb size={16} /><span>Connection Type</span><strong>USB keyboard input</strong></div>
-              <div><QrCode size={16} /><span>Input Method</span><strong>Enter or 250 ms idle</strong></div>
-              <div><ShieldCheck size={16} /><span>Permission</span><strong>No browser permission required</strong></div>
-            </div>
-            <p className={`scanner-gateway-note ${gatewayConfigured ? 'is-configured' : ''}`}>
-              {gatewayConfigured === null ? 'SMS gateway status unavailable.' : gatewayConfigured ? 'SMS gateway configured.' : 'SMS gateway not configured; attendance still works.'}
-            </p>
-          </section>
-
           <section className="card scanner-card scanner-howto-card">
             <div className="scanner-card__header"><h2><Info size={17} /> How to Use</h2></div>
             <ol className="scanner-howto-list">

@@ -1,15 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import {
-  BarChart3,
   Eye,
   EyeOff,
   Lock,
   LogIn,
   Mail,
-  MessageSquare,
   QrCode,
-  ShieldCheck,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import Button from '../components/Button';
@@ -107,34 +104,11 @@ export default function Login() {
           <div className="login-left__divider" aria-hidden="true" />
 
           <div className="login-left__description">
-            <span className="login-left__system-icon" aria-hidden="true">
-              <QrCode size={24} />
-            </span>
             <div>
               <h2>Attendance Monitoring System</h2>
               <p>
-                A modern and secure system for real-time attendance tracking with SMS
-                notifications using QR Code technology.
+                Records attendance by QR code and provides parent or guardian SMS notifications when available.
               </p>
-            </div>
-          </div>
-
-          <div className="login-left__features" aria-label="System features">
-            <div className="login-left__feature">
-              <span><QrCode size={22} /></span>
-              <p>QR Code<br />Scanning</p>
-            </div>
-            <div className="login-left__feature">
-              <span><MessageSquare size={22} /></span>
-              <p>Auto SMS<br />Notifications</p>
-            </div>
-            <div className="login-left__feature">
-              <span><ShieldCheck size={22} /></span>
-              <p>Secure &amp;<br />Reliable</p>
-            </div>
-            <div className="login-left__feature">
-              <span><BarChart3 size={22} /></span>
-              <p>Real-time<br />Reports</p>
             </div>
           </div>
 
@@ -164,7 +138,7 @@ export default function Login() {
                     id="email"
                     type="email"
                     className={`field-input ${emailError ? 'error' : ''}`}
-                    placeholder="you@lnhs.edu.ph"
+                    placeholder="e.g. juan@lnhs.edu.ph"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     onBlur={() => setTouched((current) => ({ ...current, email: true }))}
@@ -183,7 +157,7 @@ export default function Login() {
                     id="password"
                     type={showPassword ? 'text' : 'password'}
                     className={`field-input ${passwordError ? 'error' : ''}`}
-                    placeholder="Enter your password"
+                    placeholder="Enter your school password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     onBlur={() => setTouched((current) => ({ ...current, password: true }))}
@@ -228,9 +202,6 @@ export default function Login() {
             <div className="login-card__authorized">
               <span>Authorized Users Only</span>
             </div>
-            <p className="login-card__footer">
-              Looc National High School | Attendance Monitoring System
-            </p>
           </section>
         </div>
       </main>

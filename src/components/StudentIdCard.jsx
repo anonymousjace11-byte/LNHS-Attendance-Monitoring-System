@@ -383,6 +383,10 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                         <dd>{student.strand || 'N/A'}</dd>
                       </div>
                       <div>
+                        <dt>Gender</dt>
+                        <dd>{student.gender || 'N/A'}</dd>
+                      </div>
+                      <div>
                         <dt>Section</dt>
                         <dd>{student.section || 'N/A'}</dd>
                       </div>

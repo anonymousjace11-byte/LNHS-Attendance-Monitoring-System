@@ -43,10 +43,10 @@ function ParentModal({ onClose, onSave, existing, students }) {
         </select>
       </FormField>
       <FormField label="Parent / Guardian Name" required id="parent-name">
-        <input id="parent-name" className="field-input" value={form.parentName} onChange={(event) => set('parentName', event.target.value)} placeholder="Maria Santos" />
+        <input id="parent-name" className="field-input" value={form.parentName} onChange={(event) => set('parentName', event.target.value)} placeholder="e.g. Maria Santos" />
       </FormField>
       <FormField label="Mobile Number" required id="parent-phone" hint="Philippine format: +63XXXXXXXXXX">
-        <input id="parent-phone" className="field-input" value={form.parentPhone} onChange={(event) => set('parentPhone', event.target.value)} onBlur={() => set('parentPhone', normalizePhilippinePhone(form.parentPhone))} placeholder="09XXXXXXXXX or +639XXXXXXXXX" />
+        <input id="parent-phone" className="field-input" value={form.parentPhone} onChange={(event) => set('parentPhone', event.target.value)} onBlur={() => set('parentPhone', normalizePhilippinePhone(form.parentPhone))} placeholder="e.g. 09XXXXXXXXX or +639XXXXXXXXX" />
       </FormField>
     </div>
   </Modal>;

@@ -227,10 +227,45 @@ export default function Reports() {
       setNotice('Use the browser print dialog to save this report as PDF.');
       return;
     }
-    const attendanceRows = [['Student ID', 'Student Name', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'], ...exportRows.map((record) => {
-      const student = students.find((item) => item.id === record.studentId);
-      return [student?.studentCode || student?.code || record.studentCode || record.studentId, student?.name || '', record.date, student?.sectionName || student?.section || record.sectionId, ...PERIODS.flatMap((period) => { const scan = getPeriodScan(record, period); return [scan?.time || '', scan?.status || '']; }), record.smsStatus || ''];
-    })];
+    const reportStudents = exportScope === 'selected-student' && selectedStudentId
+      ? students.filter((student) => student.id === selectedStudentId)
+      : roster;
+    const recordsByStudentDate = new Map();
+    exportRows.forEach((record) => {
+      const key = `${record.studentId}:${record.date}`;
+      const combined = recordsByStudentDate.get(key) || { ...record, scans: {} };
+      PERIODS.forEach((period) => {
+        const scan = getPeriodScan(record, period);
+        if (scan) combined.scans[period] = scan;
+      });
+      combined.smsStatus = record.smsStatus || combined.smsStatus || '';
+      recordsByStudentDate.set(key, combined);
+    });
+    const startTime = Date.parse(`${dateFrom}T00:00:00Z`);
+    const endTime = Date.parse(`${dateTo}T00:00:00Z`);
+    const reportDates = [];
+    if (Number.isFinite(startTime) && Number.isFinite(endTime) && startTime <= endTime) {
+      for (let time = startTime; time <= endTime; time += 86400000) {
+        reportDates.push(new Date(time).toISOString().slice(0, 10));
+      }
+    }
+    const attendanceRows = [
+      ['Student ID', 'Student Name', 'Date', 'Section', ...PERIODS.flatMap((period) => [`${period} Time`, `${period} Status`]), 'SMS'],
+      ...reportStudents.flatMap((student) => reportDates.map((date) => {
+        const record = recordsByStudentDate.get(`${student.id}:${date}`) || { studentId: student.id, date, scans: {} };
+        return [
+          student.studentCode || student.code || student.id,
+          student.name || '',
+          date,
+          student.sectionName || student.section || sections.find((section) => section.id === student.sectionId)?.name || '',
+          ...PERIODS.flatMap((period) => {
+            const scan = getPeriodScan(record, period);
+            return [scan?.time || '', scan?.status || 'No record'];
+          }),
+          record.smsStatus || '',
+        ];
+      })),
+    ];
     const smsRows = [['Recipient', 'Message', 'Status', 'Sent At'], ...smsLogs.map((record) => [record.recipient || record.phone, record.message, record.status, record.createdAt || record.sentAt])];
     const rows = title === 'SMS Logs CSV' ? smsRows : attendanceRows;
     const filename = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.csv`;
@@ -542,6 +577,7 @@ export default function Reports() {
                             <td>{row.present}</td>
                             <td>{row.late}</td>
                             <td>{row.excused}</td>
+                            <td>{row.pending}</td>
                           </tr>
                         ))}
                         {!monthlyRows.length && <tr><td colSpan={3 + monthlyDateKeys.length + 5}>No active learners are assigned to this section.</td></tr>}

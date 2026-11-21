@@ -17,7 +17,7 @@ const STRANDS = ['All Strands', 'STEM', 'ABM', 'HUMSS', 'TVL', 'GAS'];
 const PAGE_SIZE = 10;
 const EMPTY_FORM = {
   lastName: '', firstName: '', middle: '', studentCode: '', strand: 'STEM',
-  sectionId: '', section: '', adviser: '', parentName: '', parentPhone: '', relationship: 'Parent',
+  gender: '', sectionId: '', section: '', adviser: '', parentName: '', parentPhone: '', relationship: 'Parent',
 };
 
 function nextStudentCode(studentCodes) {
@@ -48,14 +48,12 @@ function validate(form, existing) {
   if ((!existing || form.studentCode.trim() !== originalCode) && !/^\d{4}-\d{4}$/.test(form.studentCode.trim())) {
     errors.studentCode = 'Format: YYYY-NNNN (e.g. 2024-0001)';
   }
+  if (!['Male', 'Female'].includes(form.gender)) errors.gender = 'Select a gender.';
   if (!form.section) errors.section = 'Section is required.';
-  const hasParentDetails = form.parentName.trim() || form.parentPhone.trim();
-  if (hasParentDetails) {
-    if (!form.parentName.trim()) errors.parentName = 'Parent or guardian name is required.';
-    const normalizedPhone = normalizePhilippinePhone(form.parentPhone);
-    if (!normalizedPhone) errors.parentPhone = 'Contact number is required.';
-    if (normalizedPhone && !/^\+63\d{10}$/.test(normalizedPhone)) errors.parentPhone = 'Format: +63XXXXXXXXXX';
-  }
+  if (!form.parentName.trim()) errors.parentName = 'Parent or guardian name is required.';
+  const normalizedPhone = normalizePhilippinePhone(form.parentPhone);
+  if (!normalizedPhone) errors.parentPhone = 'Contact number is required.';
+  if (normalizedPhone && !/^\+63\d{10}$/.test(normalizedPhone)) errors.parentPhone = 'Format: +63XXXXXXXXXX';
   return errors;
 }
 
@@ -70,6 +68,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
     middle: existingName.middle,
     studentCode: existing.studentCode || existing.code || existing.id,
     strand: existing.strand || 'STEM',
+    gender: existing.gender || '',
     sectionId: existing.sectionId || existingSection?.id || '',
     section: existingSection?.name || existing.section || '',
     adviser: existing.adviser || '',
@@ -115,12 +114,14 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
         studentCode: form.studentCode.trim(),
         name,
         strand: form.strand,
+        gender: form.gender,
         sectionId: form.sectionId,
         section: form.section,
         adviser: form.adviser || (existing ? existing.adviser || '' : advisers[0] || ''),
         active: existing ? existing.active !== false : true,
         parentPhone: normalizePhilippinePhone(form.parentPhone),
         parentName: form.parentName,
+        relationship: form.relationship,
         ...(existing?.qrValue ? { qrValue: existing.qrValue } : {}),
         ...(existing?.qrUuid ? { qrUuid: existing.qrUuid } : {}),
       }, photoFile);
@@ -161,9 +162,9 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
       <div className="modal-section">
         <div className="modal-section__label">Personal Information</div>
         <div className="student-form-grid student-form-grid--three">
-          <FormField label="Last Name" required id="lastName" error={errors.lastName}>{input('lastName', 'text', { placeholder: 'Santos' })}</FormField>
-          <FormField label="First Name" required id="firstName" error={errors.firstName}>{input('firstName', 'text', { placeholder: 'Maria' })}</FormField>
-          <FormField label="Middle Initial" id="middle">{input('middle', 'text', { placeholder: 'L' })}</FormField>
+          <FormField label="Last Name" required id="lastName" error={errors.lastName}>{input('lastName', 'text', { placeholder: 'e.g. Dela Cruz' })}</FormField>
+          <FormField label="First Name" required id="firstName" error={errors.firstName}>{input('firstName', 'text', { placeholder: 'e.g. Juan' })}</FormField>
+          <FormField label="Middle Initial" id="middle">{input('middle', 'text', { placeholder: 'e.g. A' })}</FormField>
         </div>
       </div>
 
@@ -171,7 +172,14 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
         <div className="modal-section__label">Enrollment</div>
         <div className="student-form-grid student-form-grid--two">
           <FormField label="Student Code" required id="studentCode" error={errors.studentCode} hint="Format: YYYY-NNNN">
-            {input('studentCode', 'text', { placeholder: '2024-0001', style: { fontFamily: 'ui-monospace, monospace' }, readOnly: true })}
+            {input('studentCode', 'text', { placeholder: 'e.g. 2026-0001', style: { fontFamily: 'ui-monospace, monospace' }, readOnly: true })}
+          </FormField>
+          <FormField label="Gender" required id="gender" error={errors.gender}>
+            <select id="gender" required aria-required="true" className={`field-input${errors.gender ? ' error' : ''}`} value={form.gender} onChange={(event) => setField('gender', event.target.value)}>
+              <option value="">Select gender...</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
+            </select>
           </FormField>
           <FormField label="Strand" id="strand">
             <select id="strand" className="field-input" value={form.strand} onChange={(event) => setField('strand', event.target.value)}>
@@ -212,18 +220,20 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
 
       <div className="modal-section">
         <div className="modal-section__label">Parent / Guardian Contact</div>
-        <p className="modal-section__hint">Optional. Add this later from the Parents page.</p>
+        <p className="modal-section__hint">Required for parent or guardian attendance notifications.</p>
         <div className="student-form-grid student-form-grid--two">
-          <FormField label="Parent / Guardian Name" id="parentName" error={errors.parentName}>{input('parentName', 'text', { placeholder: 'Luisa Santos' })}</FormField>
+          <FormField label="Parent / Guardian Name" required id="parentName" error={errors.parentName}>{input('parentName', 'text', { placeholder: 'e.g. Maria Santos', required: true, 'aria-required': 'true' })}</FormField>
           <FormField label="Relationship" id="relationship">
             <select id="relationship" className="field-input" value={form.relationship} onChange={(event) => setField('relationship', event.target.value)}>
               {['Parent', 'Guardian', 'Grandparent', 'Sibling', 'Other'].map((relationship) => <option key={relationship}>{relationship}</option>)}
             </select>
           </FormField>
         </div>
-        <FormField label="Mobile Number" id="parentPhone" error={errors.parentPhone} hint="Philippine format: +63XXXXXXXXXX" className="student-phone-field">
+        <FormField label="Mobile Number" required id="parentPhone" error={errors.parentPhone} hint="Philippine format: +63XXXXXXXXXX" className="student-phone-field">
           {input('parentPhone', 'tel', {
-            placeholder: '09XXXXXXXXX or +639XXXXXXXXX',
+            placeholder: 'e.g. 09XXXXXXXXX or +639XXXXXXXXX',
+            required: true,
+            'aria-required': 'true',
             style: { fontFamily: 'ui-monospace, monospace' },
             onBlur: () => setField('parentPhone', normalizePhilippinePhone(form.parentPhone)),
           })}

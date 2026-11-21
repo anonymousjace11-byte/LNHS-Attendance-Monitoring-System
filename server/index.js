@@ -1135,7 +1135,8 @@ app.post("/admin/teachers", async (req, res) => {
     const teacherRef = db.collection("teachers").doc(teacherId);
     const previousTeacher = await teacherRef.get();
     if (id && !previousTeacher.exists) return res.status(404).json({ error: "Teacher record not found" });
-    const previousSectionId = previousTeacher.exists ? String(previousTeacher.data()?.sectionId || "") : "";
+    const previousTeacherData = previousTeacher.exists ? previousTeacher.data() || {} : {};
+    const previousSectionId = String(previousTeacherData.sectionId || "");
     const teacherAuth = getAuth(authResult.adminSdk);
     if (!id) {
       await setRoleClaims(authResult.adminSdk, uid, approved ? "teacher" : "pending", email.trim().toLowerCase(), name.trim(), password);
@@ -1144,22 +1145,42 @@ app.post("/admin/teachers", async (req, res) => {
       if (password) await teacherAuth.updateUser(uid, { password });
       await teacherAuth.setCustomUserClaims(uid, { admin: false, teacher: approved === true, student: false });
     }
-    const teacher = { ...(uid ? { uid } : {}), name: name.trim(), email: email.trim().toLowerCase(), strand, sectionId, approved: !!approved, updatedAt: new Date() };
+    const teacher = {
+      ...(uid ? { uid } : {}),
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      strand,
+      sectionId,
+      sections: sectionId ? [sectionId] : [],
+      approved: !!approved,
+      updatedAt: new Date()
+    };
     await teacherRef.set(teacher, { merge: true });
     if (uid) await db.collection("users").doc(uid).set({ id: uid, ...teacher, role: approved ? "teacher" : "pending" }, { merge: true });
-    if (previousSectionId && previousSectionId !== sectionId) {
-      const previousSectionRef = db.collection("sections").doc(previousSectionId);
-      const previousSectionSnapshot = await previousSectionRef.get();
-      if (previousSectionSnapshot.exists) {
-        const previousSectionData = previousSectionSnapshot.data() || {};
-        const previousTeacherName = String(previousTeacher.data()?.name || "").trim();
-        const updates = { teacherId: "", updatedAt: new Date() };
-        for (const field of ["adviser", "adviserName", "teacherName", "teacher"]) {
-          if (previousTeacherName && String(previousSectionData[field] || "").trim() === previousTeacherName) updates[field] = "";
-        }
-        await previousSectionRef.set(updates, { merge: true });
+    const oldTeacherIds = new Set([teacherId, uid, previousTeacherData.uid].filter(Boolean).map(String));
+    const staleSectionIds = new Set([
+      previousSectionId,
+      ...(Array.isArray(previousTeacherData.sections) ? previousTeacherData.sections : []),
+    ].filter((id) => id && id !== sectionId).map(String));
+    const linkedSectionSnapshots = await Promise.all([...oldTeacherIds].map((oldTeacherId) =>
+      db.collection("sections").where("teacherId", "==", oldTeacherId).get()
+    ));
+    linkedSectionSnapshots.forEach((snapshot) => snapshot.docs.forEach((section) => {
+      if (section.id !== sectionId) staleSectionIds.add(section.id);
+    }));
+    const previousTeacherName = String(previousTeacherData.name || "").trim();
+    await Promise.all([...staleSectionIds].map(async (staleSectionId) => {
+      const staleSectionRef = db.collection("sections").doc(staleSectionId);
+      const staleSectionSnapshot = await staleSectionRef.get();
+      if (!staleSectionSnapshot.exists) return;
+      const staleSection = staleSectionSnapshot.data() || {};
+      if (staleSection.teacherId && !oldTeacherIds.has(String(staleSection.teacherId))) return;
+      const updates = { teacherId: "", updatedAt: new Date() };
+      for (const field of ["adviser", "adviserName", "teacherName", "teacher"]) {
+        if (previousTeacherName && String(staleSection[field] || "").trim() === previousTeacherName) updates[field] = "";
       }
-    }
+      await staleSectionRef.set(updates, { merge: true });
+    }));
     if (sectionId) {
       await db.collection("sections").doc(sectionId).set({ teacherId: uid || teacherId, updatedAt: new Date() }, { merge: true });
     }
@@ -1191,11 +1212,18 @@ app.delete("/admin/teachers/:uid", async (req, res) => {
     const db = getFirestore(authResult.adminSdk);
     const teacherRef = db.collection("teachers").doc(req.params.uid);
     const teacherSnapshot = await teacherRef.get();
+    const teacher = teacherSnapshot.exists ? teacherSnapshot.data() || {} : {};
+    const authUid = String(teacher.uid || req.params.uid);
     const assignedSectionIds = new Set();
-    const savedSectionId = String(teacherSnapshot.data()?.sectionId || "").trim();
+    const savedSectionId = String(teacher.sectionId || "").trim();
     if (savedSectionId) assignedSectionIds.add(savedSectionId);
-    const linkedSections = await db.collection("sections").where("teacherId", "==", req.params.uid).get();
-    linkedSections.docs.forEach(section => assignedSectionIds.add(section.id));
+    (Array.isArray(teacher.sections) ? teacher.sections : []).forEach(sectionId => {
+      if (sectionId) assignedSectionIds.add(String(sectionId));
+    });
+    const linkedSectionsByTeacherId = await Promise.all([...new Set([req.params.uid, authUid])].map(teacherId =>
+      db.collection("sections").where("teacherId", "==", teacherId).get()
+    ));
+    linkedSectionsByTeacherId.forEach(snapshot => snapshot.docs.forEach(section => assignedSectionIds.add(section.id)));
     const assignedSections = await Promise.all([...assignedSectionIds].map(async sectionId => {
       const section = await db.collection("sections").doc(sectionId).get();
       return section.exists ? String(section.data()?.name || sectionId) : "";
@@ -1205,8 +1233,8 @@ app.delete("/admin/teachers/:uid", async (req, res) => {
       return res.status(409).json({ error: `Cannot delete: teacher is still assigned to ${blockingSections.join(", ")}.` });
     }
     await db.collection("teachers").doc(req.params.uid).delete();
-    await db.collection("users").doc(req.params.uid).delete();
-    try { await getAuth(authResult.adminSdk).deleteUser(req.params.uid); } catch (error) {
+    await db.collection("users").doc(authUid).delete();
+    try { await getAuth(authResult.adminSdk).deleteUser(authUid); } catch (error) {
       if (error.code !== "auth/user-not-found") throw error;
     }
     return res.json({ success: true, uid: req.params.uid });
