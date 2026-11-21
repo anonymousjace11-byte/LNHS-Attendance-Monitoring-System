@@ -21,10 +21,11 @@ const resolveApiBaseUrl = () => {
     if (isLocalHost) return 'http://127.0.0.1:5000';
   }
 
-  return (import.meta.env.VITE_API_URL || 'http://127.0.0.1:5000').replace(/\/$/, '');
+  return (import.meta.env.VITE_API_URL || 'https://lnhs-attendance-monitoring-system.onrender.com').replace(/\/$/, '');
 };
 const API_URL = resolveApiBaseUrl();
 const STAFF_DATA_REFRESH_MS = 15 * 60 * 1000;
+const ADMIN_DATA_CACHE_PREFIX = 'lnhs-attendance:admin-data:v1:';
 const OFFLINE_SYNC_RETRY_MS = 10 * 1000;
 
 async function readApiResponse(response) {
@@ -32,6 +33,25 @@ async function readApiResponse(response) {
   const body = contentType.includes('application/json') ? await response.json() : { error: (await response.text()).slice(0, 200) };
   if (!response.ok) throw new Error(body.error || `Request failed with status ${response.status}.`);
   return body;
+}
+
+function readAdminDataCache(uid) {
+  if (!uid || typeof window === 'undefined') return null;
+  try {
+    const cached = window.localStorage.getItem(`${ADMIN_DATA_CACHE_PREFIX}${uid}`);
+    return cached ? JSON.parse(cached) : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeAdminDataCache(uid, value) {
+  if (!uid || typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(`${ADMIN_DATA_CACHE_PREFIX}${uid}`, JSON.stringify(value));
+  } catch {
+    // Storage can be unavailable in private or restricted browser modes.
+  }
 }
 
 async function fetchWithAuth(path, options = {}, { forceRefresh = false } = {}) {
@@ -301,6 +321,13 @@ export function DataProvider({ children }) {
       const isAdmin = tokenResult.claims.admin === true || profileRole === 'admin';
       const isTeacher = tokenResult.claims.teacher === true || profileRole === 'teacher';
       if (isAdmin || isTeacher) syncOfflineAttendance();
+      if (isAdmin) {
+        const cachedAdminData = readAdminDataCache(currentUser.uid);
+        if (cachedAdminData) {
+          setData((current) => ({ ...current, ...cachedAdminData }));
+          setLoading(false);
+        }
+      }
       if (isTeacher && !isAdmin) {
         setData({ students: [], attendance: [], sections: [], teachers: [], parentContacts: [], smsLogs: [], auditLogs: [] });
         setError('');
@@ -389,10 +416,18 @@ export function DataProvider({ children }) {
 
         const successfulResults = results.filter((result) => 'value' in result);
         if (successfulResults.length) {
-          setData((current) => ({
-            ...current,
-            ...Object.fromEntries(successfulResults.map(({ key, value }) => [key, value])),
-          }));
+          const loadedAdminData = Object.fromEntries(successfulResults.map(({ key, value }) => [key, value]));
+          setData((current) => {
+            const nextData = { ...current, ...loadedAdminData };
+            writeAdminDataCache(currentUser.uid, {
+              sections: nextData.sections,
+              teachers: nextData.teachers,
+              parentContacts: nextData.parentContacts,
+              smsLogs: nextData.smsLogs,
+              auditLogs: nextData.auditLogs,
+            });
+            return nextData;
+          });
         }
 
         const failedResults = results.filter((result) => result.error);
