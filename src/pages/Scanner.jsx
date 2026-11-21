@@ -753,20 +753,20 @@ export default function Scanner() {
         <form className="scanner-manual-form" onSubmit={handleManualAttendance}>
           <div className="scanner-manual-form__filters">
             <label className="field-label" htmlFor="manual-track">Track / Strand</label>
-            <select id="manual-track" className="field-input" value={manualTrack} onChange={(event) => { setManualTrack(event.target.value); setManualStudentId(''); }}>
+            <select id="manual-track" className="field-input scanner-native-select" value={manualTrack} onChange={(event) => { setManualTrack(event.target.value); setManualStudentId(''); }}>
               <option value="">All tracks / strands</option>
               {manualTracks.map((track) => <option key={track} value={track}>{track}</option>)}
             </select>
 
             <label className="field-label" htmlFor="manual-section">Section</label>
-            <select id="manual-section" className="field-input" value={manualSectionId} onChange={(event) => { setManualSectionId(event.target.value); setManualStudentId(''); }}>
+            <select id="manual-section" className="field-input scanner-native-select" value={manualSectionId} onChange={(event) => { setManualSectionId(event.target.value); setManualStudentId(''); }}>
               <option value="">All sections</option>
               {manualSections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </div>
 
           <label className="field-label" htmlFor="manual-student">Student</label>
-          <select id="manual-student" className="field-input" value={manualStudentId} onChange={(event) => setManualStudentId(event.target.value)}>
+          <select id="manual-student" className="field-input scanner-native-select" value={manualStudentId} onChange={(event) => setManualStudentId(event.target.value)}>
             <option value="">Select a student</option>
             {manualStudents.map((student) => <option key={student.id} value={student.id}>{student.name || '—'} · {student.studentCode || student.code || student.id}</option>)}
           </select>
@@ -774,7 +774,7 @@ export default function Scanner() {
           <div className="scanner-manual-form__status">
             <div>
               <label className="field-label" htmlFor="manual-status">Status</label>
-              <select id="manual-status" className="field-input" value={manualStatus} onChange={(event) => setManualStatus(event.target.value)}>
+              <select id="manual-status" className="field-input scanner-native-select" value={manualStatus} onChange={(event) => setManualStatus(event.target.value)}>
                 <option value="present">Present</option>
                 <option value="late">Late</option>
                 <option value="absent">Absent</option>

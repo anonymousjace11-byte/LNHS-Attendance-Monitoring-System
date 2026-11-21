@@ -3769,6 +3769,7 @@ html[data-theme='dark'] .app-account-menu__role { background: #203954; color: #c
 .scanner-manual-card { padding: 14px; }
 .scanner-manual-card .scanner-card__header { margin-bottom: 10px; }
 .scanner-manual-form { display: grid; gap: 10px; }
+.scanner-native-select { position: relative; z-index: 5; overflow: visible; }
 .scanner-manual-form__filters,
 .scanner-manual-form__status { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .scanner-manual-form__filters .field-label,
