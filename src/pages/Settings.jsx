@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AlertTriangle, Building2, Calendar, Clock, KeyRound, MessageSquare, Moon, Save, ShieldCheck, Sun } from 'lucide-react';
+import { AlertTriangle, KeyRound, MessageSquare, Moon, Save, Sun } from 'lucide-react';
 import Alert from '../components/Alert';
 import Button from '../components/Button';
 import FormField from '../components/FormField';
@@ -17,10 +17,10 @@ const DEFAULT_SMS_TEMPLATES = {
 const DEFAULT_SMS_RUNTIME = { mode: 'inherit', disabled: false, dailyCapPerStudent: 4 };
 
 const TABS = [
-  { id: 'general', label: 'General', icon: Building2 },
-  { id: 'attendance', label: 'Attendance', icon: Clock },
-  { id: 'sms', label: 'SMS', icon: MessageSquare },
-  { id: 'security', label: 'Security', icon: ShieldCheck },
+  { id: 'general', label: 'General' },
+  { id: 'attendance', label: 'Attendance' },
+  { id: 'sms', label: 'SMS' },
+  { id: 'security', label: 'Security' },
 ];
 
 export default function Settings() {
@@ -275,8 +275,8 @@ export default function Settings() {
         subtitle="School configuration and system parameters."
         actions={(
           <div className="settings-cover__datetime" aria-label="Current date and time in Asia/Manila">
-            <span><Calendar size={14} aria-hidden="true" />{settingsDate}</span>
-            <span><Clock size={14} aria-hidden="true" />{settingsTime}</span>
+            <span>{settingsDate}</span>
+            <span>{settingsTime}</span>
           </div>
         )}
       />
@@ -285,7 +285,7 @@ export default function Settings() {
 
       <div className="settings-layout">
         <nav className="settings-tabs" aria-label="Settings sections" role="tablist">
-          {TABS.map(({ id, label, icon: Icon }) => {
+          {TABS.map(({ id, label }) => {
             const active = tab === id;
             return (
               <button
@@ -297,7 +297,6 @@ export default function Settings() {
                 onClick={() => setTab(id)}
                 className={`settings-tab ${active ? 'is-active' : ''}`}
               >
-                <Icon size={15} />
                 <span>{label}</span>
               </button>
             );
