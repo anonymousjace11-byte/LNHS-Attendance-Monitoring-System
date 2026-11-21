@@ -35,6 +35,8 @@ export default function Reports() {
   const [tab, setTab]           = useState('summary');
   const [selectedStudentId, setSelectedStudentId] = useState('');
   const [exportScope, setExportScope] = useState('full');
+  const [exportSectionId, setExportSectionId] = useState('');
+  const [exportTrack, setExportTrack] = useState('');
   const [monthlyMonth, setMonthlyMonth] = useState(today.slice(0, 7));
   const [monthlySectionId, setMonthlySectionId] = useState('');
   const [monthlySchoolName, setMonthlySchoolName] = useState('Looc National High School');
@@ -79,6 +81,21 @@ export default function Reports() {
 
   const activeStudents = students.filter((student) => student.active !== false);
   const roster = activeStudents.length ? activeStudents : students;
+  const exportTrackOptions = useMemo(() => [...new Set(roster
+    .map((student) => String(student.track || student.strand || '').trim())
+    .filter(Boolean))].sort((first, second) => first.localeCompare(second)), [roster]);
+  const exportRoster = useMemo(() => {
+    const selectedSection = sections.find((section) => section.id === exportSectionId);
+    return roster.filter((student) => {
+      const studentSection = String(student.sectionId || student.section || student.sectionName || '');
+      const matchesSection = !exportSectionId
+        || studentSection === exportSectionId
+        || studentSection === selectedSection?.name;
+      const studentTrack = String(student.track || student.strand || '').trim();
+      const matchesTrack = !exportTrack || studentTrack === exportTrack;
+      return matchesSection && matchesTrack;
+    });
+  }, [roster, sections, exportSectionId, exportTrack]);
   const filteredAttendance = useMemo(
     () => attendanceWithQueued.filter((record) => record.date >= dateFrom && record.date <= dateTo),
     [attendanceWithQueued, dateFrom, dateTo],
@@ -229,7 +246,7 @@ export default function Reports() {
     }
     const reportStudents = exportScope === 'selected-student' && selectedStudentId
       ? students.filter((student) => student.id === selectedStudentId)
-      : roster;
+      : exportRoster;
     const recordsByStudentDate = new Map();
     exportRows.forEach((record) => {
       const key = `${record.studentId}:${record.date}`;
@@ -473,7 +490,7 @@ export default function Reports() {
           <section className="sf2-controls no-print">
             <div className="sf2-controls__heading">
               <div>
-                <p className="sf2-eyebrow">Monthly register · SF2-style</p>
+                <p className="sf2-eyebrow">Internal monthly attendance register</p>
                 <h2>Class attendance export</h2>
               </div>
               <span className="badge badge-navy">Internal report</span>
@@ -519,14 +536,14 @@ export default function Reports() {
                   <Button variant="primary" size="sm" onClick={printMonthlyReport}><Printer size={13} /> Print / Save PDF</Button>
                 </div>
               </div>
-              <p className="sf2-internal-note no-print">SF2-style working report. Confirm against the current DepEd form before official filing.</p>
+              <p className="sf2-internal-note no-print">Internal attendance register. Confirm against the current DepEd Form 2 before official filing.</p>
               <div className="sf2-scroll">
                 <article className="sf2-print-root">
                   <header className="sf2-report-heading">
                     <div>
                       <p>Department of Education · Learner Attendance</p>
                       <h2>Monthly Learner Attendance Report</h2>
-                      <strong>Senior High School · SF2-style</strong>
+                      <strong>Senior High School · Internal working report</strong>
                     </div>
                     <p className="sf2-report-heading__month">{new Date(Date.UTC(monthlyYear, monthlyMonthNumber - 1, 1)).toLocaleDateString('en-PH', { month: 'long', year: 'numeric', timeZone: 'UTC' })}</p>
                   </header>
@@ -603,15 +620,32 @@ export default function Reports() {
             </section>
           )}
 
-          {selectedStudentId && (
-            <div className="card p-4 mb-4 flex flex-wrap items-center gap-3">
-              <label className="field-label mb-0" htmlFor="report-export-scope">Export scope</label>
-              <select id="report-export-scope" className="field-input" value={exportScope} onChange={(event) => setExportScope(event.target.value)}>
-                <option value="full">Full report</option>
-                <option value="selected-student">Selected student only</option>
+          <div className="card p-4 mb-4 flex flex-wrap items-end gap-3">
+            <label className="grid gap-1" htmlFor="daily-export-section">
+              <span className="field-label mb-0">Section</span>
+              <select id="daily-export-section" className="field-input" value={exportSectionId} disabled={exportScope === 'selected-student'} onChange={(event) => setExportSectionId(event.target.value)}>
+                <option value="">All sections</option>
+                {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
               </select>
-            </div>
-          )}
+            </label>
+            <label className="grid gap-1" htmlFor="daily-export-track">
+              <span className="field-label mb-0">Track / Strand</span>
+              <select id="daily-export-track" className="field-input" value={exportTrack} disabled={exportScope === 'selected-student'} onChange={(event) => setExportTrack(event.target.value)}>
+                <option value="">All tracks / strands</option>
+                {exportTrackOptions.map((track) => <option key={track} value={track}>{track}</option>)}
+              </select>
+            </label>
+            {selectedStudentId && (
+              <label className="grid gap-1" htmlFor="report-export-scope">
+                <span className="field-label mb-0">Export scope</span>
+                <select id="report-export-scope" className="field-input" value={exportScope} onChange={(event) => setExportScope(event.target.value)}>
+                  <option value="full">Full report</option>
+                  <option value="selected-student">Selected student only</option>
+                </select>
+              </label>
+            )}
+            <span className="field-hint">{exportScope === 'selected-student' ? 1 : exportRoster.length} learners in scope</span>
+          </div>
           {selectedStudentId && exportScope === 'selected-student' && <div className="mb-4">{studentReportContent}</div>}
           <div className="report-export-grid">
             {[
