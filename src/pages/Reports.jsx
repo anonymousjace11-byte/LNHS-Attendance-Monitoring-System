@@ -44,7 +44,6 @@ export default function Reports() {
   const [monthlyDistrict, setMonthlyDistrict] = useState('Looc');
   const [monthlyDivision, setMonthlyDivision] = useState('Romblon');
   const [monthlyRegion, setMonthlyRegion] = useState('MIMAROPA');
-  const [monthlyGenerated, setMonthlyGenerated] = useState(false);
   const [generated, setGenerated] = useState(false);
   const [notice, setNotice] = useState('');
   const { students, attendance, sections, smsLogs, offlineAttendance } = useData();
@@ -277,7 +276,8 @@ export default function Reports() {
           student.sectionName || student.section || sections.find((section) => section.id === student.sectionId)?.name || '',
           ...PERIODS.flatMap((period) => {
             const scan = getPeriodScan(record, period);
-            return [scan?.time || '', scan?.status || 'No record'];
+            const futureDate = date > today;
+            return [futureDate ? '' : scan?.time || '', futureDate ? '' : scan?.status || 'No record'];
           }),
           record.smsStatus || '',
         ];
@@ -288,15 +288,6 @@ export default function Reports() {
     const filename = `${title === 'SMS Logs CSV' ? 'sms-logs' : 'attendance'}-${dateFrom}-to-${dateTo}.csv`;
     downloadCsv(rows, filename);
     setNotice(`${title} downloaded successfully.`);
-  }
-
-  function generateMonthlyReport() {
-    if (!monthlySection) {
-      setNotice('Create or select a section before generating the monthly report.');
-      return;
-    }
-    setMonthlyGenerated(true);
-    setNotice(`Monthly register generated for ${monthlySection.name}.`);
   }
 
   function getMonthlyCsvRows() {
@@ -493,14 +484,13 @@ export default function Reports() {
                 <p className="sf2-eyebrow">Internal monthly attendance register</p>
                 <h2>Class attendance export</h2>
               </div>
-              <span className="badge badge-navy">Internal report</span>
             </div>
             <div className="sf2-control-grid">
               <label className="sf2-control-field">Month
-                <input type="month" className="field-input" value={monthlyMonth} onChange={(event) => { setMonthlyMonth(event.target.value); setMonthlyGenerated(false); }} />
+                <input type="month" className="field-input" value={monthlyMonth} onChange={(event) => setMonthlyMonth(event.target.value)} />
               </label>
               <label className="sf2-control-field">Section
-                <select className="field-input" value={monthlySection?.id || ''} onChange={(event) => { setMonthlySectionId(event.target.value); setMonthlyGenerated(false); }}>
+                <select className="field-input" value={monthlySection?.id || ''} onChange={(event) => setMonthlySectionId(event.target.value)}>
                   {!sections.length && <option value="">No sections available</option>}
                   {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
                 </select>
@@ -522,12 +512,11 @@ export default function Reports() {
               </label>
             </div>
             <div className="sf2-controls__footer">
-                <span className="settings-section__hint">Marks: P present, L late, A absent, E excused, Q pending sync; blank means no record.</span>
-              <Button variant="primary" size="sm" onClick={generateMonthlyReport} disabled={!monthlySection}>Generate Monthly Register</Button>
+              <span className="settings-section__hint">Marks: P present, L late, A absent, E excused, Q pending sync; blank means no record.</span>
             </div>
           </section>
 
-          {monthlyGenerated && monthlySection && (
+          {monthlySection && (
             <section className="sf2-preview">
               <div className="sf2-preview-actions no-print">
                 <span className="field-hint">{monthlyMonth} · {monthlySection.name} · {monthlyRows.length} learners</span>
@@ -654,18 +643,15 @@ export default function Reports() {
               { title:'PDF Report',          desc:'Print-ready attendance summary.',              format:'PDF', Icon:FileText },
               { title:'SMS Logs CSV',        desc:'Admin only — notification history export.',   format:'CSV', Icon:Download },
             ].map(e=>(
-              <div key={e.title} className="report-export-card">
-                <div className="flex items-start justify-between mb-3">
-                  <div className="w-9 h-9 rounded flex items-center justify-center" style={{ background:'var(--navy-50)' }}>
-                    <e.Icon size={17} style={{ color:'var(--text-secondary)' }} />
-                  </div>
+              <div key={e.title} className="report-export-card" style={{ height:'100%', display:'flex', flexDirection:'column' }}>
+                <div className="flex items-start justify-end mb-3">
                   <span style={{ fontFamily:'JetBrains Mono', background:'#f0f4f8', color:'var(--text-sub)', border:'1px solid var(--border)', borderRadius:'3px', padding:'1px 6px', fontSize:'.72rem' }}>
                     {e.format}
                   </span>
                 </div>
                 <div style={{ fontFamily:'Work Sans', fontWeight:700, fontSize:'.9rem', color:'var(--text-primary)', marginBottom:'4px' }}>{e.title}</div>
                 <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginBottom:'1rem' }}>{e.desc}</div>
-                <Button variant="primary" size="sm" className="w-full" onClick={() => downloadReport(e.format, e.title)}>
+                <Button variant="primary" size="sm" className="w-full" style={{ marginTop:'auto' }} onClick={() => downloadReport(e.format, e.title)}>
                   <Download size={13} /> Download
                 </Button>
               </div>

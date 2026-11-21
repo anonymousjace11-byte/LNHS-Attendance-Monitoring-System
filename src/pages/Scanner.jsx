@@ -231,8 +231,6 @@ export default function Scanner() {
   useEffect(() => {
     if (smsModalOpen) return undefined;
     inputRef.current?.focus();
-    const refocus = setInterval(() => inputRef.current?.focus(), 3000);
-    return () => clearInterval(refocus);
   }, [smsModalOpen]);
 
   const recordSessionResult = useCallback((status) => {
@@ -745,7 +743,9 @@ export default function Scanner() {
         </aside>
       </div>
 
-      <section className="card scanner-manual-card">
+      <section className="card scanner-manual-card" onFocusCapture={() => {
+        if (inputRef.current) inputRef.current.disabled = true;
+      }}>
         <div className="scanner-card__header">
           <h2><CalendarDays size={17} /> Manual Attendance</h2>
           <span className="scanner-log__count">Selected period: {period}</span>
@@ -783,7 +783,7 @@ export default function Scanner() {
             </div>
             <div>
               <label className="field-label" htmlFor="manual-reason">Reason <span className="text-muted">(optional)</span></label>
-              <input id="manual-reason" className="field-input" value={manualReason} onChange={(event) => setManualReason(event.target.value)} maxLength={240} />
+              <input id="manual-reason" className="field-input" value={manualReason} onChange={(event) => setManualReason(event.target.value)} onKeyDown={(event) => { if (event.key === 'Enter') event.preventDefault(); }} maxLength={240} />
             </div>
           </div>
 
