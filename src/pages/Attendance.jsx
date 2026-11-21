@@ -135,17 +135,92 @@ export default function Attendance() {
   };
   const exportFilteredCsv = () => {
     const headers = ['Date', 'Student ID', 'Student Name', 'Section', ...PERIODS.flatMap((item) => [`${item} Time`, `${item} Status`]), 'SMS Status'];
-    const rows = sortedRecords.map((record) => [
-      record.date,
-      record.studentId,
-      record.name,
-      record.section,
-      ...PERIODS.flatMap((item) => {
+
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Manila' }).format(new Date());
+    const startDate = dateFrom || '';
+    const endDate = dateTo || startDate;
+    const reportDates = [];
+    if (startDate && endDate) {
+      const startTime = Date.parse(`${startDate}T00:00:00Z`);
+      const endTime = Date.parse(`${endDate}T00:00:00Z`);
+      if (Number.isFinite(startTime) && Number.isFinite(endTime) && startTime <= endTime) {
+        for (let time = startTime; time <= endTime; time += 86400000) {
+          reportDates.push(new Date(time).toISOString().slice(0, 10));
+        }
+      }
+    }
+
+    const recordsByStudentDate = new Map();
+    records.forEach((record) => {
+      const key = `${record.studentId}:${record.date}`;
+      const combined = recordsByStudentDate.get(key) || { ...record, scans: {} };
+      PERIODS.forEach((item) => {
         const scan = getPeriodScan(record, item);
-        return [formatAttendanceTime(scan?.time), scan?.status || ''];
-      }),
-      record.sms,
-    ]);
+        if (scan) combined.scans[item] = scan;
+      });
+      if (record.sms) combined.sms = record.sms;
+      recordsByStudentDate.set(key, combined);
+    });
+
+    const activeRoster = students.filter((student) => student.active !== false);
+    const exportRoster = (activeRoster.length ? activeRoster : students).filter((student) => {
+      const studentCode = student.studentCode || student.code || student.id;
+      const name = student.name || '';
+      const studentSection = student.sectionName || student.section || student.sectionId || 'Unassigned';
+      const matchesSearch = !search
+        || name.toLowerCase().includes(search.toLowerCase())
+        || String(studentCode).toLowerCase().includes(search.toLowerCase());
+      const matchesSection = section === 'All Sections' || studentSection === section;
+      return matchesSearch && matchesSection;
+    });
+
+    let rows;
+    if (reportDates.length) {
+      rows = [];
+      exportRoster.forEach((student) => {
+        reportDates.forEach((date) => {
+          const studentCode = student.studentCode || student.code || student.id;
+          const studentSection = student.sectionName || student.section || sections.find((item) => item.id === student.sectionId)?.name || 'Unassigned';
+          const record = recordsByStudentDate.get(`${studentCode}:${date}`)
+            || recordsByStudentDate.get(`${student.id}:${date}`);
+          const isFuture = date > today;
+
+          if (!isFuture && status !== 'All Status') {
+            const periodStatus = period === 'All Periods'
+              ? getArrivalStatus(record || {})
+              : getPeriodScan(record || {}, period)?.status;
+            if (periodStatus !== status.toLowerCase()) return;
+          }
+          if (period !== 'All Periods' && !isFuture && !getPeriodScan(record || {}, period)) return;
+
+          rows.push([
+            date,
+            studentCode,
+            student.name || '',
+            studentSection,
+            ...PERIODS.flatMap((item) => {
+              const scan = getPeriodScan(record || {}, item);
+              if (isFuture) return ['', ''];
+              return [formatAttendanceTime(scan?.time), scan?.status || ''];
+            }),
+            record?.sms || '',
+          ]);
+        });
+      });
+    } else {
+      rows = sortedRecords.map((record) => [
+        record.date,
+        record.studentId,
+        record.name,
+        record.section,
+        ...PERIODS.flatMap((item) => {
+          const scan = getPeriodScan(record, item);
+          return [formatAttendanceTime(scan?.time), scan?.status || ''];
+        }),
+        record.sms,
+      ]);
+    }
+
     downloadCsv([headers, ...rows], `attendance-${dateFrom || 'all'}-to-${dateTo || 'all'}.csv`);
   };
 
