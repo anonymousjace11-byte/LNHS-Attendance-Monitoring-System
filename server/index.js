@@ -1203,6 +1203,9 @@ app.post("/admin/teachers", async (req, res) => {
     if (action !== "save" || !teacherId || !name || !email) {
       return res.status(400).json({ error: "Missing required teacher fields: id or uid, name, email" });
     }
+    if (!id && !/^[^\s@]+@lnhs\.com$/i.test(String(email).trim())) {
+      return res.status(400).json({ error: "Teacher email must end in @lnhs.com" });
+    }
     if (password && password.length < 6) return res.status(400).json({ error: "Password must be at least 6 characters" });
     if (id && password && !uid) {
       return res.status(400).json({ error: "Cannot update a password without a Firebase Auth UID" });
@@ -1594,6 +1597,7 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
   const studentSnapshot = await db.collection("students").get();
   const attendanceSnapshot = await db.collection("attendance").where("date", "==", date).get();
   const templates = await loadSmsTemplates(db);
+  const cutoff = await getAttendanceCutoff(db);
   const existingAttendance = new Map(attendanceSnapshot.docs.map(record => [record.data()?.studentId, record.data()]));
   const results = { date, created: 0, skipped: 0, sent: 0, simulated: 0, failed: 0, noContact: 0 };
 
@@ -1604,6 +1608,19 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     if (student.active === false || existingScans["AM-1"]) {
       results.skipped += 1;
       continue;
+    }
+    const registeredAtValue = student.createdAt;
+    const registeredAt = typeof registeredAtValue?.toDate === "function"
+      ? registeredAtValue.toDate()
+      : registeredAtValue instanceof Date
+        ? registeredAtValue
+        : registeredAtValue ? new Date(registeredAtValue) : null;
+    if (registeredAt && !Number.isNaN(registeredAt.getTime())) {
+      const registeredParts = getAttendanceDateParts(registeredAt);
+      if (registeredParts.date > date || (registeredParts.date === date && isAttendanceCutoffReached(registeredParts.time, cutoff))) {
+        results.skipped += 1;
+        continue;
+      }
     }
 
     const attendanceId = createAttendanceId(studentRecord.id, student.studentCode || student.code, date);

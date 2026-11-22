@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import { LoaderCircle } from 'lucide-react';
+import walkingStudentAnimation from '../imports/walking-student.gif';
 
 /**
  * Unified Button with skew-fill hover animation.
@@ -48,7 +48,9 @@ const Button = forwardRef(function Button(
       {...rest}
     >
       {loading && (
-        <LoaderCircle size={14} className="animate-spin" aria-hidden="true" />
+        <span className="btn-loading-indicator" role="status" aria-label="In progress">
+          <img src={walkingStudentAnimation} alt="" aria-hidden="true" />
+        </span>
       )}
       {children}
     </button>

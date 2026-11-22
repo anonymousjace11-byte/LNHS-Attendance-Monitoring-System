@@ -4124,6 +4124,17 @@ html[data-theme='dark'] .card:not(.students-table-card):has(.data-table) .data-t
   pointer-events: none;
 }
 
+.btn-loading-indicator {
+  display: inline-flex;
+  flex: 0 0 24px;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.btn-loading-indicator img { display: block; width: 24px; height: 24px; object-fit: contain; }
+
 .app-toast {
   display: grid;
   grid-template-columns: 24px minmax(0, 1fr) 28px;

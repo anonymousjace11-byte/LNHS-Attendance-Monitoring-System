@@ -104,20 +104,26 @@ export default function Layout({ children }) {
 
   useEffect(() => {
     if (!staffDataError) return;
+    const connectionIssue = /connection|network|offline|unavailable|timeout/i.test(staffDataError);
     pushNotification({
       type: 'warning',
-      title: 'Some school data could not refresh',
-      message: 'You can continue, but some records may be out of date.',
+      title: connectionIssue ? 'Connection is weak or unavailable' : 'Some school data could not refresh',
+      message: connectionIssue
+        ? 'Some records could not load. Check your connection and try again.'
+        : 'You can continue, but some records may be out of date.',
       details: staffDataError,
     });
   }, [staffDataError, pushNotification]);
 
   useEffect(() => {
-    if (!error || error.includes('fetch') || error.includes('Failed to fetch')) return;
+    if (!error) return;
+    const connectionIssue = /network|fetch failed|load failed|offline|unavailable|deadline-exceeded|timeout/i.test(error);
     pushNotification({
       type: 'warning',
-      title: 'Live attendance data could not refresh',
-      message: 'The displayed attendance records may be out of date.',
+      title: connectionIssue ? 'Connection is weak or unavailable' : 'Live attendance data could not refresh',
+      message: connectionIssue
+        ? 'Attendance data could not load. Check your connection and try again.'
+        : 'The displayed attendance records may be out of date.',
       details: error,
     });
   }, [error, pushNotification]);

@@ -11,7 +11,7 @@ import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
-function emailValid(v) { return /^[^\s@]+@lnhs\.edu\.ph$/i.test(v.trim()); }
+function emailValid(v) { return /^[^\s@]+@lnhs\.com$/i.test(v.trim()); }
 const PAGE_SIZE = 10;
 
 function TeacherModal({ onClose, onSave, existing, sections }) {
@@ -22,6 +22,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
   } : { name: '', email: '', strand: 'STEM', sectionId: '', approved: true, password: '', confirmPassword: '' });
   const [errs, setErrs]     = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   const set = (k, v) => setForm((f) => ({ ...f, [k]: v }));
 
@@ -29,7 +30,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
     const e = {};
     if (!form.name.trim())         e.name  = 'Full name is required.';
     if ((!existing || form.email.trim().toLowerCase() !== existing.email.trim().toLowerCase()) && !emailValid(form.email)) {
-      e.email = 'Must be a valid @lnhs.edu.ph address.';
+      e.email = 'Must be a valid @lnhs.com address.';
     }
     if (!existing && form.password.length < 6) e.password = 'Password must be at least 6 characters.';
     if (form.password && form.password !== form.confirmPassword) e.confirmPassword = 'Passwords do not match.';
@@ -40,9 +41,15 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
     const e = validate();
     if (Object.keys(e).length) { setErrs(e); return; }
     setSaving(true);
-    await onSave({ ...form, id: existing?.id, uid: existing?.uid });
-    setSaving(false);
-    onClose();
+    setSaveError('');
+    try {
+      await onSave({ ...form, id: existing?.id, uid: existing?.uid });
+      onClose();
+    } catch (error) {
+      setSaveError(error.message || 'Unable to save the teacher account. Check your connection and try again.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -58,8 +65,8 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
           <input id="name" className={`field-input${errs.name?' error':''}`} placeholder="e.g. Juan Dela Cruz"
             value={form.name} onChange={(e)=>set('name',e.target.value)} onBlur={()=>setErrs(p=>({...p,name:validate().name}))} />
         </FormField>
-        <FormField label="School Email" required id="email" error={errs.email} hint="Must end in @lnhs.edu.ph">
-          <input id="email" type="email" className={`field-input${errs.email?' error':''}`} placeholder="e.g. juan@lnhs.edu.ph"
+        <FormField label="School Email" required id="email" error={errs.email} hint="Must end in @lnhs.com">
+          <input id="email" type="email" className={`field-input${errs.email?' error':''}`} placeholder="e.g. juan@lnhs.com"
             value={form.email} onChange={(e)=>set('email',e.target.value)} onBlur={()=>setErrs(p=>({...p,email:validate().email}))} disabled={!!existing} />
         </FormField>
         {(!existing || existing.uid) && (
@@ -95,6 +102,7 @@ function TeacherModal({ onClose, onSave, existing, sections }) {
             A Firebase Authentication account will be created with this password. Passwords are never stored in Firestore.
           </Alert>
         )}
+        {saveError && <Alert type="error" onClose={() => setSaveError('')}>{saveError}</Alert>}
       </div>
     </Modal>
   );
@@ -127,6 +135,7 @@ export default function Teachers() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing]     = useState(null);
   const [success, setSuccess]     = useState('');
+  const [approvingId, setApprovingId] = useState('');
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -160,11 +169,18 @@ export default function Teachers() {
   const approve = async (teacherId) => {
     const teacher = teachers.find((item) => (item.uid || item.id) === teacherId);
     if (!teacher) return;
-    await saveTeacher({ ...teacher, approved: true });
-    setSuccess(teacher.uid
-      ? 'Teacher approved. Role claims will be assigned by the backend.'
-      : 'Teacher record approved. No Firebase Auth account is linked.');
-    setTimeout(() => setSuccess(''), 4000);
+    setApprovingId(teacherId);
+    try {
+      await saveTeacher({ ...teacher, approved: true });
+      setSuccess(teacher.uid
+        ? 'Teacher approved. Role claims will be assigned by the backend.'
+        : 'Teacher record approved. No Firebase Auth account is linked.');
+      setTimeout(() => setSuccess(''), 4000);
+    } catch {
+      return;
+    } finally {
+      setApprovingId('');
+    }
   };
 
   const requestDelete = (teacher) => {
@@ -297,7 +313,7 @@ export default function Teachers() {
                         <Trash2 size={12} /> Delete
                       </Button>
                       {!t.approved && (
-                        <Button variant="outline" className="table-action--approve" size="sm" onClick={() => approve(t.uid || t.id)} title="Approve teacher" aria-label={`Approve ${t.name || 'teacher'}`}>
+                        <Button variant="outline" className="table-action--approve" size="sm" loading={approvingId === (t.uid || t.id)} onClick={() => approve(t.uid || t.id)} title="Approve teacher" aria-label={`Approve ${t.name || 'teacher'}`}>
                           <CheckCircle size={12} /> Approve
                         </Button>
                       )}

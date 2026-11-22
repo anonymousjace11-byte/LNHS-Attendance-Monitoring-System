@@ -382,8 +382,6 @@ export function DataProvider({ children }) {
     };
     const handleError = (snapshotError) => {
       if (cancelled) return;
-      const transientCodes = new Set(['unavailable', 'cancelled', 'deadline-exceeded', 'resource-exhausted']);
-      if (transientCodes.has(snapshotError?.code)) return;
       setError(snapshotError.message || 'Unable to load live attendance data.');
       setLoading(false);
     };
@@ -435,13 +433,12 @@ export function DataProvider({ children }) {
         }
 
         const failedResults = results.filter((result) => result.error);
-        const meaningfulFailures = failedResults.filter(({ error: reason }) =>
-          reason !== 'network/CORS failure'
-          && !/network|failed to fetch|fetch failed|typeerror|timeout/i.test(reason)
+        const connectionFailures = failedResults.filter(({ error: reason }) =>
+          /network|fetch failed|load failed|typeerror|timeout|unavailable|offline/i.test(reason)
         );
-        setStaffDataError(meaningfulFailures.length
-          ? meaningfulFailures.map(({ key, error: reason }) => `${key}: ${reason}`).join('; ')
-          : '');
+        setStaffDataError(connectionFailures.length
+          ? `Connection issue while loading ${connectionFailures.map(({ key }) => key).join(', ')}. Check your network and try again.`
+          : failedResults.map(({ key, error: reason }) => `${key}: ${reason}`).join('; '));
       } catch (requestError) {
         if (!cancelled) {
           setStaffDataError(requestError?.name === 'TypeError'
@@ -619,8 +616,12 @@ export function DataProvider({ children }) {
 
   async function saveStudent(student, photoFile) {
     const photoUrl = photoFile ? await uploadStudentPhoto(student.id, photoFile) : student.photoUrl;
-    let updatedStudent = { ...student, ...(photoUrl ? { photoUrl } : {}) };
-    const existingStudent = data.students.find((record) => record.id === updatedStudent.id);
+    const existingStudent = data.students.find((record) => record.id === student.id);
+    let updatedStudent = {
+      ...student,
+      ...(!existingStudent && !student.createdAt ? { createdAt: new Date() } : {}),
+      ...(photoUrl ? { photoUrl } : {}),
+    };
     const existingParentContact = data.parentContacts.find((contact) => contact.studentId === updatedStudent.id);
     if (!updatedStudent.qrValue && !updatedStudent.qrUuid) {
       await setDoc(doc(db, 'students', updatedStudent.id), updatedStudent, { merge: true });

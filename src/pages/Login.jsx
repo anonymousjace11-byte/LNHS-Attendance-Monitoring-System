@@ -138,7 +138,7 @@ export default function Login() {
                     id="email"
                     type="email"
                     className={`field-input ${emailError ? 'error' : ''}`}
-                    placeholder="e.g. juan@lnhs.edu.ph"
+                    placeholder="e.g. juan@lnhs.com"
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     onBlur={() => setTouched((current) => ({ ...current, email: true }))}
