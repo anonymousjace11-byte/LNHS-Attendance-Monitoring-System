@@ -1,5 +1,5 @@
 import { forwardRef } from 'react';
-import walkingStudentAnimation from '../imports/walking-student.gif';
+import walkingStudentAnimation from '../imports/walking-student-loop.gif';
 
 /**
  * Unified Button with skew-fill hover animation.

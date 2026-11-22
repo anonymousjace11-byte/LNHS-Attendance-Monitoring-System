@@ -78,6 +78,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
   } : { ...EMPTY_FORM, studentCode: nextStudentCode(studentCodes) });
   const [errors, setErrors] = useState({});
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(existing?.photoUrl || '');
 
@@ -99,6 +100,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
     }
 
     setSaving(true);
+    setSaveError('');
     const namePartsUnchanged = existing
       && form.lastName === existingName.lastName
       && form.firstName === existingName.firstName
@@ -126,6 +128,8 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
         ...(existing?.qrUuid ? { qrUuid: existing.qrUuid } : {}),
       }, photoFile);
       onClose();
+    } catch (error) {
+      setSaveError(error.message || 'Unable to save the student record.');
     } finally {
       setSaving(false);
     }
@@ -207,10 +211,22 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
 
       <div className="modal-section">
         <div className="modal-section__label">Student Photo</div>
+        {saveError && <Alert type="error">{saveError}</Alert>}
         <FormField hint="Optional. JPG or PNG, used on the student ID card.">
           <input type="file" accept="image/jpeg,image/png" className="field-input" onChange={(event) => {
             const file = event.target.files?.[0];
             if (!file) return;
+            if (!['image/jpeg', 'image/png'].includes(file.type)) {
+              setSaveError('Choose a JPG or PNG photo.');
+              setPhotoFile(null);
+              return;
+            }
+            if (file.size > 7 * 1024 * 1024) {
+              setSaveError('Student photos must be smaller than 7 MB.');
+              setPhotoFile(null);
+              return;
+            }
+            setSaveError('');
             setPhotoFile(file);
             setPhotoPreview(URL.createObjectURL(file));
           }} />

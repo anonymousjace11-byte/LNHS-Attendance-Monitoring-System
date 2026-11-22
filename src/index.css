@@ -4133,7 +4133,7 @@ html[data-theme='dark'] .card:not(.students-table-card):has(.data-table) .data-t
   justify-content: center;
   overflow: hidden;
 }
-.btn-loading-indicator img { display: block; width: 24px; height: 24px; object-fit: contain; }
+.btn-loading-indicator img { display: block; width: 24px; height: 24px; object-fit: contain; filter: brightness(0) invert(1); }
 
 .app-toast {
   display: grid;

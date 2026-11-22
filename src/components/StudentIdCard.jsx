@@ -5,6 +5,7 @@ import jsPDF from 'jspdf';
 import './StudentIdCard.css';
 import lnhsLogo from '../imports/LNHS LOGO.png';
 import bsitSeal from '../imports/TEAM SEAL.png';
+import walkingStudentAnimation from '../imports/walking-student-loop.gif';
 
 const ID_WIDTH_MM = 66;
 const ID_HEIGHT_MM = 100;
@@ -34,6 +35,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   const [photoX, setPhotoX] = useState(0);
   const [photoY, setPhotoY] = useState(0);
   const [photoSaving, setPhotoSaving] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const viewportRef = useRef(null);
   const frontRef = useRef(null);
   const backRef = useRef(null);
@@ -256,6 +258,17 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   function handlePhotoSelect(event) {
     const file = event.target.files?.[0];
     if (!file) return;
+    event.target.value = '';
+    if (!['image/jpeg', 'image/png'].includes(file.type)) {
+      setPhotoError('Choose a JPG or PNG image.');
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setPhotoError('Choose an image smaller than 15 MB.');
+      return;
+    }
+    if (photoDraft?.url) URL.revokeObjectURL(photoDraft.url);
+    setPhotoError('');
     setPhotoDraft({ file, url: URL.createObjectURL(file) });
     setPhotoScale(1);
     setPhotoX(0);
@@ -266,6 +279,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   async function saveCroppedPhoto() {
     if (!photoDraft || !onPhotoUpload) return;
     setPhotoSaving(true);
+    setPhotoError('');
     try {
       const image = new Image();
       image.src = photoDraft.url;
@@ -294,6 +308,8 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
       await onPhotoUpload(new File([blob], `${student.id || 'student'}-photo.jpg`, { type: 'image/jpeg' }));
       URL.revokeObjectURL(photoDraft.url);
       setPhotoDraft(null);
+    } catch (error) {
+      setPhotoError(error.message || 'Unable to save the student photo. Please try again.');
     } finally {
       setPhotoSaving(false);
     }
@@ -522,6 +538,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
           <button className="student-id-print" type="button" onClick={requestPrint}>Print Student ID</button>
         )}
       </div>
+      {photoError && !photoDraft && <p className="student-id-photo-error student-id-photo-error--selection" role="alert">{photoError}</p>}
 
       {photoDraft && (
         <div className="student-id-crop-editor no-print">
@@ -537,10 +554,11 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
             <label>Horizontal <input type="range" min="-80" max="80" value={photoX} onChange={(event) => setPhotoX(Number(event.target.value))} /></label>
             <label>Vertical <input type="range" min="-80" max="80" value={photoY} onChange={(event) => setPhotoY(Number(event.target.value))} /></label>
           </div>
+          {photoError && <p className="student-id-photo-error" role="alert">{photoError}</p>}
           <div className="student-id-crop-actions">
-            <button type="button" className="student-id-print student-id-print-secondary" onClick={() => { URL.revokeObjectURL(photoDraft.url); setPhotoDraft(null); }}>Cancel</button>
+            <button type="button" className="student-id-print student-id-print-secondary" onClick={() => { URL.revokeObjectURL(photoDraft.url); setPhotoDraft(null); setPhotoError(''); }} disabled={photoSaving}>Cancel</button>
             <button type="button" className="student-id-print" onClick={saveCroppedPhoto} disabled={photoSaving}>
-              {photoSaving ? 'Saving Photo…' : 'Save Photo'}
+              {photoSaving ? <><img src={walkingStudentAnimation} alt="" aria-hidden="true" /> Saving Photo…</> : 'Save Photo'}
             </button>
           </div>
         </div>

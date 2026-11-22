@@ -11,6 +11,8 @@ services:
         value: production
       - key: FIREBASE_PROJECT_ID
         value: attendance-monitoring-73028
+      - key: FIREBASE_STORAGE_BUCKET
+        sync: false
       - key: FIREBASE_SERVICE_ACCOUNT_JSON
         sync: false
       - key: QR_SIGNING_SECRET

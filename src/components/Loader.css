@@ -90,14 +90,16 @@
 .loader-student-gif {
   position: absolute;
   bottom: calc(17% - 10px);
-  left: -20%;
+  left: 0;
   z-index: 4;
   width: 140px;
   height: 140px;
   display: block;
   object-fit: contain;
   filter: brightness(0) invert(1) drop-shadow(0 1px 2px rgba(0, 0, 0, .65));
-  animation: walk-across 8.4s linear infinite;
+  transform: translate3d(-100%, 0, 0);
+  will-change: transform, opacity;
+  animation: walk-across 5.88s linear infinite;
 }
 
 .app-loader__caption {
@@ -152,18 +154,18 @@
 
 @keyframes walk-across {
   0% {
-    left: -20%;
+    transform: translate3d(-100%, 0, 0);
     opacity: 0;
   }
   10% {
     opacity: 1;
   }
   80% {
-    left: 100%;
+    transform: translate3d(calc(100vw - 140px), 0, 0);
     opacity: 1;
   }
   100% {
-    left: 120%;
+    transform: translate3d(calc(100vw + 140px), 0, 0);
     opacity: 0;
   }
 }

@@ -1,7 +1,7 @@
 import './Loader.css';
 import schoolPhoto from '../imports/lnhs-banner.png';
 import teamSeal from '../imports/TEAM SEAL.png';
-import walkingStudentAnimation from '../imports/walking-student.gif';
+import walkingStudentAnimation from '../imports/walking-student-loop.gif';
 
 export default function Loader({ exiting = false }) {
   return (

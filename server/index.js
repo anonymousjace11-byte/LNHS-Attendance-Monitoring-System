@@ -6,6 +6,7 @@ const admin = require("firebase-admin");
 const { getApps, initializeApp, cert, applicationDefault } = require("firebase-admin/app");
 const { getAuth } = require("firebase-admin/auth");
 const { getFirestore } = require("firebase-admin/firestore");
+const { getStorage } = require("firebase-admin/storage");
 const cloudinary = require("cloudinary").v2;
 const fs = require("fs");
 const crypto = require("crypto");
@@ -452,34 +453,48 @@ app.get("/admin/health", async (req, res) => {
 app.post("/admin/upload-student-photo", async (req, res) => {
   const authResult = await verifyAdminRequest(req);
   if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ error: authResult.error });
-  if (!cloudinaryConfigured) {
-    return res.status(503).json({ error: "Cloudinary is not configured. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to the server environment." });
-  }
-
   const { studentId, imageBase64, contentType = "image/jpeg" } = req.body || {};
   if (!isValidStudentId(studentId) || !imageBase64) return res.status(400).json({ error: "Invalid studentId or missing imageBase64" });
-  if (!String(contentType).startsWith("image/")) return res.status(400).json({ error: "Only image uploads are allowed" });
+  if (!["image/jpeg", "image/png"].includes(contentType)) return res.status(400).json({ error: "Choose a JPG or PNG student photo." });
 
   try {
     const imageBuffer = Buffer.from(imageBase64, "base64");
-    if (imageBuffer.length > 8 * 1024 * 1024) {
-      return res.status(413).json({ error: "Photo must be smaller than 8 MB." });
+    if (!imageBuffer.length || imageBuffer.length > 7 * 1024 * 1024) {
+      return res.status(413).json({ error: "Student photos must be smaller than 7 MB." });
     }
 
-    const uploadResult = await new Promise((resolve, reject) => {
-      const uploadStream = cloudinary.uploader.upload_stream({
-        folder: "attendance-system/students",
-        public_id: studentId,
-        resource_type: "image",
-        overwrite: true,
-        invalidate: true
-      }, (error, result) => error ? reject(error) : resolve(result));
-      uploadStream.end(imageBuffer);
+    if (cloudinaryConfigured) {
+      const uploadResult = await new Promise((resolve, reject) => {
+        const uploadStream = cloudinary.uploader.upload_stream({
+          folder: "attendance-system/students",
+          public_id: studentId,
+          resource_type: "image",
+          overwrite: true,
+          invalidate: true
+        }, (error, result) => error ? reject(error) : resolve(result));
+        uploadStream.end(imageBuffer);
+      });
+      return res.json({ success: true, photoUrl: uploadResult.secure_url, assetId: uploadResult.asset_id });
+    }
+
+    const bucket = getStorage().bucket();
+    const objectName = `student-photos/${studentId}`;
+    const downloadToken = crypto.randomUUID();
+    await bucket.file(objectName).save(imageBuffer, {
+      resumable: false,
+      metadata: {
+        contentType,
+        metadata: { firebaseStorageDownloadTokens: downloadToken },
+      },
     });
-    return res.json({ success: true, photoUrl: uploadResult.secure_url, assetId: uploadResult.asset_id });
+    const photoUrl = `https://firebasestorage.googleapis.com/v0/b/${bucket.name}/o/${encodeURIComponent(objectName)}?alt=media&token=${downloadToken}`;
+    return res.json({ success: true, photoUrl });
   } catch (error) {
     console.error("Admin student photo upload error:", error);
-    return res.status(502).json({ error: "Cloudinary rejected the student photo upload." });
+    const message = cloudinaryConfigured
+      ? "Cloudinary rejected the student photo upload."
+      : "Firebase Storage is unavailable. Enable Storage for this Firebase project and grant the server service account access to its bucket.";
+    return res.status(cloudinaryConfigured ? 502 : 503).json({ error: message });
   }
 });
 
@@ -1550,6 +1565,14 @@ app.delete("/admin/students/:studentId", async (req, res) => {
           resource_type: "image",
         });
         photoCleanup = result.result || "unknown";
+      } catch (photoError) {
+        photoCleanup = "failed";
+        console.error("Student photo cleanup error:", photoError.message);
+      }
+    } else if (/^https:\/\/firebasestorage\.googleapis\.com\/v0\/b\/[^/]+\/o\/student-photos%2f/i.test(String(student.photoUrl || ""))) {
+      try {
+        await getStorage().bucket().file(`student-photos/${studentId}`).delete({ ignoreNotFound: true });
+        photoCleanup = "deleted";
       } catch (photoError) {
         photoCleanup = "failed";
         console.error("Student photo cleanup error:", photoError.message);

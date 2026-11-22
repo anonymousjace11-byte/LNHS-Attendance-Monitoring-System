@@ -585,6 +585,10 @@
 .student-id-crop-controls label { display: grid; gap: 4px; color: var(--text-sub); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .student-id-crop-controls input { width: 100%; accent-color: var(--navy-800); }
 .student-id-crop-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; }
+.student-id-crop-actions .student-id-print:not(.student-id-print-secondary) { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+.student-id-crop-actions .student-id-print img { width: 22px; height: 22px; object-fit: contain; filter: brightness(0) invert(1); }
+.student-id-photo-error { grid-column: 1 / -1; margin: 0; color: var(--danger); font-size: 12px; line-height: 1.4; }
+.student-id-photo-error--selection { text-align: center; }
 .student-id-print-secondary { background: var(--bg-card); color: var(--navy-800); border-color: var(--border-strong); }
 
 /* ── Mobile ── */
