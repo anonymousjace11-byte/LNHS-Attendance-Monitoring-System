@@ -346,6 +346,13 @@ function getAttendanceScans(record = {}) {
   }
   return scans;
 }
+function markEarlierPeriodsAbsent(scans, period) {
+  const periodIndex = attendancePeriods.indexOf(period);
+  for (const earlierPeriod of attendancePeriods.slice(0, periodIndex)) {
+    if (!scans[earlierPeriod]) scans[earlierPeriod] = { time: "", status: "absent", smsStatus: "skipped" };
+  }
+  return scans;
+}
 async function sendSemaphoreSms(message, recipientPhone, settings = {}) {
   const apiKey = settings.apiKey ?? semaphoreApiKey;
   const senderName = settings.senderName ?? semaphoreSenderName;
@@ -859,6 +866,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
       const current = snapshot.exists ? snapshot.data() || {} : {};
       const scans = getAttendanceScans(current);
       if (scans[period]) return { duplicate: true, scans };
+      markEarlierPeriodsAbsent(scans, period);
       const scanCount = attendancePeriods.filter(item => scans[item]).length;
       if (scanCount >= attendancePeriods.length) return { limitReached: true, scans };
 
@@ -994,6 +1002,7 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
       const current = snapshot.exists ? snapshot.data() || {} : {};
       const scans = getAttendanceScans(current);
       if (scans[period]) return { duplicate: true, scans };
+      markEarlierPeriodsAbsent(scans, period);
 
       const sanitizedReason = String(reason).trim().slice(0, 240);
       scans[period] = {
@@ -1066,6 +1075,7 @@ app.post("/attendance/excuse", requireStaffAuth, attendanceLimiter, async (req, 
       const scans = getAttendanceScans(current);
       if (scans[period]) return { duplicate: true, scans };
       if (attendancePeriods.filter(item => scans[item]).length >= attendancePeriods.length) return { duplicate: true, scans };
+      markEarlierPeriodsAbsent(scans, period);
 
       const sanitizedReason = String(reason).trim().slice(0, 240);
       scans[period] = { time, status: "excused", smsStatus: "skipped", ...(sanitizedReason ? { reason: sanitizedReason } : {}) };

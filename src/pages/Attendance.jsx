@@ -61,9 +61,11 @@ function formatAttendanceTime(value) {
 }
 
 function getPeriodScan(record, period) {
-  if (record.scans) return record.scans[period] || null;
   if (record.scans?.[period]) return record.scans[period];
-  if (period === 'AM-1' && record.status) {
+  const periodIndex = PERIODS.indexOf(period);
+  const laterPeriodWasRecorded = PERIODS.slice(periodIndex + 1).some((item) => record.scans?.[item]);
+  if (laterPeriodWasRecorded) return { time: '', status: 'absent', smsStatus: 'skipped' };
+  if (period === 'AM-1' && record.status && (!record.scans || !Object.keys(record.scans).length)) {
     return { time: record.time || null, status: record.status, smsStatus: record.smsStatus };
   }
   return null;
