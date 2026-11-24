@@ -10,8 +10,14 @@ import PageCover from '../components/PageCover';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
+const SECTION_TRACKS = {
+  'Academic Track': ['HUMSS', 'STEM', 'ABM'],
+  'Tech Pro Track': ['TVL', 'Electrical', 'Carpentry'],
+};
+
 function SectionModal({ onClose, onSave, existing, advisers }) {
-  const [form, setForm] = useState(existing ?? { name:'', grade:'12', room:'', strand:'STEM', adviser:'' });
+  const existingTrack = existing?.track || (['TVL', 'Electrical', 'Carpentry'].includes(existing?.strand) ? 'Tech Pro Track' : 'Academic Track');
+  const [form, setForm] = useState(existing ? { ...existing, track: existingTrack } : { name:'', grade:'12', room:'', track:'Academic Track', strand:'HUMSS', adviser:'' });
   const [errs, setErrs] = useState({});
   const [saving, setSaving] = useState(false);
 
@@ -57,9 +63,17 @@ function SectionModal({ onClose, onSave, existing, advisers }) {
               value={form.room} onChange={(e)=>set('room',e.target.value)} />
           </FormField>
         </div>
-        <FormField label="Strand" id="sec-strand">
+        <FormField label="Track" id="sec-track">
+          <select id="sec-track" className="field-input" value={form.track} onChange={(e)=>{
+            const track = e.target.value;
+            setForm((current) => ({ ...current, track, strand: SECTION_TRACKS[track][0] }));
+          }}>
+            {Object.keys(SECTION_TRACKS).map(track => <option key={track}>{track}</option>)}
+          </select>
+        </FormField>
+        <FormField label="Strand / Course" id="sec-strand">
           <select id="sec-strand" className="field-input" value={form.strand} onChange={(e)=>set('strand',e.target.value)}>
-            {['STEM','ABM','HUMSS','TVL','GAS'].map(s=><option key={s}>{s}</option>)}
+            {SECTION_TRACKS[form.track].map(strand => <option key={strand}>{strand}</option>)}
           </select>
         </FormField>
         <FormField label="Adviser" required id="sec-adviser" error={errs.adviser}>
@@ -201,7 +215,9 @@ export default function Sections() {
                     </div>
                     <div style={{ fontSize:'.8rem', color:'var(--text-muted)', marginTop:'1px' }}>{displayValue(sec.room)}</div>
                   </div>
-                  <span className="badge badge-navy">{displayValue(sec.strand)}</span>
+                  <span className="badge badge-navy">
+                    {displayValue(sec.track || (['TVL', 'Electrical', 'Carpentry'].includes(sec.strand) ? 'Tech Pro Track' : 'Academic Track'))} / {displayValue(sec.strand)}
+                  </span>
                 </div>
                 <div className="space-y-1.5 mb-4 text-sm">
                   <div className="flex justify-between">

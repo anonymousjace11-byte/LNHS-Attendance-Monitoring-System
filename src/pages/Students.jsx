@@ -14,10 +14,30 @@ import { downloadCsv } from '../utils/csvExport';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
 
-const STRANDS = ['All Strands', 'STEM', 'ABM', 'HUMSS', 'TVL', 'GAS'];
+const TRACK_OPTIONS = ['Academic Track', 'Tech Pro Track'];
+const TRACK_STRANDS = {
+  'Academic Track': ['HUMSS', 'STEM', 'ABM'],
+  'Tech Pro Track': ['TVL', 'Electrical', 'Carpentry'],
+};
+const TRACK_SECTIONS = {
+  'HUMSS': ['Socrates', 'Plato', 'Confusious'],
+  'STEM': ['Euler', 'Gaus'],
+  'ABM': ['Dirham'],
+  'TVL': ['Muffin', 'Champagne', 'Cinnamon'],
+  'Electrical': ['Watts'],
+  'Carpentry': ['Hammer'],
+};
+const SECTION_NAME_ALIASES = {
+  HUMSS: ['socrates', 'plato', 'confusious', 'confucious'],
+  STEM: ['euler', 'gaus', 'gauss'],
+  ABM: ['dirham'],
+  TVL: ['muffin', 'champagne', 'cinnamon'],
+  Electrical: ['watts'],
+  Carpentry: ['hammer'],
+};
 const PAGE_SIZE = 10;
 const EMPTY_FORM = {
-  lastName: '', firstName: '', middle: '', studentCode: '', strand: 'STEM',
+  lastName: '', firstName: '', middle: '', studentCode: '', track: 'Academic Track', strand: 'HUMSS',
   gender: '', sectionId: '', section: '', adviser: '', parentName: '', parentPhone: '', relationship: 'Parent',
 };
 
@@ -38,6 +58,13 @@ function splitStudentName(value) {
   }
   const parts = name.split(/\s+/).filter(Boolean);
   return { lastName: parts.pop() || '', firstName: parts.join(' '), middle: '' };
+}
+
+function sectionMatchesCourse(section, course) {
+  const normalize = (value) => String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (section.strand && TRACK_SECTIONS[section.strand]) return section.strand === course;
+  const normalizedName = normalize(section.name);
+  return SECTION_NAME_ALIASES[course]?.some((alias) => normalizedName.includes(normalize(alias))) || false;
 }
 
 function validate(form, existing) {
@@ -68,7 +95,8 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
     firstName: existingName.firstName,
     middle: existingName.middle,
     studentCode: existing.studentCode || existing.code || existing.id,
-    strand: existing.strand || 'STEM',
+    track: existing.track || (['TVL', 'Electrical', 'Carpentry'].includes(existing.strand) ? 'Tech Pro Track' : 'Academic Track'),
+    strand: existing.strand || 'HUMSS',
     gender: existing.gender || '',
     sectionId: existing.sectionId || existingSection?.id || '',
     section: existingSection?.name || existing.section || '',
@@ -82,6 +110,10 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
   const [saveError, setSaveError] = useState('');
   const [photoFile, setPhotoFile] = useState(null);
   const [photoPreview, setPhotoPreview] = useState(existing?.photoUrl || '');
+  const courseSections = sections.filter((section) => sectionMatchesCourse(section, form.strand));
+  const sectionChoices = courseSections.length
+    ? courseSections
+    : TRACK_SECTIONS[form.strand].map((name) => ({ id: name, name, strand: form.strand }));
 
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const handleBlur = (key) => {
@@ -116,6 +148,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
         id: existing ? existing.id : form.studentCode.trim(),
         studentCode: form.studentCode.trim(),
         name,
+        track: form.track,
         strand: form.strand,
         gender: form.gender,
         sectionId: form.sectionId,
@@ -186,19 +219,30 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
               <option value="Female">Female</option>
             </select>
           </FormField>
-          <FormField label="Strand" id="strand">
-            <select id="strand" className="field-input" value={form.strand} onChange={(event) => setField('strand', event.target.value)}>
-              {STRANDS.slice(1).map((strand) => <option key={strand}>{strand}</option>)}
+          <FormField label="Track" id="track">
+            <select id="track" className="field-input" value={form.track} onChange={(event) => {
+              const track = event.target.value;
+              const strand = TRACK_STRANDS[track][0];
+              setForm((current) => ({ ...current, track, strand, sectionId: '', section: '' }));
+            }}>
+              {TRACK_OPTIONS.map((track) => <option key={track}>{track}</option>)}
+            </select>
+          </FormField>
+          <FormField label="Strand / Course" id="strand">
+            <select id="strand" className="field-input" value={form.strand} onChange={(event) => {
+              setForm((current) => ({ ...current, strand: event.target.value, sectionId: '', section: '' }));
+            }}>
+              {TRACK_STRANDS[form.track].map((strand) => <option key={strand}>{strand}</option>)}
             </select>
           </FormField>
           <FormField label="Section" required id="section" error={errors.section}>
             <select id="section" className={`field-input${errors.section ? ' error' : ''}`} value={form.sectionId}
               onChange={(event) => {
-                const section = sections.find((item) => item.id === event.target.value);
-                setForm((current) => ({ ...current, sectionId: event.target.value, section: section?.name || '' }));
+                const selectedSection = sectionChoices.find((item) => item.id === event.target.value);
+                setForm((current) => ({ ...current, sectionId: event.target.value, section: selectedSection?.name || '' }));
               }}>
               <option value="">Select section...</option>
-              {sections.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+              {sectionChoices.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </FormField>
           <FormField label="Adviser" id="adviser">
@@ -237,16 +281,16 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
 
       <div className="modal-section">
         <div className="modal-section__label">Parent / Guardian Contact</div>
-        <p className="modal-section__hint">Required for parent or guardian attendance notifications.</p>
+        <p className="modal-section__hint">Required. In case of emergency, contact this parent or guardian.</p>
         <div className="student-form-grid student-form-grid--two">
-          <FormField label="Parent / Guardian Name" required id="parentName" error={errors.parentName}>{input('parentName', 'text', { placeholder: 'e.g. Maria Santos', required: true, 'aria-required': 'true' })}</FormField>
+          <FormField label="Parent / Guardian (Emergency Contact)" required id="parentName" error={errors.parentName}>{input('parentName', 'text', { placeholder: 'e.g. Maria Santos', required: true, 'aria-required': 'true' })}</FormField>
           <FormField label="Relationship" id="relationship">
             <select id="relationship" className="field-input" value={form.relationship} onChange={(event) => setField('relationship', event.target.value)}>
               {['Parent', 'Guardian', 'Grandparent', 'Sibling', 'Other'].map((relationship) => <option key={relationship}>{relationship}</option>)}
             </select>
           </FormField>
         </div>
-        <FormField label="Mobile Number" required id="parentPhone" error={errors.parentPhone} hint="Philippine format: +63XXXXXXXXXX" className="student-phone-field">
+        <FormField label="Emergency Contact Number" required id="parentPhone" error={errors.parentPhone} hint="Required · Philippine format: +63XXXXXXXXXX" className="student-phone-field">
           {input('parentPhone', 'tel', {
             placeholder: 'e.g. 09XXXXXXXXX or +639XXXXXXXXX',
             required: true,
@@ -284,7 +328,8 @@ export default function Students() {
   const { students: liveStudents, sections, teachers, parentContacts, saveStudent, deleteStudent } = useData();
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
-  const [strand, setStrand] = useState('All Strands');
+  const [track, setTrack] = useState('All Tracks');
+  const [course, setCourse] = useState('All Courses');
   const [section, setSection] = useState('All Sections');
   const [sortColumn, setSortColumn] = useState('studentId');
   const [sortDirection, setSortDirection] = useState('asc');
@@ -296,13 +341,14 @@ export default function Students() {
   const [exportIdWhenReady, setExportIdWhenReady] = useState(false);
 
   const exportStudents = () => {
-    const headers = ['Student ID', 'Name', 'Strand', 'Section', 'Adviser', 'Parent / Guardian', 'Parent Phone', 'Gender', 'Status'];
+    const headers = ['Student ID', 'Name', 'Track', 'Strand / Course', 'Section', 'Adviser', 'Parent / Guardian', 'Parent Phone', 'Gender', 'Status'];
     const rows = sortedStudents.map((student) => {
       const parent = parentByStudentId.get(student.id);
       const section = student.section || sectionById.get(student.sectionId)?.name || '';
       return [
         displayValue(student.studentCode || student.code || student.id),
         displayValue(student.name),
+        displayValue(student.track || (['TVL', 'Electrical', 'Carpentry'].includes(student.strand) ? 'Tech Pro Track' : 'Academic Track')),
         displayValue(student.strand),
         displayValue(section),
         displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser),
@@ -328,21 +374,28 @@ export default function Students() {
     [students],
   );
   const sectionOptions = useMemo(() => ['All Sections', ...Array.from(new Set(
-    students.map((student) => student.section || sectionById.get(student.sectionId)?.name)
+    sections.filter((item) => course === 'All Courses' || sectionMatchesCourse(item, course))
+      .map((item) => item.name)
       .filter(Boolean)
-  ))].sort((a, b) => a === 'All Sections' ? -1 : b === 'All Sections' ? 1 : a.localeCompare(b)), [students, sectionById]);
+  ))].sort((a, b) => a === 'All Sections' ? -1 : b === 'All Sections' ? 1 : a.localeCompare(b)), [sections, course]);
+
+  const courseOptions = useMemo(() => track === 'All Tracks'
+    ? ['All Courses', ...Object.values(TRACK_STRANDS).flat()] 
+    : ['All Courses', ...TRACK_STRANDS[track]], [track]);
 
   const filtered = useMemo(() => students.filter((student) => {
     const query = search.trim().toLowerCase();
     const name = String(student.name || '').toLowerCase();
     const id = String(student.id || '').toLowerCase();
     const studentSection = student.section || sectionById.get(student.sectionId)?.name || '';
+    const studentTrack = student.track || (['TVL', 'Electrical', 'Carpentry'].includes(student.strand) ? 'Tech Pro Track' : 'Academic Track');
     return (!query || name.includes(query) || id.includes(query))
-      && (strand === 'All Strands' || student.strand === strand)
+      && (track === 'All Tracks' || studentTrack === track)
+      && (course === 'All Courses' || student.strand === course)
       && (section === 'All Sections' || studentSection === section);
-  }), [students, search, strand, section, sectionById]);
+  }), [students, search, track, course, section, sectionById]);
 
-  useEffect(() => setCurrentPage(1), [search, strand, section]);
+  useEffect(() => setCurrentPage(1), [search, track, course, section]);
 
   const displayStudentId = (student) => {
     const source = student.studentCode || student.code;
@@ -356,6 +409,7 @@ export default function Students() {
   const sortedStudents = useMemo(() => sortRows(filtered, sortColumn, sortDirection, (student, column) => {
     if (column === 'studentId') return displayStudentId(student);
     if (column === 'section') return student.section || sectionById.get(student.sectionId)?.name || '';
+    if (column === 'track') return student.track || (['TVL', 'Electrical', 'Carpentry'].includes(student.strand) ? 'Tech Pro Track' : 'Academic Track');
     if (column === 'status') return student.active ? 'Active' : 'Inactive';
     return student[column] || '';
   }), [filtered, sortColumn, sortDirection, sectionById]);
@@ -475,8 +529,11 @@ export default function Students() {
           <input className="toolbar__input" placeholder="Search by name or student ID..." value={search}
             onChange={(event) => setSearch(event.target.value)} aria-label="Search students by name or student ID" />
         </label>
-        <select className="field-input toolbar__select" value={strand} onChange={(event) => setStrand(event.target.value)} aria-label="Filter by strand">
-          {STRANDS.map((item) => <option key={item}>{item}</option>)}
+        <select className="field-input toolbar__select" value={track} onChange={(event) => { setTrack(event.target.value); setCourse('All Courses'); setSection('All Sections'); }} aria-label="Filter by track">
+          {['All Tracks', ...TRACK_OPTIONS].map((item) => <option key={item}>{item}</option>)}
+        </select>
+        <select className="field-input toolbar__select" value={course} onChange={(event) => { setCourse(event.target.value); setSection('All Sections'); }} aria-label="Filter by strand or course">
+          {courseOptions.map((item) => <option key={item}>{item}</option>)}
         </select>
         <select className="field-input toolbar__select" value={section} onChange={(event) => setSection(event.target.value)} aria-label="Filter by section">
           {sectionOptions.map((item) => <option key={item}>{item}</option>)}
@@ -489,7 +546,8 @@ export default function Students() {
             <thead><tr>
               <SortableHeader label="Student ID" column="studentId" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
               <SortableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
-              <SortableHeader label="Strand" column="strand" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <SortableHeader label="Track" column="track" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
+              <SortableHeader label="Strand / Course" column="strand" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
               <SortableHeader label="Section" column="section" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
               <th>Adviser</th><th>Parent Contact</th>
               <SortableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={changeSort} />
@@ -511,6 +569,7 @@ export default function Students() {
                       ].filter(Boolean).map(displayValue).join(' · ')}
                     </span>
                   </td>
+                  <td><span className="pill-strand badge-strand" data-strand={student.track}>{displayValue(student.track || (['TVL', 'Electrical', 'Carpentry'].includes(student.strand) ? 'Tech Pro Track' : 'Academic Track'))}</span></td>
                   <td><span className="pill-strand badge-strand" data-strand={student.strand}>{displayValue(student.strand)}</span></td>
                   <td>{displayValue(student.section || sectionById.get(student.sectionId)?.name)}</td>
                   <td>{displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser)}</td>
@@ -545,7 +604,7 @@ export default function Students() {
                   colSpan={8}
                   icon={Users}
                   title={students.length ? 'No students match these filters.' : 'No students yet.'}
-                  subtitle={students.length ? 'Try changing the search or strand filter.' : 'Add a student to get started.'}
+                  subtitle={students.length ? 'Try changing the search, track, course, or section filters.' : 'Add a student to get started.'}
                 />
               )}
             </tbody>
