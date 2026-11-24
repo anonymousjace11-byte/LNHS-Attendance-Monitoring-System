@@ -10,6 +10,14 @@ import { downloadCsv } from '../utils/csvExport';
 
 const STATUS_OPTS = ['All Status','Present','Late','Absent','Excused'];
 const PERIODS = ['AM-1', 'AM-2', 'PM-1', 'PM-2'];
+const ORDER_OPTIONS = [
+  ['newest', 'Newest first'],
+  ['oldest', 'Oldest first'],
+  ['name-asc', 'Student name A-Z'],
+  ['name-desc', 'Student name Z-A'],
+  ['section-asc', 'Section A-Z'],
+  ['section-desc', 'Section Z-A'],
+];
 const PAGE_SIZE = 10;
 
 function getAttendanceDateKey(value) {
@@ -77,6 +85,19 @@ function getArrivalStatus(record) {
   return record.status;
 }
 
+function getAttendanceUpdatedAt(record) {
+  const value = record.updatedAt || record.createdAt;
+  if (value instanceof Date) return value.getTime();
+  if (typeof value?.toDate === 'function') return value.toDate().getTime();
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  const seconds = Number(value?._seconds ?? value?.seconds);
+  if (Number.isFinite(seconds)) return seconds * 1000;
+  return 0;
+}
+
 export default function Attendance() {
   const [searchParams] = useSearchParams();
   const [search, setSearch]     = useState('');
@@ -122,7 +143,7 @@ export default function Attendance() {
   }), [records, search, section, status, period, dateFrom, dateTo]);
   useEffect(() => setCurrentPage(1), [search, section, status, period, dateFrom, dateTo]);
   const sortedRecords = sortRows(filtered, sortColumn, sortDirection, (record, column) => {
-    if (column === 'date') return record.date || '';
+    if (column === 'date') return `${record.date || ''}:${String(getAttendanceUpdatedAt(record)).padStart(16, '0')}`;
     if (column === 'student') return record.name || '';
     return record.section || '';
   });
@@ -131,8 +152,24 @@ export default function Attendance() {
     if (sortColumn === column) setSortDirection((direction) => direction === 'asc' ? 'desc' : 'asc');
     else {
       setSortColumn(column);
-      setSortDirection('asc');
+      setSortDirection(column === 'date' ? 'desc' : 'asc');
     }
+    setCurrentPage(1);
+  };
+  const selectedOrder = sortColumn === 'date'
+    ? (sortDirection === 'desc' ? 'newest' : 'oldest')
+    : `${sortColumn === 'student' ? 'name' : 'section'}-${sortDirection}`;
+  const applyOrder = (order) => {
+    const [column, direction] = {
+      newest: ['date', 'desc'],
+      oldest: ['date', 'asc'],
+      'name-asc': ['student', 'asc'],
+      'name-desc': ['student', 'desc'],
+      'section-asc': ['section', 'asc'],
+      'section-desc': ['section', 'desc'],
+    }[order];
+    setSortColumn(column);
+    setSortDirection(direction);
     setCurrentPage(1);
   };
   const exportFilteredCsv = () => {
@@ -266,6 +303,11 @@ export default function Attendance() {
         <div className="relative">
           <select className="field-input" value={status} onChange={(e)=>setStatus(e.target.value)}>
             {STATUS_OPTS.map(s=><option key={s}>{s}</option>)}
+          </select>
+        </div>
+        <div className="relative">
+          <select className="field-input" value={selectedOrder} onChange={(event) => applyOrder(event.target.value)} aria-label="Order attendance records">
+            {ORDER_OPTIONS.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </div>
       </div>
