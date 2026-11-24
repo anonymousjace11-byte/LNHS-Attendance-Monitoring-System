@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://lnhs-attendance-monitoring-system.vercel.app/sitemap.xml

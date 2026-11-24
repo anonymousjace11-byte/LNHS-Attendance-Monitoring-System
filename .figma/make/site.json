@@ -3,6 +3,6 @@
   "description": "Secure QR-based attendance monitoring for Looc National High School.",
   "language": "en",
   "robots": {
-    "index": false
+    "index": true
   }
 }
