@@ -10,6 +10,7 @@ import StudentIdCard from '../components/StudentIdCard';
 import PageCover from '../components/PageCover';
 import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
+import { downloadCsv } from '../utils/csvExport';
 import { displayValue } from '../utils/display';
 import { normalizePhilippinePhone } from '../utils/phone';
 
@@ -284,6 +285,7 @@ export default function Students() {
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [strand, setStrand] = useState('All Strands');
+  const [section, setSection] = useState('All Sections');
   const [sortColumn, setSortColumn] = useState('studentId');
   const [sortDirection, setSortDirection] = useState('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -292,6 +294,26 @@ export default function Students() {
   const [success, setSuccess] = useState('');
   const [previewStudent, setPreviewStudent] = useState(null);
   const [exportIdWhenReady, setExportIdWhenReady] = useState(false);
+
+  const exportStudents = () => {
+    const headers = ['Student ID', 'Name', 'Strand', 'Section', 'Adviser', 'Parent / Guardian', 'Parent Phone', 'Gender', 'Status'];
+    const rows = sortedStudents.map((student) => {
+      const parent = parentByStudentId.get(student.id);
+      const section = student.section || sectionById.get(student.sectionId)?.name || '';
+      return [
+        displayValue(student.studentCode || student.code || student.id),
+        displayValue(student.name),
+        displayValue(student.strand),
+        displayValue(section),
+        displayValue(student.adviser || sectionById.get(student.sectionId)?.adviser),
+        displayValue(parent?.parentName || student.parentName),
+        displayValue(parent?.parentPhone || student.parentPhone),
+        displayValue(student.gender),
+        student.active === false ? 'Inactive' : 'Active',
+      ];
+    });
+    downloadCsv([headers, ...rows], 'students.csv');
+  };
   const [deleting, setDeleting] = useState(null);
   const [deleteError, setDeleteError] = useState('');
   const [deleteLoading, setDeleteLoading] = useState(false);
@@ -305,15 +327,22 @@ export default function Students() {
     () => new Set(students.flatMap((student) => [student.id, student.studentCode, student.code].filter(Boolean))),
     [students],
   );
+  const sectionOptions = useMemo(() => ['All Sections', ...Array.from(new Set(
+    students.map((student) => student.section || sectionById.get(student.sectionId)?.name)
+      .filter(Boolean)
+  ))].sort((a, b) => a === 'All Sections' ? -1 : b === 'All Sections' ? 1 : a.localeCompare(b)), [students, sectionById]);
+
   const filtered = useMemo(() => students.filter((student) => {
     const query = search.trim().toLowerCase();
     const name = String(student.name || '').toLowerCase();
     const id = String(student.id || '').toLowerCase();
+    const studentSection = student.section || sectionById.get(student.sectionId)?.name || '';
     return (!query || name.includes(query) || id.includes(query))
-      && (strand === 'All Strands' || student.strand === strand);
-  }), [students, search, strand]);
+      && (strand === 'All Strands' || student.strand === strand)
+      && (section === 'All Sections' || studentSection === section);
+  }), [students, search, strand, section, sectionById]);
 
-  useEffect(() => setCurrentPage(1), [search, strand]);
+  useEffect(() => setCurrentPage(1), [search, strand, section]);
 
   const displayStudentId = (student) => {
     const source = student.studentCode || student.code;
@@ -432,7 +461,7 @@ export default function Students() {
         subtitle={`${students.length} registered · ${students.filter((student) => student.active).length} active`}
         actions={(
           <>
-          <Button variant="ghost" size="sm" type="button" aria-label="Export students"><Download size={13} /> Export</Button>
+          <Button variant="ghost" size="sm" type="button" aria-label="Export students" onClick={exportStudents}><Download size={13} /> Export</Button>
           <Button variant="primary" size="sm" onClick={() => { setEditing(null); setShowModal(true); }}><Plus size={13} /> Add Student</Button>
           </>
         )}
@@ -448,6 +477,9 @@ export default function Students() {
         </label>
         <select className="field-input toolbar__select" value={strand} onChange={(event) => setStrand(event.target.value)} aria-label="Filter by strand">
           {STRANDS.map((item) => <option key={item}>{item}</option>)}
+        </select>
+        <select className="field-input toolbar__select" value={section} onChange={(event) => setSection(event.target.value)} aria-label="Filter by section">
+          {sectionOptions.map((item) => <option key={item}>{item}</option>)}
         </select>
       </div>
 
