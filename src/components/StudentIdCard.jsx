@@ -437,6 +437,14 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                   </div>
                 </div>
 
+                <div className="id-card__emergency">
+                  <div className="id-card__emergency-label">In case of emergency, please contact</div>
+                  <div className="id-card__emergency-details">
+                    <strong>{student.parentName || 'Parent / Guardian'}</strong>
+                    <span>{student.parentPhone || 'No contact number'}</span>
+                  </div>
+                </div>
+
                 <div className="id-card__signatures">
                   <div className="id-card__signature">
                     <div className="id-card__signature-line" />

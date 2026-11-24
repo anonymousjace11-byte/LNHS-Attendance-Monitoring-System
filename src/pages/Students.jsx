@@ -494,7 +494,11 @@ export default function Students() {
       )}
       {previewStudent && (
         <Modal title="Student ID Preview" onClose={() => { setPreviewStudent(null); setExportIdWhenReady(false); }} maxWidth="1200px" className="student-id-preview-modal" portal>
-          <StudentIdCard student={previewStudent} onPhotoUpload={handlePreviewPhoto}
+          <StudentIdCard student={{
+            ...previewStudent,
+            parentName: parentByStudentId.get(previewStudent.id)?.parentName || previewStudent.parentName || '',
+            parentPhone: parentByStudentId.get(previewStudent.id)?.parentPhone || previewStudent.parentPhone || '',
+          }} onPhotoUpload={handlePreviewPhoto}
             onPrint={() => { void handleIdExport(previewStudent); }}
             onExport={() => handleIdExport(previewStudent)}
             autoExportPdf={exportIdWhenReady}
@@ -581,9 +585,18 @@ export default function Students() {
                       parentName: parent?.parentName || student.parentName || '',
                       parentPhone: parent?.parentPhone || student.parentPhone || '',
                     })} title="Edit student" aria-label={`Edit ${student.name || 'student'}`}><Pencil size={12} /> Edit</Button>
-                    <Button variant="outline" className="table-action--preview" size="sm" onClick={() => setPreviewStudent(student)} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
+                    <Button variant="outline" className="table-action--preview" size="sm" onClick={() => setPreviewStudent({
+                      ...student,
+                      parentName: parent?.parentName || student.parentName || '',
+                      parentPhone: parent?.parentPhone || student.parentPhone || '',
+                    })} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
                     <Button variant="outline" className="table-action--export" size="sm" onClick={() => {
-                      const exportStudent = { ...student, idCardGeneratedAt: new Date().toISOString() };
+                      const exportStudent = {
+                        ...student,
+                        parentName: parent?.parentName || student.parentName || '',
+                        parentPhone: parent?.parentPhone || student.parentPhone || '',
+                        idCardGeneratedAt: new Date().toISOString(),
+                      };
                       setPreviewStudent(exportStudent);
                       setExportIdWhenReady(true);
                     }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
