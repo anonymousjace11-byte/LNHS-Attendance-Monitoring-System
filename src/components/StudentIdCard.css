@@ -228,9 +228,9 @@
 
 .id-card__body {
   display: flex;
-  flex: 1;
+  flex: 0 0 auto;
   gap: 18px;
-  padding: 18px 22px;
+  padding: 16px 22px 10px;
   min-height: 0;
 }
 
@@ -272,7 +272,7 @@
   display: flex;
   align-items: baseline;
   gap: 8px;
-  margin: 8px 0 14px;
+  margin: 6px 0 8px;
   padding-bottom: 10px;
   border-bottom: 1px solid #e6eaee;
 }
@@ -292,7 +292,7 @@
 
 .id-card__fields {
   display: grid;
-  gap: 6px;
+  gap: 4px;
   margin: 0;
   font-size: 11px;
 }
@@ -318,8 +318,8 @@
 }
 
 .id-card__emergency {
-  margin: 0 22px;
-  padding: 8px 10px;
+  margin: 0 22px 4px;
+  padding: 7px 10px;
   border: 1px solid #d6b15a;
   border-radius: 4px;
   background: #fffaf0;
@@ -333,10 +333,11 @@
   text-transform: uppercase;
 }
 .id-card__emergency-details {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: initial;
+  gap: 8px;
   margin-top: 3px;
   min-width: 0;
 }
@@ -357,10 +358,11 @@
 
 .id-card__signatures {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 1fr 1fr;
   gap: 24px;
-  padding: 8px 22px 12px;
-  margin-top: auto;
+  padding: 6px 22px 8px;
+  margin-top: 0;
 }
 .id-card__signature { text-align: center; }
 .id-card__signature-line {
@@ -379,9 +381,10 @@
 /* Co-branding strip at the bottom of the front */
 .id-card__cobrand {
   display: grid;
+  flex: 0 0 auto;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
-  padding: 10px 20px;
+  padding: 8px 20px;
   border-top: 1px solid #e6eaee;
   background: #fafbfc;
 }
