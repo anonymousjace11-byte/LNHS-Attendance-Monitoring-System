@@ -519,16 +519,17 @@
   line-height: 1.5;
 }
 
-.id-card__back-steps {
+.id-card__back-emergency {
   margin-top: 10px;
-  padding: 8px 12px;
-  border: 1px solid #e6eaee;
+  padding: 10px 12px;
+  border: 1px solid #d6b15a;
   border-radius: 3px;
-  background: #fafbfc;
+  background: #fffaf0;
   width: 100%;
   max-width: 380px;
+  color: #0f2440;
 }
-.id-card__back-steps-title {
+.id-card__back-emergency-label {
   font-size: 8.5px;
   font-weight: 700;
   color: #0f2440;
@@ -536,14 +537,24 @@
   text-transform: uppercase;
   margin-bottom: 4px;
 }
-.id-card__back-steps-list {
-  margin: 0;
-  padding-left: 16px;
-  font-size: 9px;
-  color: #57606a;
-  line-height: 1.5;
+.id-card__back-emergency-details {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
 }
-.id-card__back-steps-list li { margin-bottom: 2px; }
+.id-card__back-emergency-details strong {
+  font-size: 10px;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.id-card__back-emergency-details span {
+  font-size: 10px;
+  font-weight: 700;
+  font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
 
 .id-card__back-note {
   margin-top: 14px;
@@ -722,11 +733,6 @@
 .id-card__back-caption { font-size: 19px; margin-top: 6px; letter-spacing: .14em; }
 .id-card__back-sub { margin-top: 5px; font-size: 13.5px; max-width: 400px; line-height: 1.45; }
 
-.id-card__back-steps { margin-top: 14px; padding: 12px 16px; max-width: 480px; }
-.id-card__back-steps-title { font-size: 12px; margin-bottom: 6px; letter-spacing: .1em; }
-.id-card__back-steps-list { font-size: 12px; line-height: 1.45; padding-left: 20px; }
-.id-card__back-steps-list li { margin-bottom: 3px; }
-
 .id-card__back-note { margin-top: 12px; padding: 10px 14px; font-size: 12px; line-height: 1.45; max-width: 480px; }
 .id-card__back-footer { padding: 12px 0; gap: 5px; }
 .id-card__back-footer-row { font-size: 11px; }
@@ -782,8 +788,10 @@
 .student-id-card--export .id-card__back-brand-sub { font-size: 20px; }
 .student-id-card--export .id-card__back-caption { font-size: 24px; }
 .student-id-card--export .id-card__back-sub { font-size: 18px; }
-.student-id-card--export .id-card__back-steps-title { font-size: 18px; }
-.student-id-card--export .id-card__back-steps-list { font-size: 17px; line-height: 1.35; }
+.student-id-card--export .id-card__back-emergency-label { font-size: 18px; }
+.student-id-card--export .id-card__back-emergency-details { font-size: 17px; line-height: 1.35; }
+student-id-card--export .id-card__back-emergency-details strong { font-size: 20px; }
+student-id-card--export .id-card__back-emergency-details span { font-size: 18px; }
 .student-id-card--export .id-card__back-note { font-size: 17px; line-height: 1.35; }
 .student-id-card--export .id-card__back-footer-row { font-size: 16px; }
 .student-id-card--export .id-card__back-footer-row strong { font-size: 18px; }
@@ -964,10 +972,11 @@
   .id-card__back-qr { width: 27mm !important; height: 27mm !important; }
   .id-card__back-caption { flex: 0 0 auto !important; margin-top: 1mm !important; font-size: 9pt !important; letter-spacing: .08em !important; }
   .id-card__back-sub { flex: 0 0 auto !important; max-width: 54mm !important; margin-top: .7mm !important; font-size: 7pt !important; line-height: 1.2 !important; }
-  .id-card__back-steps { flex: 0 0 auto !important; width: 100% !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-radius: .5mm !important; background: #fafbfc !important; }
-  .id-card__back-steps-title { margin-bottom: .7mm !important; font-size: 7pt !important; letter-spacing: .05em !important; }
-  .id-card__back-steps-list { padding-left: 4mm !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
-  .id-card__back-steps-list li { margin-bottom: .4mm !important; }
+  .id-card__back-emergency { flex: 0 0 auto !important; width: 100% !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-radius: .5mm !important; background: #fffaf0 !important; }
+  .id-card__back-emergency-label { margin-bottom: .7mm !important; font-size: 7pt !important; letter-spacing: .05em !important; }
+  .id-card__back-emergency-details { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
+  .id-card__back-emergency-details strong { font-size: 7pt !important; }
+  .id-card__back-emergency-details span { font-size: 7pt !important; }
   .id-card__back-note { flex: 0 0 auto !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-left-width: .8mm !important; border-radius: .5mm !important; background: #fafbfc !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
   .id-card__back-footer { flex: 0 0 auto !important; gap: .5mm !important; padding: 1.5mm 0 0 !important; margin-top: auto !important; }
   .id-card__back-footer-row { font-size: 6.5pt !important; }
@@ -1029,8 +1038,8 @@
   .id-card__fields dt,
   .id-card__signature-label,
   .id-card__cobrand-label,
-  .id-card__back-steps-title,
-  .id-card__back-steps-list,
+  .id-card__back-emergency-label,
+  .id-card__back-emergency-details,
   .id-card__back-footer-row { font-size: 8.5pt !important; }
   .id-card__cobrand-sub,
   .id-card__back-note,
@@ -1042,8 +1051,8 @@
 
   .id-card__fields > div { grid-template-columns: 24mm minmax(0, 1fr) !important; gap: 1mm !important; }
   .id-card__foot { gap: 2mm; padding: 2mm 3mm !important; }
-  .id-card__back-steps { padding: 2mm 3mm !important; }
-  .id-card__back-steps-list { line-height: 1.25 !important; }
+  .id-card__back-emergency { padding: 2mm 3mm !important; }
+  .id-card__back-emergency-details { line-height: 1.25 !important; }
   .id-card__back-note { line-height: 1.3 !important; }
 
   .student-id-toolbar,

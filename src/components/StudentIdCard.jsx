@@ -439,14 +439,6 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                   </div>
                 </div>
 
-                <div className="id-card__emergency">
-                  <div className="id-card__emergency-label">In case of emergency, please contact</div>
-                  <div className="id-card__emergency-details">
-                    <strong>{student.parentName || 'Parent / Guardian'}</strong>
-                    <span>{student.parentPhone || 'No contact number'}</span>
-                  </div>
-                </div>
-
                 <div className="id-card__signatures">
                   <div className="id-card__signature">
                     <div className="id-card__signature-line" />
@@ -515,13 +507,12 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                 <div className="id-card__back-caption">SCAN FOR ATTENDANCE</div>
                 <div className="id-card__back-sub">Present this side to the attendance scanner at the gate.</div>
 
-                <div className="id-card__back-steps">
-                  <div className="id-card__back-steps-title">How to use this card</div>
-                  <ol className="id-card__back-steps-list">
-                    <li>Present this side to the attendance scanner at the school gate.</li>
-                    <li>Wait for the scanner to confirm your attendance.</li>
-                    <li>Keep the QR code clean and fully visible at all times.</li>
-                  </ol>
+                <div className="id-card__back-emergency">
+                  <div className="id-card__back-emergency-label">In case of emergency, please contact</div>
+                  <div className="id-card__back-emergency-details">
+                    <strong>{student.parentName || 'Parent / Guardian'}</strong>
+                    <span>{student.parentPhone || 'No contact number'}</span>
+                  </div>
                 </div>
 
                 <div className="id-card__back-note">
