@@ -215,7 +215,7 @@ export default function Attendance() {
 
     let rows;
     if (reportDates.length) {
-      rows = [];
+      const exportItems = [];
       exportRoster.forEach((student) => {
         reportDates.forEach((date) => {
           const studentCode = student.studentCode || student.code || student.id;
@@ -236,20 +236,31 @@ export default function Attendance() {
             if (period !== 'All Periods' && !getPeriodScan(record || {}, period)) return;
           }
 
-          rows.push([
+          exportItems.push({
             date,
-            studentCode,
-            student.name || '',
-            studentSection,
-            ...PERIODS.flatMap((item) => {
-              const scan = getPeriodScan(record || {}, item);
-              if (isFuture) return ['', ''];
-              return [formatAttendanceTime(scan?.time), scan?.status || ''];
-            }),
-            record?.sms || '',
-          ]);
+            name: student.name || '',
+            section: studentSection,
+            updatedAt: record ? getAttendanceUpdatedAt(record) : 0,
+            values: [
+              date,
+              studentCode,
+              student.name || '',
+              studentSection,
+              ...PERIODS.flatMap((item) => {
+                const scan = getPeriodScan(record || {}, item);
+                if (isFuture) return ['', ''];
+                return [formatAttendanceTime(scan?.time), scan?.status || ''];
+              }),
+              record?.sms || '',
+            ],
+          });
         });
       });
+      rows = sortRows(exportItems, sortColumn, sortDirection, (item, column) => {
+        if (column === 'date') return `${item.date}:${String(item.updatedAt).padStart(16, '0')}`;
+        if (column === 'student') return item.name;
+        return item.section;
+      }).map((item) => item.values);
     } else {
       rows = sortedRecords.map((record) => [
         record.date,
