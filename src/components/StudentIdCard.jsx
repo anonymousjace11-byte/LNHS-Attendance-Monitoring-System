@@ -23,6 +23,21 @@ function formatIssuedDate(value) {
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function getExportFilenameParts(student) {
+  const rawName = String(student.name || 'Student')
+    .replace(/,/g, ' ')
+    .replace(/[^A-Za-z0-9 ]/g, '')
+    .trim()
+    .replace(/\s+/g, '-');
+  const ownerName = rawName || 'Student';
+  const rawCode = student.studentCode || student.code || student.id || 'student';
+  const normalizedCode = String(rawCode).replace(/[^A-Za-z0-9-]/g, '').toUpperCase();
+  const studentCode = normalizedCode && !normalizedCode.startsWith('LNHS-')
+    ? `LNHS-${normalizedCode}`
+    : normalizedCode;
+  return { ownerName, studentCode: studentCode || 'LNHS-STUDENT' };
+}
+
 export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExport, autoExportPdf = false, onAutoExportComplete }) {
   const [qrImage, setQrImage] = useState('');
   const [qrReady, setQrReady] = useState(false);
@@ -183,19 +198,18 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   async function downloadPNG() {
     const frontCanvas = await exportCard(frontRef.current);
     const backCanvas = await exportCard(backRef.current);
-    const safeId = (student.studentCode || student.code || student.id || 'student')
-      .toString()
-      .replace(/[^A-Za-z0-9-]/g, '');
+    const { ownerName, studentCode } = getExportFilenameParts(student);
+    const filenameBase = `${studentCode}-${ownerName}-ID`;
     if (frontCanvas) {
       const link = document.createElement('a');
-      link.download = `${safeId}-ID-front.png`;
+      link.download = `${filenameBase}-front.png`;
       link.href = frontCanvas.toDataURL('image/png');
       link.click();
     }
     await new Promise((resolve) => setTimeout(resolve, 250));
     if (backCanvas) {
       const link = document.createElement('a');
-      link.download = `${safeId}-ID-back.png`;
+      link.download = `${filenameBase}-back.png`;
       link.href = backCanvas.toDataURL('image/png');
       link.click();
     }
@@ -219,11 +233,14 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
       if (frontCanvas) pdf.addPage([ID_WIDTH_MM, ID_HEIGHT_MM], 'portrait');
       pdf.addImage(backCanvas.toDataURL('image/png'), 'PNG', 0, 0, ID_WIDTH_MM, ID_HEIGHT_MM);
     }
-    const safeId = (student.studentCode || student.code || student.id || 'student')
-      .toString()
-      .replace(/[^A-Za-z0-9-]/g, '');
+    const { ownerName, studentCode } = getExportFilenameParts(student);
+    pdf.setProperties({
+      title: `${studentCode} ${ownerName} Student ID`,
+      subject: 'Front and back student identification card',
+      author: 'Looc National High School',
+    });
     setExportStatus('Preparing PDF download…');
-    pdf.save(`${safeId}-ID.pdf`);
+    pdf.save(`${studentCode}-${ownerName}-ID-front-back.pdf`);
     onExport?.('pdf');
     setExportStatus('PDF export started.');
   }
