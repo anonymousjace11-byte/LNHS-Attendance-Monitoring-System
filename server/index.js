@@ -79,7 +79,7 @@ const devOrigins = [
   "http://127.0.0.1:8444"
 ];
 const allowedOrigins = isProduction ? productionOrigins : [...devOrigins, ...productionOrigins];
-const vercelProjectOrigin = /^https:\/\/lnhs-attendance-monitoring-system(?:-[a-z0-9]+-lnhs-attensync)?\.vercel\.app$/;
+const vercelProjectOrigin = /^https:\/\/lnhs-attendance-monitoring-system(?:-[a-z0-9]+-lnhs-attendsync)?\.vercel\.app$/;
 const isAllowedOrigin = origin => {
   if (!origin) return true;
   if (allowedOrigins.includes(origin) || vercelProjectOrigin.test(origin)) return true;
