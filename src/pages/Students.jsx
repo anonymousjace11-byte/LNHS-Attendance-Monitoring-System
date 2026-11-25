@@ -295,8 +295,8 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
             placeholder: 'e.g. 09XXXXXXXXX or +639XXXXXXXXX',
             required: true,
             'aria-required': 'true',
+            inputMode: 'tel',
             style: { fontFamily: 'ui-monospace, monospace' },
-            onBlur: () => setField('parentPhone', normalizePhilippinePhone(form.parentPhone)),
           })}
         </FormField>
       </div>
