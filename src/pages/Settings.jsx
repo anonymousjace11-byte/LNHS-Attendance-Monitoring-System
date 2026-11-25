@@ -49,6 +49,10 @@ export default function Settings() {
   const [templatesLoadFailed, setTemplatesLoadFailed] = useState(false);
   const [templatesSaving, setTemplatesSaving] = useState(false);
   const [templatesFeedback, setTemplatesFeedback] = useState(null);
+  const [smsTestStudentId, setSmsTestStudentId] = useState('');
+  const [smsTestConfirmed, setSmsTestConfirmed] = useState(false);
+  const [smsTestSending, setSmsTestSending] = useState(false);
+  const [smsTestFeedback, setSmsTestFeedback] = useState(null);
   const [runtimeMode, setRuntimeMode] = useState(DEFAULT_SMS_RUNTIME.mode);
   const [runtimeDisabled, setRuntimeDisabled] = useState(DEFAULT_SMS_RUNTIME.disabled);
   const [runtimeDailyCap, setRuntimeDailyCap] = useState(DEFAULT_SMS_RUNTIME.dailyCapPerStudent);
@@ -68,7 +72,7 @@ export default function Settings() {
   const [schoolRegion, setSchoolRegion] = useState('Region IV-B MIMAROPA');
   const [schoolContact, setSchoolContact] = useState('+63917XXXXXXX');
 
-  const { saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime } = useData();
+  const { students, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime, sendAutomaticSmsTest } = useData();
   const { changePassword } = useAuth();
   const { theme, setTheme } = useTheme();
   const runtimeSectionRef = useRef(null);
@@ -159,6 +163,27 @@ export default function Settings() {
       setTemplatesFeedback({ type: 'error', text: error?.message || 'Unable to save SMS templates.' });
     } finally {
       setTemplatesSaving(false);
+    }
+  };
+
+  const handleTestAutomaticSms = async () => {
+    if (!smsTestStudentId || !smsTestConfirmed || smsTestSending) return;
+    setSmsTestSending(true);
+    setSmsTestFeedback(null);
+    try {
+      const result = await sendAutomaticSmsTest(smsTestStudentId);
+      if (result.status === 'sent') {
+        setSmsTestFeedback({ type: 'success', text: 'IPROG accepted the test message. Phone delivery is not confirmed.' });
+      } else if (result.status === 'simulated') {
+        setSmsTestFeedback({ type: 'warn', text: 'SMS was simulated; no real message was sent.' });
+      } else {
+        setSmsTestFeedback({ type: 'error', text: result.reason || `Test SMS was not sent (${result.status || 'unknown status'}).` });
+      }
+    } catch (error) {
+      setSmsTestFeedback({ type: 'error', text: error?.message || 'Unable to send test SMS.' });
+    } finally {
+      setSmsTestSending(false);
+      setSmsTestConfirmed(false);
     }
   };
 
@@ -435,6 +460,25 @@ export default function Settings() {
                     Save Runtime Settings
                   </Button>
                 </div>
+
+                <h2 className="settings-section__title settings-section__title--spaced">Test Automatic SMS</h2>
+                <p className="settings-section__hint">Sends the Present template with a [TEST] prefix through the same guardian lookup, runtime guard, and provider function used after a scan. It does not create an attendance record and counts toward the daily cap.</p>
+                <FormField label="Test student" id="sms-test-student">
+                  <select id="sms-test-student" className="field-input" value={smsTestStudentId} onChange={(event) => { setSmsTestStudentId(event.target.value); setSmsTestConfirmed(false); setSmsTestFeedback(null); }}>
+                    <option value="">Select a student</option>
+                    {[...students].filter((student) => student.active !== false).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''))).map((student) => (
+                      <option key={student.id} value={student.id}>{student.name || 'Unnamed student'} · {student.studentCode || student.code || student.id}</option>
+                    ))}
+                  </select>
+                </FormField>
+                <label className="checkbox-row">
+                  <input type="checkbox" checked={smsTestConfirmed} disabled={!smsTestStudentId || smsTestSending} onChange={(event) => setSmsTestConfirmed(event.target.checked)} />
+                  <span>I understand this may send a real, billable SMS to the selected student's linked guardian.</span>
+                </label>
+                {smsTestFeedback && <Alert type={smsTestFeedback.type}>{smsTestFeedback.text}</Alert>}
+                <Button variant="outline" onClick={handleTestAutomaticSms} loading={smsTestSending} disabled={!smsTestStudentId || !smsTestConfirmed || smsTestSending || !gatewayConfigured || runtimeLoading || runtimeDisabled}>
+                  <MessageSquare size={14} /> Send one test SMS
+                </Button>
 
                 <h2 className="settings-section__title settings-section__title--spaced">Message Templates</h2>
                 <p className="settings-section__hint">Placeholders: {'{student_name}'}, {'{section}'}, {'{period}'}, {'{date}'}, {'{status}'}. These are filled in when the message is sent.</p>

@@ -622,6 +622,86 @@ async function sendViaProvider({ to, message, settings = {}, smsGuard }) {
   }
 }
 
+async function resolveAttendanceSmsRecipient(db, studentId, studentData = {}) {
+  const parentSnapshot = await db.collection("parentcontacts").doc(`${studentId}_parent`).get();
+  return normalizePhoneNumber(parentSnapshot.data()?.parentPhone || studentData.parentPhone || "");
+}
+
+async function sendAttendanceNotification({
+  db,
+  actorUid,
+  studentId,
+  studentData,
+  studentName,
+  recipientPhone,
+  period,
+  date,
+  status,
+  attendanceId = "",
+  source = "attendance",
+  test = false,
+}) {
+  const templates = await loadSmsTemplates(db);
+  const template = status === "late" ? templates.late : status === "absent" ? templates.absent : templates.present;
+  const message = `${test ? "[TEST] " : ""}${renderSmsTemplate(template, {
+    studentName: studentName || studentData.name || studentData.studentCode || studentData.code || studentId,
+    section: studentData.sectionName || studentData.section || studentData.sectionId || "",
+    period,
+    date,
+    status,
+  })}`.slice(0, 320);
+  let smsStatus = "skipped";
+  let smsError = "";
+  let smsModeForLog = smsMode;
+  let smsReason = "";
+
+  if (!recipientPhone) {
+    smsError = "No linked parent or guardian phone number";
+    smsReason = smsError;
+  } else if (!isE164PhoneNumber(recipientPhone)) {
+    smsStatus = "failed";
+    smsError = "Phone number must use international format, for example +639171234567";
+    smsReason = smsError;
+  } else {
+    const guard = await checkSmsAllowed(db, { studentId });
+    const delivery = await sendViaProvider({
+      db,
+      studentId,
+      smsGuard: guard,
+      to: recipientPhone,
+      message,
+    });
+    smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
+    smsError = delivery.error || "";
+    smsModeForLog = delivery.mode || guard.mode;
+    smsReason = delivery.reason || smsError;
+    if (smsStatus === "sent") {
+      console.log("Automatic attendance SMS accepted by provider.");
+    } else if (smsStatus === "failed") {
+      console.error("Automatic attendance SMS error:", smsError);
+    }
+  }
+
+  await db.collection("sms_logs").add({
+    actorUid,
+    studentId,
+    attendanceId,
+    period,
+    phone: recipientPhone,
+    message,
+    status: smsStatus,
+    provider: smsProvider,
+    error: smsError,
+    mode: smsModeForLog,
+    reason: smsReason,
+    source,
+    ...(test ? { manual: true } : {}),
+    createdAt: new Date(),
+  });
+
+  return { smsStatus, smsError, smsMode: smsModeForLog, smsReason, message };
+}
+
 app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
   const { name, phone, studentId = "", attendanceId = "", status = "present" } = req.body || {};
   const normalizedPhone = normalizePhoneNumber(phone);
@@ -794,6 +874,53 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
   }
 });
 
+app.post("/admin/sms/test-auto", smsLimiter, async (req, res) => {
+  const authResult = await verifyAdminRequest(req);
+  if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
+  const { studentId, confirmation } = req.body || {};
+  if (confirmation !== "SEND_TEST_SMS") {
+    return res.status(400).json({ success: false, error: "Explicit test SMS confirmation is required." });
+  }
+  if (typeof studentId !== "string" || !isValidStudentId(studentId.trim())) {
+    return res.status(400).json({ success: false, error: "A valid studentId is required." });
+  }
+
+  try {
+    const normalizedStudentId = studentId.trim();
+    const db = getFirestore(authResult.adminSdk);
+    const studentSnapshot = await db.collection("students").doc(normalizedStudentId).get();
+    if (!studentSnapshot.exists) return res.status(404).json({ success: false, error: "Student not found." });
+    const studentData = studentSnapshot.data() || {};
+    if (studentData.active === false) return res.status(409).json({ success: false, error: "Cannot send a test message for an inactive student." });
+    const recipientPhone = await resolveAttendanceSmsRecipient(db, normalizedStudentId, studentData);
+    const { date } = getAttendanceDateParts();
+    const result = await sendAttendanceNotification({
+      db,
+      actorUid: authResult.token.uid,
+      studentId: normalizedStudentId,
+      studentData,
+      recipientPhone,
+      period: "AM-1",
+      date,
+      status: "present",
+      source: "admin_test",
+      test: true,
+    });
+    const success = ["sent", "simulated"].includes(result.smsStatus);
+    const httpStatus = success ? 200 : result.smsStatus === "skipped" ? 422 : 503;
+    return res.status(httpStatus).json({
+      success,
+      status: result.smsStatus,
+      mode: result.smsMode,
+      reason: result.smsReason,
+      ...(success ? {} : { error: result.smsReason || "Test SMS was not sent." }),
+    });
+  } catch (error) {
+    console.error("Automatic SMS test error:", error.message);
+    return res.status(500).json({ success: false, status: "failed", error: "Unable to run automatic SMS test." });
+  }
+});
+
 app.get("/sms-logs", requireStaffAuth, async (req, res) => {
   try {
     const snapshot = await getFirestore(req.adminSdk).collection("sms_logs").orderBy("createdAt", "desc").limit(100).get();
@@ -895,19 +1022,18 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
     }
     const attendanceCutoff = await getAttendanceCutoff(db);
     const studentCode = studentData.studentCode || studentData.code || qrData.studentCode || "";
+    const studentName = studentData.name || studentCode;
     const sectionId = studentData.sectionId || studentData.section || "";
     if (!sectionId) return res.status(400).json({ error: "Student record has no section assigned. Attendance cannot be recorded." });
     const teacherId = studentData.teacherId || studentData.teacher || "";
     if (!requireTeacherSection(req, res, sectionId)) return;
-    const name = studentData.name || studentCode;
     const scanDateTime = offlineSync ? offlineScanTime : new Date();
     const { date, time: localClock } = getAttendanceDateParts(scanDateTime);
     const time = new Intl.DateTimeFormat("en-US", { timeZone: process.env.ATTENDANCE_TIME_ZONE || "Asia/Manila", hour: "2-digit", minute: "2-digit" }).format(scanDateTime);
     const status = period === "AM-1" && localClock > attendanceCutoff ? "late" : "present";
     const id = createAttendanceId(studentId, studentCode, date);
     const attendanceRef = db.collection("attendance").doc(id);
-    const parentSnapshot = await db.collection("parentcontacts").doc(`${studentId}_parent`).get();
-    const recipientPhone = normalizePhoneNumber(parentSnapshot.data()?.parentPhone || studentData.parentPhone || "");
+    const recipientPhone = await resolveAttendanceSmsRecipient(db, studentId, studentData);
     const scanResult = await db.runTransaction(async transaction => {
       const snapshot = await transaction.get(attendanceRef);
       const current = snapshot.exists ? snapshot.data() || {} : {};
@@ -951,54 +1077,20 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
       });
     }
 
-    const templates = await loadSmsTemplates(db);
-    const messageTemplate = status === "late" ? templates.late : templates.present;
-    const message = renderSmsTemplate(messageTemplate, {
-      studentName: name,
-      section: studentData.sectionName || sectionId,
+    const notification = await sendAttendanceNotification({
+      db,
+      actorUid: req.auth.uid,
+      studentId,
+      studentData,
+      studentName,
+      recipientPhone,
       period,
       date,
-      status
+      status,
+      attendanceId: id,
     });
-    let smsStatus = "skipped";
-    let smsError = "";
-    let smsModeForLog = smsMode;
-    let smsReason = "";
-    if (!recipientPhone) {
-      smsError = "No linked parent or guardian phone number";
-      smsReason = smsError;
-    } else if (!isE164PhoneNumber(recipientPhone)) {
-      smsStatus = "failed";
-      smsError = "Phone number must use international format, for example +639171234567";
-      smsReason = smsError;
-    } else {
-      const guard = await checkSmsAllowed(db, { studentId });
-      const delivery = await sendViaProvider({
-        db,
-        studentId,
-        smsGuard: guard,
-        to: recipientPhone,
-        message,
-        settings: {
-          db,
-          studentId,
-          semaphoreConfigured,
-          semaphoreApiKey,
-          semaphoreSenderName,
-        }
-      });
-      smsStatus = delivery.status === "unconfigured" ? "failed" : delivery.status;
-      smsError = delivery.error || "";
-      smsModeForLog = delivery.mode || guard.mode;
-      smsReason = delivery.reason || smsError;
-      if (smsStatus === "sent") {
-        console.log("Automatic attendance SMS sent.");
-      } else if (smsStatus === "failed") {
-        console.error("Automatic attendance SMS error:", smsError);
-      }
-    }
+    const { smsStatus, smsError, smsMode: smsModeForLog, smsReason } = notification;
     await attendanceRef.set({ scans: { [period]: { smsStatus } }, smsStatus, updatedAt: new Date() }, { merge: true });
-    await db.collection("sms_logs").add({ actorUid: req.auth.uid, studentId, attendanceId: id, period, phone: recipientPhone, message, status: smsStatus, provider: smsProvider, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
     await writeAuditLog(db, { action: "attendance.period_recorded", actorUid: req.auth.uid, targetType: "attendance", targetId: id, details: { studentId, sectionId, period, status, smsStatus } });
     scanResult.scans[period].smsStatus = smsStatus;
     return res.json({

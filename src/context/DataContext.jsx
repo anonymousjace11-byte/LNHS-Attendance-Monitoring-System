@@ -726,6 +726,7 @@ export function DataProvider({ children }) {
   const saveAttendanceSettings = (cutoff) => adminRequest('/admin/settings/attendance', 'POST', { cutoff });
   const saveSmsTemplates = async ({ present, late, absent }) => adminRequest('/admin/settings/sms-templates', 'POST', { present, late, absent });
   const saveSmsRuntime = async ({ mode, disabled, dailyCapPerStudent }) => adminRequest('/admin/settings/sms-runtime', 'POST', { mode, disabled, dailyCapPerStudent });
+  const sendAutomaticSmsTest = (studentId) => adminRequest('/admin/sms/test-auto', 'POST', { studentId, confirmation: 'SEND_TEST_SMS' });
   async function generateStudentQr(student) {
     const result = await adminRequest('/qr/generate', 'POST', {
       studentId: student.id,
@@ -737,7 +738,7 @@ export function DataProvider({ children }) {
     return updated;
   }
 
-  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, networkOnline, today: todayKey(), recordAttendance, recordManualAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime }}>{children}</DataContext.Provider>;
+  return <DataContext.Provider value={{ ...data, loading, error, staffDataError, offlineAttendance, pendingAttendanceCount: offlineAttendance.length, offlineSyncError, networkOnline, today: todayKey(), recordAttendance, recordManualAttendance, recordExcusedAttendance, saveStudent, deleteStudent, uploadAccountPhoto, generateStudentQr, saveSection, saveTeacher, saveParentContact, deleteParentContact, deleteSection, deleteTeacher, retrySmsLog, saveAttendanceSettings, saveSmsTemplates, saveSmsRuntime, sendAutomaticSmsTest }}>{children}</DataContext.Provider>;
 }
 
 export function useData() {
