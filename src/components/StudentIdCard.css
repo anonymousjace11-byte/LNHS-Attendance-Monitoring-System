@@ -530,7 +530,7 @@
   color: #0f2440;
 }
 .id-card__back-emergency-label {
-  font-size: 8.5px;
+  font-size: 10px;
   font-weight: 700;
   color: #0f2440;
   letter-spacing: .1em;
@@ -545,12 +545,12 @@
   margin-top: 5px;
 }
 .id-card__back-emergency-details strong {
-  font-size: 10px;
+  font-size: 12px;
   line-height: 1.25;
   overflow-wrap: anywhere;
 }
 .id-card__back-emergency-details span {
-  font-size: 10px;
+  font-size: 12px;
   font-weight: 700;
   font-family: ui-monospace, 'SF Mono', 'JetBrains Mono', Menlo, Consolas, monospace;
   white-space: nowrap;
@@ -790,8 +790,8 @@
 .student-id-card--export .id-card__back-sub { font-size: 18px; }
 .student-id-card--export .id-card__back-emergency-label { font-size: 18px; }
 .student-id-card--export .id-card__back-emergency-details { font-size: 17px; line-height: 1.35; }
-student-id-card--export .id-card__back-emergency-details strong { font-size: 20px; }
-student-id-card--export .id-card__back-emergency-details span { font-size: 18px; }
+.student-id-card--export .id-card__back-emergency-details strong { font-size: 20px; }
+.student-id-card--export .id-card__back-emergency-details span { font-size: 18px; }
 .student-id-card--export .id-card__back-note { font-size: 17px; line-height: 1.35; }
 .student-id-card--export .id-card__back-footer-row { font-size: 16px; }
 .student-id-card--export .id-card__back-footer-row strong { font-size: 18px; }
@@ -973,10 +973,10 @@ student-id-card--export .id-card__back-emergency-details span { font-size: 18px;
   .id-card__back-caption { flex: 0 0 auto !important; margin-top: 1mm !important; font-size: 9pt !important; letter-spacing: .08em !important; }
   .id-card__back-sub { flex: 0 0 auto !important; max-width: 54mm !important; margin-top: .7mm !important; font-size: 7pt !important; line-height: 1.2 !important; }
   .id-card__back-emergency { flex: 0 0 auto !important; width: 100% !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-radius: .5mm !important; background: #fffaf0 !important; }
-  .id-card__back-emergency-label { margin-bottom: .7mm !important; font-size: 7pt !important; letter-spacing: .05em !important; }
-  .id-card__back-emergency-details { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
-  .id-card__back-emergency-details strong { font-size: 7pt !important; }
-  .id-card__back-emergency-details span { font-size: 7pt !important; }
+  .id-card__back-emergency-label { margin-bottom: .7mm !important; font-size: 8pt !important; letter-spacing: .05em !important; }
+  .id-card__back-emergency-details { display: grid !important; grid-template-columns: minmax(0, 1fr) auto !important; font-size: 7.5pt !important; line-height: 1.2 !important; }
+  .id-card__back-emergency-details strong { font-size: 8pt !important; }
+  .id-card__back-emergency-details span { font-size: 7.5pt !important; }
   .id-card__back-note { flex: 0 0 auto !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-left-width: .8mm !important; border-radius: .5mm !important; background: #fafbfc !important; font-size: 6.5pt !important; line-height: 1.2 !important; }
   .id-card__back-footer { flex: 0 0 auto !important; gap: .5mm !important; padding: 1.5mm 0 0 !important; margin-top: auto !important; }
   .id-card__back-footer-row { font-size: 6.5pt !important; }

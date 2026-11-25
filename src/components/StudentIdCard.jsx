@@ -505,7 +505,6 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                 </div>
 
                 <div className="id-card__back-caption">SCAN FOR ATTENDANCE</div>
-                <div className="id-card__back-sub">Present this side to the attendance scanner at the gate.</div>
 
                 <div className="id-card__back-emergency">
                   <div className="id-card__back-emergency-label">In case of emergency, please contact</div>
