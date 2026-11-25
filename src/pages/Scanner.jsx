@@ -456,11 +456,17 @@ export default function Scanner() {
       setManualMessage('Select a student before recording attendance.');
       return;
     }
+    const student = students.find((item) => item.id === manualStudentId);
+    const existingRecord = attendance.find((record) => record.studentId === manualStudentId && getManilaDateKey(record.date) === todayKey);
+    const existingPeriod = existingRecord?.scans?.[period]
+      || (period === 'AM-1' && existingRecord?.status ? { status: existingRecord.status } : null);
+    const override = Boolean(existingPeriod);
+    if (override && !window.confirm(`${student?.name || 'This student'} already has ${existingPeriod.status || 'an attendance'} recorded for ${period}. Replace it with ${manualStatus}?`)) return;
+
     setManualSaving(true);
     try {
-      await recordManualAttendance(manualStudentId, period, manualStatus, manualReason);
-      const student = students.find((item) => item.id === manualStudentId);
-      setManualMessage(`${student?.name || 'Student'} marked ${manualStatus} for ${period}.`);
+      await recordManualAttendance(manualStudentId, period, manualStatus, manualReason, override);
+      setManualMessage(`${student?.name || 'Student'} ${override ? 'updated to' : 'marked'} ${manualStatus} for ${period}.`);
       setManualReason('');
     } catch (error) {
       setManualMessage(error.message || 'Unable to record manual attendance.');

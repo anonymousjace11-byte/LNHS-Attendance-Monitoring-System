@@ -510,14 +510,14 @@ export function DataProvider({ children }) {
     return result;
   }
 
-  async function recordManualAttendance(studentId, period, status = 'present', reason = '') {
+  async function recordManualAttendance(studentId, period, status = 'present', reason = '', override = false) {
     const currentUser = auth.currentUser;
     if (!currentUser) throw new Error('Firebase authentication required.');
     const token = await currentUser.getIdToken();
     const response = await fetch(`${API_URL}/attendance/manual`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ studentId, period, status, reason }),
+      body: JSON.stringify({ studentId, period, status, reason, override }),
     });
     const result = await readApiResponse(response);
     if (result.recorded) {

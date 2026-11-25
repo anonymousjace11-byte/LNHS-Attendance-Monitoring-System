@@ -6,6 +6,7 @@ import { EmptyTableRow } from '../components/EmptyState';
 import Pagination from '../components/Pagination';
 import PageCover from '../components/PageCover';
 import SortableHeader, { sortRows } from '../components/SortableHeader';
+import Modal from '../components/Modal';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
 
@@ -30,11 +31,19 @@ function csvCell(value, protectFormula = true) {
 }
 
 function formatDateTime(value) {
-  const date = value?.toDate ? value.toDate() : new Date(value);
+  const date = value?.toDate
+    ? value.toDate()
+    : value instanceof Date
+      ? value
+      : typeof value === 'object' && value
+        ? new Date(Number(value._seconds ?? value.seconds) * 1000 + Number(value._nanoseconds ?? value.nanoseconds ?? 0) / 1e6)
+        : new Date(value);
   if (Number.isNaN(date.getTime())) return String(value || '');
-  return date.toLocaleString('en-PH', {
-    dateStyle: 'short', timeStyle: 'medium', timeZone: 'Asia/Manila',
-  });
+  return new Intl.DateTimeFormat('en-PH', {
+    year: 'numeric', month: 'short', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: true, timeZone: 'Asia/Manila', timeZoneName: 'short',
+  }).format(date);
 }
 
 function downloadCsv(rows, getStudent) {
@@ -75,6 +84,7 @@ export default function SmsLogs() {
   const [currentPage, setCurrentPage] = useState(1);
   const [retryingId, setRetryingId] = useState('');
   const [retryErrors, setRetryErrors] = useState({});
+  const [selectedMessage, setSelectedMessage] = useState(null);
   const { smsLogs: logs, students, retrySmsLog } = useData();
   const getStudent = (log) => students.find((student) => student.id === log.studentId);
 
@@ -184,6 +194,7 @@ export default function SmsLogs() {
                       <span style={{ fontSize:'.82rem', color:'var(--text-sub)' }} title={l.message || ''}>
                         {message.length > 60 ? `${message.slice(0, 60)}…` : message}
                       </span>
+                      {l.message && <Button variant="ghost" size="sm" onClick={() => setSelectedMessage(l)}>View full</Button>}
                     </td>
                     <td data-label="Status">
                       {status === '—'
@@ -191,7 +202,7 @@ export default function SmsLogs() {
                         : <span className={`badge badge-${status}`}>{status.charAt(0).toUpperCase() + status.slice(1)}</span>}
                     </td>
                     <td data-label="Provider" data-mobile-hidden="true" style={{ fontSize:'.82rem', color:'var(--text-sub)' }}>{displayValue(l.provider)}</td>
-                    <td data-label="Date/time"><span style={{ fontFamily:'JetBrains Mono', fontSize:'.75rem', color:'var(--text-muted)' }}>{displayValue(l.createdAt)}</span></td>
+                    <td data-label="Date/time"><span style={{ fontSize:'.78rem', color:'var(--text-sub)' }}>{formatDateTime(l.createdAt)}</span></td>
                     <td data-label="Actions">
                       {l.status === 'failed' && (
                         <Button variant="outline" className="table-action--retry" size="sm" loading={retryingId === l.id} onClick={() => handleRetry(l)}>
@@ -220,6 +231,16 @@ export default function SmsLogs() {
         </div>
         <Pagination totalItems={sortedLogs.length} currentPage={currentPage} pageSize={PAGE_SIZE} onPageChange={setCurrentPage} itemLabel="SMS logs" />
       </div>
+      {selectedMessage && (
+        <Modal title="SMS Message" onClose={() => setSelectedMessage(null)} maxWidth="560px" portal>
+          <div className="space-y-3">
+            <p className="page-sub">{formatDateTime(selectedMessage.createdAt)} · {displayValue(selectedMessage.status)}</p>
+            <div style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', maxHeight: '55vh', overflowY: 'auto', lineHeight: 1.55 }}>
+              {selectedMessage.message || 'No message content recorded.'}
+            </div>
+          </div>
+        </Modal>
+      )}
     </div>
   );
 }

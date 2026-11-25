@@ -12,7 +12,7 @@ import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { downloadCsv } from '../utils/csvExport';
 import { displayValue } from '../utils/display';
-import { normalizePhilippinePhone } from '../utils/phone';
+import { isValidPhilippineMobile, normalizePhilippinePhone } from '../utils/phone';
 
 const TRACK_OPTIONS = ['Academic Track', 'Tech Pro Track'];
 const TRACK_STRANDS = {
@@ -81,7 +81,7 @@ function validate(form, existing) {
   if (!form.parentName.trim()) errors.parentName = 'Parent or guardian name is required.';
   const normalizedPhone = normalizePhilippinePhone(form.parentPhone);
   if (!normalizedPhone) errors.parentPhone = 'Contact number is required.';
-  if (normalizedPhone && !/^\+63\d{10}$/.test(normalizedPhone)) errors.parentPhone = 'Format: +63XXXXXXXXXX';
+  if (normalizedPhone && !isValidPhilippineMobile(normalizedPhone)) errors.parentPhone = 'Enter a valid Philippine mobile number, such as +639171234567.';
   return errors;
 }
 

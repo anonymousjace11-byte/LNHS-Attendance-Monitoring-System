@@ -6,3 +6,7 @@ export function normalizePhilippinePhone(value) {
   if (compact.startsWith('9') && compact.length === 10) return `+63${compact}`;
   return compact;
 }
+
+export function isValidPhilippineMobile(value) {
+  return /^\+639\d{9}$/.test(normalizePhilippinePhone(value));
+}

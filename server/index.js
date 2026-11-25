@@ -236,6 +236,9 @@ function normalizePhoneNumber(value) {
 function isE164PhoneNumber(value) {
   return /^\+[1-9]\d{7,14}$/.test(value);
 }
+function isPhilippineMobileNumber(value) {
+  return /^\+639\d{9}$/.test(value);
+}
 function isValidStudentId(value) {
   return typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 }
@@ -985,11 +988,12 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
 });
 
 app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, res) => {
-  const { studentId = "", period = "", status = "present", reason = "" } = req.body || {};
+  const { studentId = "", period = "", status = "present", reason = "", override = false } = req.body || {};
   const allowedStatuses = new Set(["present", "late", "absent", "excused"]);
   if (!isValidStudentId(studentId)) return res.status(400).json({ error: "A valid studentId is required." });
   if (!attendancePeriods.includes(period)) return res.status(400).json({ error: "A valid attendance period is required." });
   if (!allowedStatuses.has(status)) return res.status(400).json({ error: "A valid manual attendance status is required." });
+  if (typeof override !== "boolean") return res.status(400).json({ error: "Override must be a boolean." });
 
   try {
     const db = getFirestore(req.adminSdk);
@@ -1008,7 +1012,7 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
       const snapshot = await transaction.get(attendanceRef);
       const current = snapshot.exists ? snapshot.data() || {} : {};
       const scans = getAttendanceScans(current);
-      if (scans[period]) return { duplicate: true, scans };
+      if (scans[period] && !override) return { duplicate: true, scans };
       markEarlierPeriodsAbsent(scans, period);
 
       const sanitizedReason = String(reason).trim().slice(0, 240);
@@ -1032,7 +1036,7 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
         period,
         scanCount: attendancePeriods.filter(item => scans[item]).length,
         scans,
-        smsStatus: "skipped",
+        smsStatus: scans["AM-1"]?.smsStatus || "skipped",
         manualEntry: true,
         updatedAt: new Date(),
         ...(!snapshot.exists ? { createdAt: new Date() } : {}),
@@ -1049,7 +1053,7 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
       actorUid: req.auth.uid,
       targetType: "attendance",
       targetId: attendanceId,
-      details: { studentId, sectionId, period, status, reason: String(reason).trim().slice(0, 240) },
+      details: { studentId, sectionId, period, status, override, reason: String(reason).trim().slice(0, 240) },
     });
     return res.json({ recorded: true, id: attendanceId, ...result.attendance });
   } catch (error) {
@@ -1465,7 +1469,7 @@ app.post("/parent-contacts", requireStaffAuth, async (req, res) => {
   if (typeof parentPhone !== "string" || !parentPhone.trim()) return res.status(400).json({ error: "Missing required field: parentPhone" });
   if (parentName !== undefined && typeof parentName !== "string") return res.status(400).json({ error: "Invalid parentName." });
   const normalizedPhone = normalizePhoneNumber(parentPhone);
-  if (!isE164PhoneNumber(normalizedPhone)) return res.status(400).json({ error: "Phone number must use international format, for example +639171234567" });
+  if (!isPhilippineMobileNumber(normalizedPhone)) return res.status(400).json({ error: "Enter a valid Philippine mobile number, for example +639171234567." });
 
   try {
     const db = getFirestore(req.adminSdk);
@@ -1635,17 +1639,13 @@ app.get("/attendance", requireStaffAuth, async (req, res) => {
 
 async function finalizeAttendanceForDate(db, date, actorUid = "system") {
   const studentSnapshot = await db.collection("students").get();
-  const attendanceSnapshot = await db.collection("attendance").where("date", "==", date).get();
   const templates = await loadSmsTemplates(db);
   const cutoff = await getAttendanceCutoff(db);
-  const existingAttendance = new Map(attendanceSnapshot.docs.map(record => [record.data()?.studentId, record.data()]));
-  const results = { date, created: 0, skipped: 0, sent: 0, simulated: 0, failed: 0, noContact: 0 };
+  const results = { date, created: 0, updated: 0, skipped: 0, sent: 0, simulated: 0, failed: 0, noContact: 0 };
 
   for (const studentRecord of studentSnapshot.docs) {
     const student = studentRecord.data() || {};
-    const existingRecord = existingAttendance.get(studentRecord.id);
-    const existingScans = getAttendanceScans(existingRecord);
-    if (student.active === false || existingScans["AM-1"]) {
+    if (student.active === false) {
       results.skipped += 1;
       continue;
     }
@@ -1680,27 +1680,43 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     let smsError = recipientPhone ? "" : "No linked parent or guardian phone number";
     let smsModeForLog = smsMode;
     let smsReason = recipientPhone ? "" : smsError;
-    const scans = { ...existingScans, "AM-1": { time: "", status: "absent", smsStatus } };
+    const attendanceRef = db.collection("attendance").doc(attendanceId);
+    const claim = await db.runTransaction(async transaction => {
+      const snapshot = await transaction.get(attendanceRef);
+      const current = snapshot.exists ? snapshot.data() || {} : {};
+      const scans = getAttendanceScans(current);
+      const am1Scan = scans["AM-1"];
+      const isUnscannedAbsence = am1Scan?.status === "absent" && !am1Scan.time && am1Scan.smsStatus === "skipped";
+      if (current.absenceSmsProcessed || (am1Scan && !isUnscannedAbsence)) return null;
 
-    await db.collection("attendance").doc(attendanceId).set({
-      id: attendanceId,
-      studentId: studentRecord.id,
-      studentCode: student.studentCode || student.code || studentRecord.id,
-      sectionId,
-      teacherId: student.teacherId || student.teacher || "",
-      ...(student.qrUuid ? { qrId: student.qrUuid } : {}),
-      date,
-      time: "",
-      status: "absent",
-      arrivalStatus: "absent",
-      period: "AM-1",
-      scanCount: attendancePeriods.filter(period => scans[period]).length,
-      scans,
-      smsStatus,
-      updatedAt: new Date(),
-      ...(!existingRecord ? { createdAt: new Date() } : {})
-    }, { merge: true });
-    results.created += 1;
+      const updatedScans = { ...scans, "AM-1": { time: "", status: "absent", smsStatus } };
+      transaction.set(attendanceRef, {
+        id: attendanceId,
+        studentId: studentRecord.id,
+        studentCode: student.studentCode || student.code || studentRecord.id,
+        sectionId,
+        teacherId: student.teacherId || student.teacher || "",
+        ...(student.qrUuid ? { qrId: student.qrUuid } : {}),
+        date,
+        time: "",
+        status: "absent",
+        arrivalStatus: "absent",
+        period: "AM-1",
+        scanCount: attendancePeriods.filter(period => updatedScans[period]).length,
+        scans: updatedScans,
+        smsStatus,
+        absenceSmsProcessed: true,
+        updatedAt: new Date(),
+        ...(!snapshot.exists ? { createdAt: new Date() } : {})
+      }, { merge: true });
+      return { created: !snapshot.exists };
+    });
+    if (!claim) {
+      results.skipped += 1;
+      continue;
+    }
+    if (claim.created) results.created += 1;
+    else results.updated += 1;
 
     if (!recipientPhone) {
       results.noContact += 1;

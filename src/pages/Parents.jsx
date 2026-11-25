@@ -10,20 +10,27 @@ import PageCover from '../components/PageCover';
 import SortableHeader, { sortRows } from '../components/SortableHeader';
 import { useData } from '../context/DataContext';
 import { displayValue } from '../utils/display';
-import { normalizePhilippinePhone } from '../utils/phone';
+import { isValidPhilippineMobile, normalizePhilippinePhone } from '../utils/phone';
 
 function ParentModal({ onClose, onSave, existing, students }) {
   const [form, setForm] = useState(existing ? { ...existing, parentPhone: normalizePhilippinePhone(existing.parentPhone) } : { studentId: '', parentName: '', parentPhone: '' });
   const [error, setError] = useState('');
+  const [phoneError, setPhoneError] = useState('');
   const [saving, setSaving] = useState(false);
   const set = (key, value) => setForm((current) => ({ ...current, [key]: value }));
 
   async function submit() {
     const parentPhone = normalizePhilippinePhone(form.parentPhone);
-    if (!form.studentId || !form.parentName.trim() || !/^\+63\d{10}$/.test(parentPhone)) {
-      setError('Select a student, enter a parent name, and use +63XXXXXXXXXX format.');
+    if (!form.studentId || !form.parentName.trim()) {
+      setError('Select a student and enter a parent or guardian name.');
       return;
     }
+    if (!isValidPhilippineMobile(parentPhone)) {
+      setPhoneError('Enter a valid Philippine mobile number, such as +639171234567.');
+      return;
+    }
+    setError('');
+    setPhoneError('');
     setSaving(true);
     await onSave({ ...form, parentPhone });
     setSaving(false);
@@ -45,8 +52,8 @@ function ParentModal({ onClose, onSave, existing, students }) {
       <FormField label="Parent / Guardian Name" required id="parent-name">
         <input id="parent-name" className="field-input" value={form.parentName} onChange={(event) => set('parentName', event.target.value)} placeholder="e.g. Maria Santos" />
       </FormField>
-      <FormField label="Mobile Number" required id="parent-phone" hint="Philippine format: +63XXXXXXXXXX">
-        <input id="parent-phone" className="field-input" value={form.parentPhone} onChange={(event) => set('parentPhone', event.target.value)} onBlur={() => set('parentPhone', normalizePhilippinePhone(form.parentPhone))} placeholder="e.g. 09XXXXXXXXX or +639XXXXXXXXX" />
+      <FormField label="Mobile Number" required id="parent-phone" hint="Philippine mobile number" error={phoneError}>
+        <input id="parent-phone" className="field-input" type="tel" inputMode="tel" value={form.parentPhone} onChange={(event) => { set('parentPhone', event.target.value); setPhoneError(''); }} onBlur={() => { const normalized = normalizePhilippinePhone(form.parentPhone); set('parentPhone', normalized); if (normalized && !isValidPhilippineMobile(normalized)) setPhoneError('Enter a valid Philippine mobile number, such as +639171234567.'); }} placeholder="e.g. 09XXXXXXXXX or +639XXXXXXXXX" />
       </FormField>
     </div>
   </Modal>;
