@@ -433,12 +433,17 @@ export function DataProvider({ children }) {
         }
 
         const failedResults = results.filter((result) => result.error);
-        const connectionFailures = failedResults.filter(({ error: reason }) =>
-          /network|fetch failed|load failed|typeerror|timeout|unavailable|offline/i.test(reason)
-        );
-        setStaffDataError(connectionFailures.length
-          ? `Connection issue while loading ${connectionFailures.map(({ key }) => key).join(', ')}. Check your network and try again.`
-          : failedResults.map(({ key, error: reason }) => `${key}: ${reason}`).join('; '));
+        const cachedAdminData = readAdminDataCache(currentUser.uid);
+        if (cachedAdminData) {
+          setStaffDataError('');
+        } else {
+          const connectionFailures = failedResults.filter(({ error: reason }) =>
+            /network|fetch failed|load failed|typeerror|timeout|unavailable|offline|connection/i.test(reason)
+          );
+          setStaffDataError(connectionFailures.length
+            ? `Connection issue while loading ${connectionFailures.map(({ key }) => key).join(', ')}. Check your network and try again.`
+            : failedResults.map(({ key, error: reason }) => `${key}: ${reason}`).join('; '));
+        }
       } catch (requestError) {
         if (!cancelled) {
           setStaffDataError(requestError?.name === 'TypeError'

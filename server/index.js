@@ -133,13 +133,20 @@ app.get("/health/live", (req, res) => res.json({ success: true }));
 app.get("/health/ready", async (req, res) => {
   const adminSdk = initFirebaseAdmin();
   if (!adminSdk) return res.status(503).json({ success: false });
-  try {
-    await getFirestore(adminSdk).collection("settings").doc("attendance").get();
-    return res.json({ success: true });
-  } catch (error) {
-    console.error("API readiness check failed:", error.message);
-    return res.status(503).json({ success: false });
+
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      await getFirestore(adminSdk).collection("settings").doc("attendance").get();
+      return res.json({ success: true });
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 500));
+    }
   }
+
+  console.error("API readiness check failed:", lastError?.message || "Unknown Firebase readiness error");
+  return res.status(503).json({ success: false });
 });
 app.use((error, req, res, next) => {
   if (error.message === "Origin not allowed by CORS") {
