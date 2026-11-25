@@ -899,6 +899,28 @@ textarea.field-input { resize: vertical; min-height: 4rem; }
 
 /* Mobile behavior */
 @media (max-width: 900px) {
+  html, body, #root {
+    width: 100%;
+    min-height: 100%;
+  }
+  .app-shell {
+    height: 100dvh;
+    min-height: 100dvh;
+  }
+  .app-main {
+    height: 100dvh;
+  }
+  .app-content {
+    height: auto;
+    min-height: 0;
+    max-height: none;
+    flex: 1 1 auto;
+    padding: 12px;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
   .app-sidebar {
     position: fixed;
     top: 0;
@@ -917,8 +939,6 @@ textarea.field-input { resize: vertical; min-height: 4rem; }
   .app-topbar__menu {
     display: grid;
   }
-
-  .app-content { padding: 12px; }
 
   .app-topbar__clock-date { display: none; }
 }
@@ -1132,8 +1152,21 @@ html[data-theme='dark'] .companion-form input { background: var(--bg-card, #161b
 }
 
 /* LOGIN - Institutional style */
-html, body { overflow: hidden; }
-.app-content { overflow-y: auto !important; }
+html, body {
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.app-shell {
+  height: 100dvh;
+  min-height: 100dvh;
+}
+.app-content {
+  height: auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
 .login-page {
   position: fixed;
   inset: 0;
@@ -3511,6 +3544,31 @@ html[data-theme='dark'] .scanner-clock__face { padding: 1rem; background: var(--
 .settings-runtime__mode:disabled { opacity: .65; }
 
 @media (max-width: 600px) {
+  .overflow-x-auto,
+  .data-table,
+  .logs-table-wrapper,
+  .dashboard-table-wrap,
+  .students-table-card {
+    max-width: 100%;
+  }
+  .overflow-x-auto {
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+  }
+  .modal-overlay {
+    align-items: flex-start;
+    height: 100dvh;
+    max-height: 100dvh;
+    padding: 8px;
+  }
+  .modal {
+    max-height: calc(100dvh - 16px);
+  }
+  .modal-body {
+    max-height: calc(100dvh - 120px);
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
   .settings-live-banner { align-items: flex-start; flex-wrap: wrap; }
   .settings-live-banner__link { margin-left: 1.7rem; }
 }
