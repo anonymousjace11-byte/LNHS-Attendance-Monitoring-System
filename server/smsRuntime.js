@@ -7,13 +7,15 @@ function toDate(value) {
 
 async function countSmsLogsForStudent(db, studentId, start, end) {
   const snapshot = await db.collection("sms_logs")
-    .where("studentId", "==", studentId)
+    .where("createdAt", ">=", start)
+    .where("createdAt", "<", end)
     .get();
 
   return snapshot.docs.reduce((count, document) => {
     const log = document.data() || {};
     const createdAt = toDate(log.createdAt);
-    const countsTowardCap = ["sent", "simulated"].includes(log.status)
+    const countsTowardCap = log.studentId === studentId
+      && ["sent", "simulated"].includes(log.status)
       && createdAt
       && createdAt >= start
       && createdAt < end;

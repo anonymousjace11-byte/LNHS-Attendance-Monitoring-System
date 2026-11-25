@@ -12,38 +12,46 @@ test("counts only today's sent and simulated logs for the requested student", as
     { studentId: "student-a", status: "sent", createdAt: end },
     { studentId: "student-b", status: "sent", createdAt: start },
   ];
-  let queriedStudentId;
+  const filters = [];
+  const query = {
+    where(field, operator, value) {
+      filters.push({ field, operator, value });
+      return query;
+    },
+    async get() {
+      return {
+        docs: rows
+          .filter(row => {
+            const createdAt = row.createdAt?.toDate ? row.createdAt.toDate() : row.createdAt;
+            return createdAt >= start && createdAt < end;
+          })
+          .map(data => ({ data: () => data })),
+      };
+    },
+  };
   const db = {
     collection(name) {
       assert.equal(name, "sms_logs");
-      return {
-        where(field, operator, value) {
-          assert.equal(field, "studentId");
-          assert.equal(operator, "==");
-          queriedStudentId = value;
-          return {
-            get: async () => ({
-              docs: rows
-                .filter(row => row[field] === value)
-                .map(data => ({ data: () => data })),
-            }),
-          };
-        },
-      };
+      return query;
     },
   };
 
   const count = await countSmsLogsForStudent(db, "student-a", start, end);
 
-  assert.equal(queriedStudentId, "student-a");
+  assert.deepEqual(filters, [
+    { field: "createdAt", operator: ">=", value: start },
+    { field: "createdAt", operator: "<", value: end },
+  ]);
   assert.equal(count, 2);
 });
 
 test("returns zero when no student logs exist", async () => {
+  const query = {
+    where: () => query,
+    get: async () => ({ docs: [] }),
+  };
   const db = {
-    collection: () => ({
-      where: () => ({ get: async () => ({ docs: [] }) }),
-    }),
+    collection: () => query,
   };
 
   assert.equal(await countSmsLogsForStudent(db, "student-a", new Date(0), new Date()), 0);
