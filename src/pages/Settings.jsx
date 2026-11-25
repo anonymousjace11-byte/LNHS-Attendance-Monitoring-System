@@ -36,6 +36,8 @@ export default function Settings() {
   const [allowRescan, setAllowRescan] = useState(true);
   const [smsSender, setSmsSender] = useState('LNHS');
   const [gatewayConfigured, setGatewayConfigured] = useState(false);
+  const [gatewayProvider, setGatewayProvider] = useState('semaphore');
+  const [gatewayCredential, setGatewayCredential] = useState('SEMAPHORE_API_KEY');
   const [gatewayLoading, setGatewayLoading] = useState(true);
   const [gatewayLoadFailed, setGatewayLoadFailed] = useState(false);
   const [notifyPresent, setNotifyPresent] = useState(true);
@@ -107,9 +109,11 @@ export default function Settings() {
   useEffect(() => {
     let active = true;
     staffApiGet('/admin/settings/sms-gateway')
-      .then(({ configured = false }) => {
+      .then(({ configured = false, provider = 'semaphore', credential = 'SEMAPHORE_API_KEY' }) => {
         if (!active) return;
         setGatewayConfigured(configured);
+        setGatewayProvider(provider);
+        setGatewayCredential(credential);
       })
       .catch(() => {
         if (active) setGatewayLoadFailed(true);
@@ -360,13 +364,16 @@ export default function Settings() {
                 <fieldset className="settings-runtime__mode" disabled={gatewayLoading}>
                   <legend className="field-label">Active SMS provider</legend>
                   <div className="checkbox-row">
-                    <span>Semaphore</span>
-                    <span className="settings-section__hint">{gatewayLoading ? 'Checking configuration…' : gatewayConfigured ? 'Configured on server' : 'SEMAPHORE_API_KEY is missing'}</span>
+                    <span>{gatewayProvider === 'iprog' ? 'IPROG SMS' : 'Semaphore'}</span>
+                    <span className="settings-section__hint">{gatewayLoading ? 'Checking configuration…' : gatewayConfigured ? 'Configured on server' : `${gatewayCredential} is missing`}</span>
                   </div>
                 </fieldset>
-                <FormField label="Sender Name / Short Code" id="sms-sender">
-                  <input id="sms-sender" className="field-input" value={smsSender} onChange={(event) => setSmsSender(event.target.value)} />
-                </FormField>
+                {gatewayProvider === 'semaphore' && (
+                  <FormField label="Sender Name / Short Code" id="sms-sender">
+                    <input id="sms-sender" className="field-input" value={smsSender} onChange={(event) => setSmsSender(event.target.value)} />
+                  </FormField>
+                )}
+                {gatewayProvider === 'iprog' && <p className="settings-section__hint">Configure the approved sender name in your IPROG account.</p>}
                 <div className="settings-checkboxes">
                   <label className="checkbox-row">
                     <input type="checkbox" checked={simulateSms} onChange={(event) => setSimulateSms(event.target.checked)} />

@@ -222,10 +222,16 @@ async function setRoleClaims(adminSdk, uid, role, email, name, password = "") {
 }
 
 const smsMode = String(process.env.SMS_MODE || "simulated").toLowerCase();
-const smsProvider = "semaphore";
+const smsProvider = String(process.env.SMS_PROVIDER || "semaphore").trim().toLowerCase();
 const semaphoreApiKey = process.env.SEMAPHORE_API_KEY;
 const semaphoreSenderName = process.env.SEMAPHORE_SENDER_NAME;
 const semaphoreConfigured = Boolean(semaphoreApiKey);
+const iprogApiToken = process.env.IPROG_API_TOKEN;
+const iprogSmsProvider = process.env.IPROG_SMS_PROVIDER;
+const smsGatewayConfigured = smsProvider === "iprog"
+  ? Boolean(iprogApiToken)
+  : smsProvider === "semaphore" && semaphoreConfigured;
+const smsGatewayCredential = smsProvider === "iprog" ? "IPROG_API_TOKEN" : "SEMAPHORE_API_KEY";
 
 function normalizePhoneNumber(value) {
   const rawPhone = String(value || "").trim().replace(/[\s().-]/g, "");
@@ -375,6 +381,30 @@ async function sendSemaphoreSms(message, recipientPhone, settings = {}) {
   }
   return result[0];
 }
+async function sendIprogSms(message, recipientPhone) {
+  const body = {
+    api_token: iprogApiToken,
+    phone_number: recipientPhone.replace(/^\+/, ""),
+    message,
+  };
+  if (iprogSmsProvider !== undefined && iprogSmsProvider !== "") {
+    if (!["0", "1", "2"].includes(iprogSmsProvider)) {
+      throw new Error("IPROG_SMS_PROVIDER must be 0, 1, or 2.");
+    }
+    body.sms_provider = Number(iprogSmsProvider);
+  }
+
+  const response = await fetch("https://www.iprogsms.com/api/v1/sms_messages", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  const result = await response.json().catch(() => null);
+  if (!response.ok || Number(result?.status) !== 200 || !result?.message_id) {
+    throw new Error(result?.message || `IPROG SMS rejected the request (HTTP ${response.status}).`);
+  }
+  return result;
+}
 const cloudinaryConfigured = Boolean(
   process.env.CLOUDINARY_CLOUD_NAME &&
   process.env.CLOUDINARY_API_KEY &&
@@ -451,7 +481,7 @@ async function writeAuditLog(db, { action, actorUid = "system", targetType = "",
 }
 
 app.get("/staff/system-status", requireStaffAuth, (req, res) => {
-  return res.json({ success: true, smsGatewayConfigured: semaphoreConfigured, smsProvider });
+  return res.json({ success: true, smsGatewayConfigured, smsProvider });
 });
 
 app.get("/admin/health", async (req, res) => {
@@ -463,6 +493,8 @@ app.get("/admin/health", async (req, res) => {
     firebaseAdminConfigured: !!adminSdk,
     cloudinaryConfigured,
     semaphoreConfigured,
+    smsGatewayConfigured,
+    smsProvider,
     timestamp: new Date().toISOString()
   });
 });
@@ -569,18 +601,27 @@ async function sendViaProvider({ to, message, settings = {}, smsGuard }) {
     return { status: "simulated", mode: "simulated", reason: guard.reason || "" };
   }
 
-  const configuredSemaphore = settings.semaphoreConfigured ?? semaphoreConfigured;
   const mode = guard.mode || settings.smsMode || smsMode;
 
-  if (!configuredSemaphore) {
-    return { status: "unconfigured", mode, reason: "Semaphore API key is not configured", error: "Semaphore API key is not configured" };
+  if (!smsGatewayConfigured) {
+    const reason = smsProvider === "iprog"
+      ? "IPROG_API_TOKEN is not configured"
+      : smsProvider === "semaphore"
+        ? "SEMAPHORE_API_KEY is not configured"
+        : `Unsupported SMS_PROVIDER: ${smsProvider}`;
+    return { status: "unconfigured", mode, reason, error: reason };
   }
 
   try {
-    await sendSemaphoreSms(message, to, {
-      apiKey: settings.semaphoreApiKey,
-      senderName: settings.semaphoreSenderName,
-    });
+    if (smsProvider === "iprog") {
+      const result = await sendIprogSms(message, to);
+      return {
+        status: "sent",
+        mode,
+        reason: `Accepted by IPROG queue; delivery is not confirmed (message ${result.message_id}).`,
+      };
+    }
+    await sendSemaphoreSms(message, to);
     return { status: "sent", mode, reason: "" };
   } catch (error) {
     return { status: "failed", mode, reason: error.message, error: error.message };
@@ -601,6 +642,7 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
         phone: normalizedPhone,
         message,
         status: deliveryStatus,
+        provider: smsProvider,
         error,
         mode,
         reason,
@@ -635,7 +677,7 @@ app.post("/send-sms", smsLimiter, requireStaffAuth, async (req, res) => {
 
   if (delivery.status === "unconfigured") {
     await logSms("failed", delivery.error, delivery.mode, delivery.reason);
-    return res.status(503).json({ success: false, status: "failed", error: "Semaphore API key is not configured" });
+    return res.status(503).json({ success: false, status: "failed", error: delivery.error || `${smsGatewayCredential} is not configured` });
   }
   if (delivery.status === "skipped-disabled" || delivery.status === "skipped-capped") {
     await logSms(delivery.status, delivery.reason, delivery.mode, delivery.reason);
@@ -728,6 +770,7 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
         phone: normalizedPhone,
         message: trimmedMessage,
         status: delivery.status,
+        provider: smsProvider,
         error: delivery.error || "",
         mode: delivery.mode || guard.mode,
         reason: delivery.reason || "",
@@ -738,7 +781,7 @@ app.post("/sms/send-manual", smsLimiter, requireStaffAuth, async (req, res) => {
     }
 
     if (delivery.status === "unconfigured") {
-      return res.status(503).json({ success: false, status: "failed", error: "SMS gateway is not configured" });
+      return res.status(503).json({ success: false, status: "failed", error: delivery.error || `${smsGatewayCredential} is not configured` });
     }
     if (delivery.status === "skipped-disabled" || delivery.status === "skipped-capped") {
       return res.status(200).json({ success: true, status: delivery.status, mode: delivery.mode, reason: delivery.reason });
@@ -804,7 +847,7 @@ app.post("/admin/sms-logs/:logId/retry", async (req, res) => {
     const mode = delivery.mode || guard.mode;
     const reason = delivery.reason || errorMessage;
 
-    const retryRef = await db.collection("sms_logs").add({ actorUid: authResult.token.uid, studentId, attendanceId: original.attendanceId || "", phone: recipientPhone, message: original.message || "", status, error: errorMessage, mode, reason, retryOf: req.params.logId, createdAt: new Date() });
+    const retryRef = await db.collection("sms_logs").add({ actorUid: authResult.token.uid, studentId, attendanceId: original.attendanceId || "", phone: recipientPhone, message: original.message || "", status, provider: smsProvider, error: errorMessage, mode, reason, retryOf: req.params.logId, createdAt: new Date() });
     if (original.attendanceId) {
       const attendanceUpdate = { smsStatus: status };
       if (attendancePeriods.includes(original.period)) attendanceUpdate.scans = { [original.period]: { smsStatus: status } };
@@ -961,7 +1004,7 @@ app.post("/attendance/record", requireStaffAuth, attendanceLimiter, async (req, 
       }
     }
     await attendanceRef.set({ scans: { [period]: { smsStatus } }, smsStatus, updatedAt: new Date() }, { merge: true });
-    await db.collection("sms_logs").add({ actorUid: req.auth.uid, studentId, attendanceId: id, period, phone: recipientPhone, message, status: smsStatus, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
+    await db.collection("sms_logs").add({ actorUid: req.auth.uid, studentId, attendanceId: id, period, phone: recipientPhone, message, status: smsStatus, provider: smsProvider, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
     await writeAuditLog(db, { action: "attendance.period_recorded", actorUid: req.auth.uid, targetType: "attendance", targetId: id, details: { studentId, sectionId, period, status, smsStatus } });
     scanResult.scans[period].smsStatus = smsStatus;
     return res.json({
@@ -1759,7 +1802,7 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
     }
 
     await db.collection("attendance").doc(attendanceId).set({ scans: { "AM-1": { smsStatus } }, smsStatus }, { merge: true });
-    await db.collection("sms_logs").add({ actorUid, studentId: studentRecord.id, attendanceId, period: "AM-1", phone: recipientPhone, message, status: smsStatus, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
+    await db.collection("sms_logs").add({ actorUid, studentId: studentRecord.id, attendanceId, period: "AM-1", phone: recipientPhone, message, status: smsStatus, provider: smsProvider, error: smsError, mode: smsModeForLog, reason: smsReason, createdAt: new Date() });
   }
 
   return results;
@@ -1851,7 +1894,7 @@ app.get("/admin/settings/sms-runtime", async (req, res) => {
 app.get("/admin/settings/sms-gateway", async (req, res) => {
   const authResult = await verifyAdminRequest(req);
   if (authResult.error) return res.status(getFirebaseErrorStatus(authResult.error)).json({ success: false, error: authResult.error });
-  return res.json({ success: true, provider: smsProvider, configured: semaphoreConfigured });
+  return res.json({ success: true, provider: smsProvider, configured: smsGatewayConfigured, credential: smsGatewayCredential });
 });
 
 app.post("/admin/settings/sms-runtime", async (req, res) => {
