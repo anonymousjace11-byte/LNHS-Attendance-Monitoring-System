@@ -12,6 +12,7 @@ const fs = require("fs");
 const crypto = require("crypto");
 const rateLimit = require("express-rate-limit");
 const helmet = require("helmet");
+const { countSmsLogsForStudent } = require("./smsRuntime");
 
 const app = express();
 const isProduction = process.env.NODE_ENV === "production" || Boolean(process.env.K_SERVICE);
@@ -321,14 +322,7 @@ async function checkSmsAllowed(db, { studentId } = {}) {
     const startOfToday = new Date(`${todayKey}T00:00:00+08:00`);
     const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
     try {
-      const snapshot = await db.collection("sms_logs")
-        .where("studentId", "==", studentId)
-        .where("status", "in", ["sent", "simulated"])
-        .where("createdAt", ">=", startOfToday)
-        .where("createdAt", "<", startOfTomorrow)
-        .count()
-        .get();
-      const sentToday = snapshot.data().count;
+      const sentToday = await countSmsLogsForStudent(db, studentId, startOfToday, startOfTomorrow);
       const remainingCap = Math.max(0, runtime.dailyCapPerStudent - sentToday);
       if (sentToday >= runtime.dailyCapPerStudent) {
         return {
