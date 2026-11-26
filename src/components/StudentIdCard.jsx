@@ -416,7 +416,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                         <dd>{student.track || (['TVL', 'Electrical', 'Carpentry'].includes(student.strand) ? 'Tech Pro Track' : 'Academic Track')}</dd>
                       </div>
                       <div>
-                        <dt>Strand / Course</dt>
+                        <dt>Strand</dt>
                         <dd>{student.strand || 'N/A'}</dd>
                       </div>
                       <div>
