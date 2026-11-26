@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import html2canvas from 'html2canvas';
 import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 import './StudentIdCard.css';
 import lnhsLogo from '../imports/LNHS LOGO.png';
 import bsitSeal from '../imports/TEAM SEAL.png';
@@ -200,20 +201,24 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
     const backCanvas = await exportCard(backRef.current);
     const { ownerName, studentCode } = getExportFilenameParts(student);
     const filenameBase = `${studentCode}-${ownerName}-ID`;
-    if (frontCanvas) {
-      const link = document.createElement('a');
-      link.download = `${filenameBase}-front.png`;
-      link.href = frontCanvas.toDataURL('image/png');
-      link.click();
+    if (!frontCanvas && !backCanvas) {
+      setExportStatus('Unable to render the ID cards.');
+      return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 250));
-    if (backCanvas) {
-      const link = document.createElement('a');
-      link.download = `${filenameBase}-back.png`;
-      link.href = backCanvas.toDataURL('image/png');
-      link.click();
-    }
+    const archive = new JSZip();
+    if (frontCanvas) archive.file(`${filenameBase}-front.png`, frontCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+    if (backCanvas) archive.file(`${filenameBase}-back.png`, backCanvas.toDataURL('image/png').split(',')[1], { base64: true });
+    const blob = await archive.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.download = `${filenameBase}-front-back.zip`;
+    link.href = url;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     onExport?.('png');
+    setExportStatus('Front and back PNGs downloaded together.');
   }
 
   async function downloadPDF() {
@@ -355,7 +360,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
             {exportStatus && <span className="student-id-export-status" role="status">{exportStatus}</span>}
           </div>
           <div className="student-id-export-buttons">
-            <button type="button" onClick={downloadPNG}>Export PNG</button>
+            <button type="button" onClick={downloadPNG}>Export PNGs (ZIP)</button>
             <button type="button" onClick={downloadPDF}>Export PDF</button>
           </div>
         </div>
