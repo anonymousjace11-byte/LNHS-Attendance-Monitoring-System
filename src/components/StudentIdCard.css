@@ -138,6 +138,7 @@
   flex-shrink: 0;
 }
 .id-card__goldline--bottom { margin-top: auto; }
+.student-id-card__front > .id-card__goldline--bottom { margin-top: 0; }
 
 /* FRONT ------------------------------------------------------------- */
 .student-id-card__front {
@@ -362,7 +363,7 @@
   grid-template-columns: 1fr 1fr;
   gap: 24px;
   padding: 6px 22px 8px;
-  margin-top: 0;
+  margin-top: auto;
 }
 .id-card__signature { text-align: center; }
 .id-card__signature-line {
@@ -530,12 +531,13 @@
   color: #0f2440;
 }
 .id-card__back-emergency-label {
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   color: #0f2440;
-  letter-spacing: .1em;
+  letter-spacing: .04em;
   text-transform: uppercase;
   margin-bottom: 4px;
+  white-space: nowrap;
 }
 .id-card__back-emergency-details {
   display: grid;
@@ -728,7 +730,7 @@
 .id-card__back-brand-sub { font-size: 12px; letter-spacing: .12em; margin-top: 3px; }
 
 .id-card__back-qr-frame { margin: 22px 0 16px; padding: 18px; border-width: 4px; }
-.id-card__back-qr { width: 320px; height: 320px; }
+.id-card__back-qr { width: 360px; height: 360px; }
 .id-card__qr-fallback { font-size: 15px; }
 .id-card__back-caption { font-size: 19px; margin-top: 6px; letter-spacing: .14em; }
 .id-card__back-sub { margin-top: 5px; font-size: 13.5px; max-width: 400px; line-height: 1.45; }
@@ -788,7 +790,8 @@
 .student-id-card--export .id-card__back-brand-sub { font-size: 20px; }
 .student-id-card--export .id-card__back-caption { font-size: 24px; }
 .student-id-card--export .id-card__back-sub { font-size: 18px; }
-.student-id-card--export .id-card__back-emergency-label { font-size: 18px; }
+.student-id-card--export .id-card__back-emergency { max-width: 440px; }
+.student-id-card--export .id-card__back-emergency-label { font-size: 15px; letter-spacing: 0; line-height: 1.15; }
 .student-id-card--export .id-card__back-emergency-details { font-size: 17px; line-height: 1.35; }
 .student-id-card--export .id-card__back-emergency-details strong { font-size: 20px; }
 .student-id-card--export .id-card__back-emergency-details span { font-size: 18px; }
@@ -929,7 +932,7 @@
   .id-card__school-id { flex: 0 0 auto !important; gap: 1.5mm !important; padding: 1.2mm 2mm !important; background: #0f2440 !important; color: #fff !important; font-size: 7.5pt !important; }
   .id-card__school-id-value { font-size: 8pt !important; }
 
-  .id-card__body { flex: 1 1 auto !important; gap: 2mm !important; padding: 3mm !important; overflow: hidden !important; }
+  .id-card__body { flex: 0 0 auto !important; gap: 2mm !important; padding: 3mm !important; overflow: hidden !important; }
   .id-card__photo { flex: 0 0 20mm !important; width: 20mm !important; height: 24mm !important; border-width: .7mm !important; border-radius: .5mm !important; }
   .id-card__details { flex: 1 1 auto !important; width: auto !important; min-width: 0 !important; }
   .id-card__name { font-size: 10pt !important; line-height: 1.1 !important; }
@@ -969,7 +972,7 @@
   .id-card__back-brand { font-size: 10pt !important; line-height: 1.1 !important; }
   .id-card__back-brand-sub { margin-top: .5mm !important; font-size: 7pt !important; letter-spacing: .08em !important; }
   .id-card__back-qr-frame { flex: 0 0 auto !important; margin: 2mm 0 1.5mm !important; padding: 1.5mm !important; border-width: .8mm !important; border-radius: .5mm !important; }
-  .id-card__back-qr { width: 27mm !important; height: 27mm !important; }
+  .id-card__back-qr { width: 34mm !important; height: 34mm !important; }
   .id-card__back-caption { flex: 0 0 auto !important; margin-top: 1mm !important; font-size: 9pt !important; letter-spacing: .08em !important; }
   .id-card__back-sub { flex: 0 0 auto !important; max-width: 54mm !important; margin-top: .7mm !important; font-size: 7pt !important; line-height: 1.2 !important; }
   .id-card__back-emergency { flex: 0 0 auto !important; width: 100% !important; max-width: none !important; margin-top: 1.5mm !important; padding: 1.5mm 2mm !important; border-radius: .5mm !important; background: #fffaf0 !important; }

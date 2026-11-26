@@ -24,6 +24,23 @@ function formatIssuedDate(value) {
   return date.toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' });
 }
 
+function formatIdStrand(student) {
+  const strand = String(student.strand || '').trim();
+  const section = String(student.section || '').trim();
+  if (!strand) return section || 'N/A';
+  const sectionCode = section
+    .replace(/^grade\s*/i, '')
+    .replace(/[–—]/g, '-')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, '-');
+  if (!sectionCode) return strand;
+  const normalizedStrand = strand.toLowerCase();
+  const normalizedSection = sectionCode.toLowerCase();
+  if (normalizedSection.startsWith(`${normalizedStrand}-`)) return sectionCode;
+  if (normalizedStrand.endsWith(`-${normalizedSection}`)) return strand;
+  return `${strand}-${sectionCode}`;
+}
+
 function getExportFilenameParts(student) {
   const rawName = String(student.name || 'Student')
     .replace(/,/g, ' ')
@@ -57,7 +74,7 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   const backRef = useRef(null);
   const printStartedRef = useRef(false);
   const exportStartedRef = useRef(false);
-  const qrValue = student.qrValue || student.qrUuid || student.studentCode || student.code || student.id;
+  const qrValue = student.qrValue || '';
 
   useEffect(() => {
     let active = true;
@@ -124,6 +141,10 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   }, [printRequested, qrReady, waitForCardAssets]);
 
   function requestPrint() {
+    if (!qrReady || !qrImage) {
+      setExportStatus('A valid QR credential is required before printing this ID.');
+      return;
+    }
     onPrint?.();
     setPrintRequested(true);
   }
@@ -197,6 +218,10 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   }, []);
 
   async function downloadPNG() {
+    if (!qrReady || !qrImage) {
+      setExportStatus('A valid QR credential is required before exporting this ID.');
+      return;
+    }
     const frontCanvas = await exportCard(frontRef.current);
     const backCanvas = await exportCard(backRef.current);
     const { ownerName, studentCode } = getExportFilenameParts(student);
@@ -222,6 +247,10 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
   }
 
   async function downloadPDF() {
+    if (!qrReady || !qrImage) {
+      setExportStatus('A valid QR credential is required before exporting this ID.');
+      return;
+    }
     setExportStatus('Rendering front of ID…');
     const frontCanvas = await exportCard(frontRef.current);
     setExportStatus('Rendering back of ID…');
@@ -422,23 +451,15 @@ export default function StudentIdCard({ student, onPrint, onPhotoUpload, onExpor
                       </div>
                       <div>
                         <dt>Strand</dt>
-                        <dd>{student.strand || 'N/A'}</dd>
+                        <dd>{formatIdStrand(student)}</dd>
                       </div>
                       <div>
                         <dt>Gender</dt>
                         <dd>{student.gender || 'N/A'}</dd>
                       </div>
                       <div>
-                        <dt>Section</dt>
-                        <dd>{student.section || 'N/A'}</dd>
-                      </div>
-                      <div>
                         <dt>Adviser</dt>
                         <dd>{student.adviser || 'N/A'}</dd>
-                      </div>
-                      <div>
-                        <dt>Validity</dt>
-                        <dd>Until {VALID_UNTIL}</dd>
                       </div>
                     </dl>
                   </div>

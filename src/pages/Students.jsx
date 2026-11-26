@@ -113,7 +113,10 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
   const courseSections = sections.filter((section) => sectionMatchesCourse(section, form.strand));
   const sectionChoices = courseSections.length
     ? courseSections
-    : TRACK_SECTIONS[form.strand].map((name) => ({ id: name, name, strand: form.strand }));
+    : (TRACK_SECTIONS[form.strand] || []).map((name) => ({ id: name, name, strand: form.strand }));
+  const availableSectionChoices = form.section && !sectionChoices.some((item) => item.name === form.section)
+    ? [{ id: form.sectionId || form.section, name: form.section, strand: form.strand }, ...sectionChoices]
+    : sectionChoices;
 
   const setField = (key, value) => setForm((current) => ({ ...current, [key]: value }));
   const handleBlur = (key) => {
@@ -232,6 +235,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
             <select id="strand" className="field-input" value={form.strand} onChange={(event) => {
               setForm((current) => ({ ...current, strand: event.target.value, sectionId: '', section: '' }));
             }}>
+              {!TRACK_STRANDS[form.track].includes(form.strand) && <option value={form.strand}>{form.strand}</option>}
               {TRACK_STRANDS[form.track].map((strand) => <option key={strand}>{strand}</option>)}
             </select>
           </FormField>
@@ -242,7 +246,7 @@ function StudentModal({ onClose, onSave, existing, studentCodes, sections, advis
                 setForm((current) => ({ ...current, sectionId: event.target.value, section: selectedSection?.name || '' }));
               }}>
               <option value="">Select section...</option>
-              {sectionChoices.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
+              {availableSectionChoices.map((section) => <option key={section.id} value={section.id}>{section.name}</option>)}
             </select>
           </FormField>
           <FormField label="Adviser" id="adviser">
@@ -325,7 +329,7 @@ function StudentDeleteModal({ student, onClose, onConfirm, loading, error }) {
 }
 
 export default function Students() {
-  const { students: liveStudents, sections, teachers, parentContacts, saveStudent, deleteStudent } = useData();
+  const { students: liveStudents, sections, teachers, parentContacts, saveStudent, deleteStudent, generateStudentQr } = useData();
   const [students, setStudents] = useState([]);
   const [search, setSearch] = useState('');
   const [track, setTrack] = useState('All Tracks');
@@ -337,6 +341,7 @@ export default function Students() {
   const [showModal, setShowModal] = useState(false);
   const [editing, setEditing] = useState(null);
   const [success, setSuccess] = useState('');
+  const [idError, setIdError] = useState('');
   const [previewStudent, setPreviewStudent] = useState(null);
   const [exportIdWhenReady, setExportIdWhenReady] = useState(false);
 
@@ -429,6 +434,24 @@ export default function Students() {
     if (previewStudent?.id === updatedStudent.id) setPreviewStudent(updatedStudent);
     setSuccess(editing ? `${data.name} updated successfully.` : `${data.name} registered successfully.`);
     window.setTimeout(() => setSuccess(''), 4000);
+  };
+
+  const prepareStudentId = async (student, parent, autoExport = false) => {
+    setIdError('');
+    setExportIdWhenReady(false);
+    try {
+      const cardStudent = student.qrValue ? student : await generateStudentQr(student);
+      setStudents((current) => current.map((item) => item.id === cardStudent.id ? cardStudent : item));
+      setPreviewStudent({
+        ...cardStudent,
+        parentName: parent?.parentName || cardStudent.parentName || '',
+        parentPhone: parent?.parentPhone || cardStudent.parentPhone || '',
+        idCardGeneratedAt: cardStudent.idCardGeneratedAt || new Date().toISOString(),
+      });
+      setExportIdWhenReady(autoExport);
+    } catch (error) {
+      setIdError(error.message || `Unable to prepare a valid QR code for ${student.name || 'this student'}.`);
+    }
   };
 
   const handlePreviewPhoto = async (photoFile) => {
@@ -526,6 +549,7 @@ export default function Students() {
       />
 
       {success && <Alert type="success" onClose={() => setSuccess('')} className="mb-4">{success}</Alert>}
+      {idError && <Alert type="error" onClose={() => setIdError('')} className="mb-4">{idError}</Alert>}
 
       <div className="toolbar">
         <label className="toolbar__search">
@@ -585,21 +609,8 @@ export default function Students() {
                       parentName: parent?.parentName || student.parentName || '',
                       parentPhone: parent?.parentPhone || student.parentPhone || '',
                     })} title="Edit student" aria-label={`Edit ${student.name || 'student'}`}><Pencil size={12} /> Edit</Button>
-                    <Button variant="outline" className="table-action--preview" size="sm" onClick={() => setPreviewStudent({
-                      ...student,
-                      parentName: parent?.parentName || student.parentName || '',
-                      parentPhone: parent?.parentPhone || student.parentPhone || '',
-                    })} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
-                    <Button variant="outline" className="table-action--export" size="sm" onClick={() => {
-                      const exportStudent = {
-                        ...student,
-                        parentName: parent?.parentName || student.parentName || '',
-                        parentPhone: parent?.parentPhone || student.parentPhone || '',
-                        idCardGeneratedAt: new Date().toISOString(),
-                      };
-                      setPreviewStudent(exportStudent);
-                      setExportIdWhenReady(true);
-                    }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
+                    <Button variant="outline" className="table-action--preview" size="sm" onClick={() => { void prepareStudentId(student, parent); }} title="Preview ID" aria-label={`Preview ID for ${student.name || 'student'}`}><Eye size={12} /> Preview ID</Button>
+                    <Button variant="outline" className="table-action--export" size="sm" onClick={() => { void prepareStudentId(student, parent, true); }} title="Export ID" aria-label={`Export ID for ${student.name || 'student'}`}><IdCard size={12} /> Export ID</Button>
                     <Button variant="outline" className={student.active ? 'table-action--delete' : 'table-action--approve'} size="sm" onClick={() => toggleActive(student.id)}
                       title={student.active ? 'Deactivate' : 'Activate'} aria-label={`${student.active ? 'Deactivate' : 'Activate'} ${student.name || 'student'}`}>
                       <UserX size={12} /> {student.active ? 'Deactivate' : 'Activate'}

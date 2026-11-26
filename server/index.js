@@ -24,10 +24,15 @@ app.use(helmet({
 const qrCredentialLifetimeMs = Number(process.env.QR_CREDENTIAL_LIFETIME_MS || 180 * 24 * 60 * 60 * 1000);
 const smsResendWindowMs = 15 * 60 * 1000;
 const smsResendLimit = 3;
+const LEGACY_SMS_TEMPLATES = {
+  present: ["Your child {student_name} was marked Present for {period} on {date}.", "Your child {student_name} {attendance_action} on {date}."],
+  late: ["Your child {student_name} was marked Late for {period} on {date}.", "Your child {student_name} {attendance_action} on {date}."],
+  absent: ["Your child {student_name} was marked Absent for {period} on {date}."]
+};
 const DEFAULT_SMS_TEMPLATES = {
-  present: "Your child {student_name} was marked Present for {period} on {date}.",
-  late: "Your child {student_name} was marked Late for {period} on {date}.",
-  absent: "Your child {student_name} was marked Absent for {period} on {date}."
+  present: "Your child *{student_name}* {attendance_action} this *{date}*.",
+  late: "Your child *{student_name}* {attendance_action} this *{date}*.",
+  absent: "Your child *{student_name}* {attendance_action} this *{date}*."
 };
 const DEFAULT_SMS_RUNTIME = {
   mode: "inherit",
@@ -271,16 +276,28 @@ function renderSmsTemplate(template, data = {}) {
     .replaceAll("{section}", data.section || "")
     .replaceAll("{period}", data.period || "")
     .replaceAll("{date}", data.date || "")
-    .replaceAll("{status}", data.status || "");
+    .replaceAll("{status}", data.status || "")
+    .replaceAll("{attendance_action}", data.attendanceAction || "");
+}
+function formatSmsDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value || ""));
+  return match ? `${match[2]}/${match[3]}/${match[1]}` : String(value || "");
 }
 async function loadSmsTemplates(db) {
   try {
     const snapshot = await db.collection("settings").doc("sms_templates").get();
     const stored = snapshot.exists ? snapshot.data() : {};
+    const resolveTemplate = (key) => {
+      const value = stored[key];
+      if (typeof value !== "string" || !value.trim() || LEGACY_SMS_TEMPLATES[key].includes(value)) {
+        return DEFAULT_SMS_TEMPLATES[key];
+      }
+      return value;
+    };
     return {
-      present: typeof stored.present === "string" && stored.present.trim() ? stored.present : DEFAULT_SMS_TEMPLATES.present,
-      late: typeof stored.late === "string" && stored.late.trim() ? stored.late : DEFAULT_SMS_TEMPLATES.late,
-      absent: typeof stored.absent === "string" && stored.absent.trim() ? stored.absent : DEFAULT_SMS_TEMPLATES.absent
+      present: resolveTemplate("present"),
+      late: resolveTemplate("late"),
+      absent: resolveTemplate("absent")
     };
   } catch (error) {
     console.error("SMS template read error:", error.message);
@@ -643,12 +660,18 @@ async function sendAttendanceNotification({
 }) {
   const templates = await loadSmsTemplates(db);
   const template = status === "late" ? templates.late : status === "absent" ? templates.absent : templates.present;
+  const attendanceAction = ["AM-1", "PM-1"].includes(period)
+    ? `entered the classroom and was marked as *${status}*`
+    : ["AM-2", "PM-2"].includes(period)
+      ? "left the classroom"
+      : `was marked as *${status}* for ${period}`;
   const message = `${test ? "[TEST] " : ""}${renderSmsTemplate(template, {
     studentName: studentName || studentData.name || studentData.studentCode || studentData.code || studentId,
     section: studentData.sectionName || studentData.section || studentData.sectionId || "",
     period,
-    date,
+    date: formatSmsDate(date),
     status,
+    attendanceAction,
   })}`.slice(0, 320);
   let smsStatus = "skipped";
   let smsError = "";
@@ -1141,7 +1164,8 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
       const snapshot = await transaction.get(attendanceRef);
       const current = snapshot.exists ? snapshot.data() || {} : {};
       const scans = getAttendanceScans(current);
-      if (scans[period] && !override) return { duplicate: true, scans };
+      const wasOverwrite = Boolean(scans[period]);
+      if (wasOverwrite && !override) return { duplicate: true, scans };
       markEarlierPeriodsAbsent(scans, period);
 
       const sanitizedReason = String(reason).trim().slice(0, 240);
@@ -1171,7 +1195,7 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
         ...(!snapshot.exists ? { createdAt: new Date() } : {}),
       };
       transaction.set(attendanceRef, attendance, { merge: true });
-      return { attendance, scans };
+      return { attendance, scans, wasOverwrite };
     });
     if (result.duplicate) {
       return res.status(409).json({ error: `This student already has an ${period} record today.`, code: "duplicate_scan", period });
@@ -1184,6 +1208,34 @@ app.post("/attendance/manual", requireStaffAuth, attendanceLimiter, async (req, 
       targetId: attendanceId,
       details: { studentId, sectionId, period, status, override, reason: String(reason).trim().slice(0, 240) },
     });
+
+    if (result.wasOverwrite) {
+      const recipientPhone = await resolveAttendanceSmsRecipient(db, studentId, student);
+      const notification = await sendAttendanceNotification({
+        db,
+        actorUid: req.auth.uid,
+        studentId,
+        studentData: student,
+        studentName: student.name || studentCode,
+        recipientPhone,
+        period,
+        date,
+        status,
+        attendanceId,
+        source: "manual_override",
+      });
+      const smsUpdate = {
+        scans: { [period]: { smsStatus: notification.smsStatus } },
+        updatedAt: new Date(),
+      };
+      result.attendance.scans[period].smsStatus = notification.smsStatus;
+      if (period === "AM-1") {
+        smsUpdate.smsStatus = notification.smsStatus;
+        result.attendance.smsStatus = notification.smsStatus;
+      }
+      await attendanceRef.set(smsUpdate, { merge: true });
+    }
+
     return res.json({ recorded: true, id: attendanceId, ...result.attendance });
   } catch (error) {
     console.error("Manual attendance record error:", error);
@@ -1245,7 +1297,32 @@ app.post("/attendance/excuse", requireStaffAuth, attendanceLimiter, async (req, 
       return res.status(409).json({ error: `This student already has an ${period} record today.`, code: "duplicate_scan", period });
     }
 
-    await writeAuditLog(db, { action: "attendance.period_excused", actorUid: req.auth.uid, targetType: "attendance", targetId: attendanceId, details: { studentId, sectionId, period, reason: String(reason).trim().slice(0, 240) } });
+    const recipientPhone = await resolveAttendanceSmsRecipient(db, studentId, student);
+    const notification = await sendAttendanceNotification({
+      db,
+      actorUid: req.auth.uid,
+      studentId,
+      studentData: student,
+      studentName: student.name || studentCode,
+      recipientPhone,
+      period,
+      date,
+      status: "excused",
+      attendanceId,
+      source: "manual_excuse",
+    });
+    const smsUpdate = {
+      scans: { [period]: { smsStatus: notification.smsStatus } },
+      updatedAt: new Date(),
+    };
+    result.attendance.scans[period].smsStatus = notification.smsStatus;
+    if (period === "AM-1") {
+      smsUpdate.smsStatus = notification.smsStatus;
+      result.attendance.smsStatus = notification.smsStatus;
+    }
+    await attendanceRef.set(smsUpdate, { merge: true });
+
+    await writeAuditLog(db, { action: "attendance.period_excused", actorUid: req.auth.uid, targetType: "attendance", targetId: attendanceId, details: { studentId, sectionId, period, smsStatus: notification.smsStatus, reason: String(reason).trim().slice(0, 240) } });
     return res.json({ success: true, recorded: true, ...result.attendance });
   } catch (error) {
     console.error("Excused attendance error:", error);
@@ -1802,8 +1879,9 @@ async function finalizeAttendanceForDate(db, date, actorUid = "system") {
       studentName: name,
       section: student.sectionName || sectionId,
       period: "AM-1",
-      date,
-      status: "absent"
+      date: formatSmsDate(date),
+      status: "absent",
+      attendanceAction: "was marked as *absent* for AM-1"
     });
     let smsStatus = recipientPhone ? "pending" : "skipped";
     let smsError = recipientPhone ? "" : "No linked parent or guardian phone number";

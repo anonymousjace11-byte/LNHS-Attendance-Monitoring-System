@@ -10,9 +10,20 @@ import { staffApiGet, useData } from '../context/DataContext';
 import { useTheme } from '../context/ThemeContext';
 
 const DEFAULT_SMS_TEMPLATES = {
-  present: 'Your child {student_name} was marked Present for {period} on {date}.',
-  late: 'Your child {student_name} was marked Late for {period} on {date}.',
-  absent: 'Your child {student_name} was marked Absent for {period} on {date}.'
+  present: 'Your child *{student_name}* {attendance_action} this *{date}*.',
+  late: 'Your child *{student_name}* {attendance_action} this *{date}*.',
+  absent: 'Your child *{student_name}* {attendance_action} this *{date}*.'
+};
+const LEGACY_SMS_TEMPLATES = {
+  present: [
+    'Your child {student_name} was marked Present for {period} on {date}.',
+    'Your child {student_name} {attendance_action} on {date}.'
+  ],
+  late: [
+    'Your child {student_name} was marked Late for {period} on {date}.',
+    'Your child {student_name} {attendance_action} on {date}.'
+  ],
+  absent: ['Your child {student_name} was marked Absent for {period} on {date}.']
 };
 const DEFAULT_SMS_RUNTIME = { mode: 'inherit', disabled: false, dailyCapPerStudent: 4 };
 
@@ -100,9 +111,12 @@ export default function Settings() {
     staffApiGet('/admin/settings/sms-templates')
       .then(({ templates = {} }) => {
         if (!active) return;
-        setPresentTemplate(typeof templates.present === 'string' ? templates.present : DEFAULT_SMS_TEMPLATES.present);
-        setLateTemplate(typeof templates.late === 'string' ? templates.late : DEFAULT_SMS_TEMPLATES.late);
-        setAbsentTemplate(typeof templates.absent === 'string' ? templates.absent : DEFAULT_SMS_TEMPLATES.absent);
+        const resolveTemplate = (key) => typeof templates[key] === 'string' && templates[key].trim() && !LEGACY_SMS_TEMPLATES[key].includes(templates[key])
+          ? templates[key]
+          : DEFAULT_SMS_TEMPLATES[key];
+        setPresentTemplate(resolveTemplate('present'));
+        setLateTemplate(resolveTemplate('late'));
+        setAbsentTemplate(resolveTemplate('absent'));
       })
       .catch(() => {
         if (active) setTemplatesLoadFailed(true);
@@ -481,7 +495,7 @@ export default function Settings() {
                 </Button>
 
                 <h2 className="settings-section__title settings-section__title--spaced">Message Templates</h2>
-                <p className="settings-section__hint">Placeholders: {'{student_name}'}, {'{section}'}, {'{period}'}, {'{date}'}, {'{status}'}. These are filled in when the message is sent.</p>
+                <p className="settings-section__hint">Placeholders: {'{student_name}'}, {'{section}'}, {'{period}'}, {'{date}'}, {'{status}'}, {'{attendance_action}'}. These are filled in when the message is sent.</p>
                 {templatesLoadFailed && <Alert type="warn">Using default templates — could not load saved ones.</Alert>}
                 {templatesFeedback && <Alert type={templatesFeedback.type}>{templatesFeedback.text}</Alert>}
 
